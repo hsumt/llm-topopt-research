@@ -19,7 +19,6 @@
   "runArgs": [
     "--init"
   ],
-
   "forwardPorts": [8888],
 
   "remoteUser": "root"

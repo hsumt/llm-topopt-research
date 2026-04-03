@@ -33,6 +33,7 @@ RUN python -m pip install --upgrade pip \
     pydantic \
     anthropic \
     h5py \
+    python-dotenv \
     meshio \
     openmdao
  
