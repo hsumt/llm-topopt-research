@@ -1,5 +1,5 @@
 from client import parse_problem
-from simp import SIMPSolver
+from project.solver.simp import SIMPSolver
 
 def run_pipeline(user_input: str):
     print(f"--- Parsing User Intent ---")
@@ -14,5 +14,5 @@ def run_pipeline(user_input: str):
     solver.optimize()
 
 if __name__ == "__main__":
-    user_prompt = "Cantilever beam, fixed left edge, 1N downward at tip, mesh 80x30, vol_frac 0.35"
+    user_prompt = "Short column, fixed bottom, compressive load 5N top, mesh 20x20x20, vol_frac 0.3"
     run_pipeline(user_prompt)

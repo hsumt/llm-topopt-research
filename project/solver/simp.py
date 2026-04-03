@@ -1,26 +1,10 @@
-"""
-simp.py  —  SIMP Topology Optimisation built on DOLFINx
-================================================================
-Milestone 1 : DOLFINx cantilever setup  (mesh, V, BCs, weak form)
-Milestone 2 : SIMP density loop + sensitivity  (E(ρ), ∂C/∂ρ, OC)
-Milestone 3 : Density filter + convergence metrics
-Milestone 4 : Density field plotting
-
-Usage
------
-    python simp.py                         # cantilever, default params
-    python simp.py --geometry lbracket
-    python simp.py --nelx 120 --nely 40 --volfrac 0.4
-
-Dependencies: dolfinx, ufl, mpi4py, petsc4py, numpy, scipy, matplotlib
-"""
 
 import argparse
 import os
 import numpy as np
 import matplotlib
 
-from schema import ProblemSpec
+from project.schema import ProblemSpec
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -324,10 +308,6 @@ class ConvergenceMetrics:
         return {k: np.array([d[k] for d in self.data]) for k in keys}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MILESTONE 4 — Density field plotting
-# ══════════════════════════════════════════════════════════════════════════════
-
 def _rho_to_image(rho_vals: np.ndarray, nelx: int, nely: int,
                   domain, Lx: float, Ly: float) -> np.ndarray:
     """Map DG0 array to 2D image using actual cell midpoint coordinates."""
@@ -392,11 +372,11 @@ def plot_summary(metrics: ConvergenceMetrics, rho_vals: np.ndarray,
     axes[0, 1].set_title("Density Distribution")
     axes[0, 1].grid(True, alpha=0.3)
 
-    # 3. Penalisation schedule
+    # 3. Penalization schedule
     axes[0, 2].plot(m["iter"], m["penal"], color="seagreen", lw=1.5)
     axes[0, 2].set_xlabel("Iteration")
     axes[0, 2].set_ylabel("p")
-    axes[0, 2].set_title("Penalisation Schedule")
+    axes[0, 2].set_title("Penalization Schedule")
     axes[0, 2].grid(True, alpha=0.3)
 
     # 4. Compliance history
@@ -461,27 +441,9 @@ class XDMFExporter:
         self.file.close()
         print(f"XDMF exported → {self.path}")
 class SIMPSolver:
-    """
-    Full DOLFINx SIMP solver.
-
-    Parameters
-    ----------
-    nelx, nely      : mesh divisions (x, y)
-    Lx, Ly          : domain dimensions
-    volfrac         : target volume fraction
-    penal_start/end : SIMP penalisation continuation (1→3)
-    penal_steps     : iterations over which p ramps
-    r_min           : Helmholtz filter radius
-    max_iter        : iteration cap
-    change_tol      : L2(Δρ) convergence threshold
-    geometry        : "cantilever" | "lbracket"
-    plot_every      : save density image every N iters (0 = never)
-    output_dir      : directory for all output files
-    """
-
     def __init__(
         self,
-        spec: ProblemSpec,                # The single source of truth
+        spec: ProblemSpec,
         Lx: float = 1.0, 
         Ly: float = 1.0,
         penal_steps: int = 40,
@@ -523,74 +485,73 @@ class SIMPSolver:
         self.V, self.Q = build_function_spaces(self.domain)
 
         # ── Material ───────────────────────────────────────────────────────
-        self.mu0, self.lmbda0 = material_constants(E=1.0, nu=0.3)
+        self.mu0, self.lmbda0 = material_constants(E=spec.material.E, nu=spec.material.nu)
 
-        # ── BCs & traction ─────────────────────────────────────────────────
-        fdim = self.domain.topology.dim - 1
-
-        if self.geometry == "cantilever":
-            self.bcs = build_bcs_cantilever(self.V, self.domain, Lx)
-            # Traction on the entire right edge
-            ds = build_traction_measure(
-                self.domain, fdim,
-                lambda x: np.isclose(x[0], Lx),
-                tag=1,
-            )
-            T  = fem.Constant(
-                self.domain,
-                default_scalar_type([0.0, -1.0]),
-            )
-            self.traction_load = (T, ds, 1)
-
-        elif self.geometry == "lbracket":
-            self.bcs = build_bcs_lbracket(self.V, self.domain, Lx, Ly)
-            # Point-like load at right edge, mid-height
-            def right_mid(x):
-                return np.logical_and(
-                    np.isclose(x[0], Lx),
-                    x[1] <= Ly / 2.0 + Ly / (2 * self.nely),
-                )
-            ds = build_traction_measure(self.domain, fdim, right_mid, tag=2)
-            T  = fem.Constant(
-                self.domain,
-                default_scalar_type([0.0, -1.0]),
-            )
-            self.traction_load = (T, ds, 2)
-        else:
-            raise ValueError(f"Unknown geometry: {self.geometry!r}")
+        # ── Dynamic BCs & Loads ───────────────────────────────────────────
+        self.bcs = self._setup_bcs()
+        self.traction_load = self._setup_loads()
 
         # ── Density field (DG0) ────────────────────────────────────────────
         self.rho_fn = fem.Function(self.Q)
         self.rho_fn.x.array[:] = self.volfrac
 
-        # L-bracket: zero out top-right quadrant
-        self.void_mask = None
-        if self.geometry == "lbracket":
-            self.void_mask = self._lbracket_void_mask()
-            self.rho_fn.x.array[self.void_mask] = E_MIN
-            active = ~self.void_mask
-            self.rho_fn.x.array[active] = self.volfrac
-
+        self.void_mask = None # Expansion point for L-brackets or obstacles
+        
         # ── Helmholtz filter ───────────────────────────────────────────────
         (self.filter_solver,
         self.filter_space,
         self.filter_test,
         self.filter_dx) = build_helmholtz_filter(self.Q, self.r_min)
-
-        # ── Metrics ────────────────────────────────────────────────────────
         self.metrics = ConvergenceMetrics()
 
-    # ── Helpers ────────────────────────────────────────────────────────────
+    def _get_boundary_condition_fn(self, location: str):
+        loc = location.lower()
+        # Support for "corners"
+        if "corners" in loc and "bottom" in loc:
+            return lambda x: np.logical_and(
+                np.isclose(x[1], 0.0), 
+                np.logical_or(np.isclose(x[0], 0.0), np.isclose(x[0], self.Lx))
+            )
+        # Support for "center" of an edge
+        if "center" in loc and "bottom" in loc:
+            return lambda x: np.logical_and(
+                np.isclose(x[1], 0.0),
+                np.logical_and(x[0] > self.Lx*0.45, x[0] < self.Lx*0.55)
+            )
+        
+        # Existing edge logic...
+        if "left" in loc: return lambda x: np.isclose(x[0], 0.0)
+        if "right" in loc: return lambda x: np.isclose(x[0], self.Lx)
+        if "bottom" in loc: return lambda x: np.isclose(x[1], 0.0)
+        if "top" in loc: return lambda x: np.isclose(x[1], self.Ly)
+        return lambda x: np.full(x.shape[1], False)
 
-    def _lbracket_void_mask(self) -> np.ndarray:
-        num_local = self.domain.topology.index_map(self.domain.topology.dim).size_local
-        midpoints = mesh.compute_midpoints(
-            self.domain,
-            self.domain.topology.dim,
-            np.arange(num_local, dtype=np.int32),
-        )
-        return (midpoints[:, 0] >= self.Lx / 2.0) & (midpoints[:, 1] >= self.Ly / 2.0)
+    def _setup_bcs(self):
+        dolfin_bcs = []
+        for bc_spec in self.spec.bcs:
+            fn = self._get_boundary_condition_fn(bc_spec.location)
+            dofs = fem.locate_dofs_geometrical(self.V, fn)
+            # Create a zero vector for displacement BCs
+            val = np.zeros(self.domain.geometry.dim, dtype=default_scalar_type)
+            dolfin_bcs.append(fem.dirichletbc(val, dofs, self.V))
+        return dolfin_bcs
 
+    def _setup_loads(self):
+        # We assume for now one primary load measure for simplicity
+        # In a full system, you'd sum multiple ds(tag) measures
+        load_spec = self.spec.loads[0] # Grab the first load
+        fn = self._get_boundary_condition_fn(load_spec.location)
+        
+        fdim = self.domain.topology.dim - 1
+        ds = build_traction_measure(self.domain, fdim, fn, tag=1)
+        
+        # Map DOF to vector: 'y' -> [0, value], 'x' -> [value, 0]
+        val_vec = [0.0, 0.0]
+        idx = 0 if load_spec.dof.lower() == 'x' else 1
+        val_vec[idx] = load_spec.value
+        
+        T = fem.Constant(self.domain, default_scalar_type(val_vec))
+        return (T, ds, 1)
     def _penal(self, itr: int) -> float:
     # Use steered penal if past ramp, otherwise use schedule
         if itr >= self.penal_steps:
@@ -598,10 +559,10 @@ class SIMPSolver:
         t = min(itr / max(self.penal_steps, 1), 1.0)
         return self.penal_start + t * (self.penal_end - self.penal_start)
 
-    # ── Core optimisation loop ─────────────────────────────────────────────
+# ==== OPTIMIZER ====
 
     def optimize(self):
-        from agents import PhysicsGate, SteeringAgent, CriticAgent, build_metrics_snapshot
+        from project.solver.agents import PhysicsGate, SteeringAgent, CriticAgent, build_metrics_snapshot
 
         gate    = PhysicsGate(volfrac_target=self.volfrac)
         steerer = SteeringAgent(config=self.config, every_n=10)
@@ -739,7 +700,7 @@ class SIMPSolver:
         self._sanity_checks()
         exporter.close()
 
-    # ── Post-processing ────────────────────────────────────────────────────
+    # Literal checking for volume fraction, the void/solid/grey split, and the compliance spread.
 
     def _sanity_checks(self):
         rho = self.rho_fn.x.array
@@ -755,7 +716,7 @@ class SIMPSolver:
         frac_void  = np.mean(rho < 0.1)
         frac_grey  = 1.0 - frac_solid - frac_void
         tag = "OK  " if frac_grey < 0.05 else "WARN"
-        print(f"[{tag}] Binarisation: solid={frac_solid:.1%}  "
+        print(f"[{tag}] Binarization: solid={frac_solid:.1%}  "
               f"void={frac_void:.1%}  grey={frac_grey:.1%}")
 
         if len(self.metrics.data) >= 10:
@@ -766,6 +727,7 @@ class SIMPSolver:
 
         print("────────────────────────────────────────────────────────\n")
 
+    # inspired from previous project
     def save_gif(self, fps=10, every=2):
         frames_to_use = self.rho_frames[::every]
         images = []
@@ -812,21 +774,21 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    solver = SIMPSolver(
-        nelx        = args.nelx,
-        nely        = args.nely,
-        Lx          = args.Lx,
-        Ly          = args.Ly,
-        volfrac     = args.volfrac,
-        penal_start = args.penal_start,
-        penal_end   = args.penal_end,
-        penal_steps = args.penal_steps,
-        r_min       = args.rmin,
-        max_iter    = args.max_iter,
-        change_tol  = args.tol,
-        geometry    = args.geometry,
-        plot_every  = args.plot_every,
-        output_dir  = args.output_dir,
-    )
-    solver.optimize()
+    from project.client import parse_problem 
+    
+    # 1. Get input from user or default
+    print("Welcome to LLM-SIMP. Enter your problem description:")
+    user_prompt = input("> ") or "Cantilever beam, fixed left edge, 1N downward at right tip, mesh 60x20, vol_frac 0.4"
+
+    try:
+        # 2. Parse text to Schema
+        print("\n[AI] Parsing your request...")
+        problem_spec = parse_problem(user_prompt)
+        print(f"[AI] Successfully configured: {problem_spec.name}")
+        
+        # 3. Run the solver
+        solver = SIMPSolver(spec=problem_spec)
+        solver.optimize()
+        
+    except Exception as e:
+        print(f"\n[Error] Pipeline failed: {e}")
