@@ -1,14 +1,15 @@
+#schema.py
 from pydantic import BaseModel
 from typing import List, Optional
 
 
 class BoundaryCondition(BaseModel):
-    node_ids: List[int]
+    location: str
     dof: str
     value: float
 
 class Load(BaseModel):
-    node_ids: List[int] # nodes
+    location: str
     dof: str # x y z
     value: float # force
 
