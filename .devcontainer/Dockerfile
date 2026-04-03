@@ -35,5 +35,6 @@ RUN python -m pip install --upgrade pip \
     h5py \
     python-dotenv \
     meshio \
+    imageio \
     openmdao
  
