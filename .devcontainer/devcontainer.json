@@ -1,0 +1,26 @@
+{
+  "name": "llm-topopt-research",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  },
+
+  "runArgs": [
+    "--init"
+  ],
+
+  "forwardPorts": [8888],
+
+  "remoteUser": "root"
+}
