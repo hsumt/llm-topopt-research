@@ -1,5 +1,5 @@
 from client import parse_problem
-from simp import SIMPSolver
+from nomore import SIMPSolver
 
 def run_pipeline(user_input: str):
     print(f"--- Parsing User Intent ---")

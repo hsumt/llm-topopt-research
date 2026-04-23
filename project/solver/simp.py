@@ -3,7 +3,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from dolfinx import mesh, fem
+from dolfinx import mesh, fem, default_scalar_type
 from dolfinx.fem.petsc import LinearProblem
 import dolfinx.fem.petsc as fem_petsc
 from dolfinx.io import XDMFFile
@@ -11,208 +11,131 @@ from dolfinx.io import XDMFFile
 import matplotlib.pyplot as plt
 import imageio
 
-# ─────────────────────────────────────────────────────────────
-# Mesh + Function Spaces
-# ─────────────────────────────────────────────────────────────
-def build_mesh(nelx, nely, Lx=1.0, Ly=1.0):
-    # Structured rectangle mesh for SIMP topology optimization
-    return mesh.create_rectangle(
+# E = 1.0,  nu = 0.2
+# nelx = 80, nely = 50
+# Lx = 1.6,  Ly = 1.0
+# BC: fixed left edge
+# Load: downward force at right edge middle
+def build_mesh(nelx: int, nely: int, Lx: float, Ly: float):
+    domain = mesh.create_rectangle(
         MPI.COMM_WORLD,
-        [np.array([0, 0]), np.array([Lx, Ly])],
+        [np.array([0,0]), np.array([Lx, Ly])],
         [nelx, nely],
         cell_type=mesh.CellType.quadrilateral,
     )
-
+    return domain
 def build_spaces(domain):
-    # V: vector space for displacement (2D)
-    # Q: DG0 scalar space for density
-    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))  # 2D vector
-    Q = fem.functionspace(domain, ("DG", 0))  # piecewise constant
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,))) #displacement needs to be continuous (Lagrange) across the domain
+    Q = fem.functionspace(domain, ("DG", 0)) #discontinuous Galerkin. density does not need to be continuous since every element has a separate density
     return V, Q
+E_MIN = 1e-9
 
-# ─────────────────────────────────────────────────────────────
-# Boundary Conditions (Cantilever)
-# ─────────────────────────────────────────────────────────────
-def build_bcs(V):
-    # Fix left edge (x=0) for cantilever
-    def left(x): 
-        return np.isclose(x[0], 0.0)
-    dofs = fem.locate_dofs_geometrical(V, left)
-    return [fem.dirichletbc(np.array([0.0, 0.0]), dofs, V)] #glue the left edge!
+def simp_stiffness(rho: np.ndarray, penal: float) -> np.ndarray:
+    # SIMP interpolation - Sigmund (2001) Eq. 1 "xe^p"
+    # penal (p) penalizes intermediate densities: grey elements get cheap stiffness
+    # but cost full material budget, driving the design toward black and white.
+    return E_MIN + (1-E_MIN) * rho**penal
 
-# ─────────────────────────────────────────────────────────────
-# Elasticity
-# ─────────────────────────────────────────────────────────────
+def get_lame_parameters(E: float, nu: float):
+    # Plane stress formulas
+    # p.127 ln 88 and 89 list E = 1, and nu = 0.3. YM and Poisson
+    # mu = shear modulus 
+    # lmbda (First Lame parameter) = couple normal stresses.
+    mu = E / (2 * (1+nu))
+    lmbda = E * nu / (1-nu**2)
+    return mu, lmbda
 def epsilon(u):
-    # Symmetric gradient: strain tensor
+    # takes in strain
     return ufl.sym(ufl.grad(u))
-
 def sigma(u, mu, lmbda):
-    # Linear elastic stress: σ = λ tr(ε) I + 2 μ ε
-    return lmbda * ufl.tr(epsilon(u)) * ufl.Identity(2) + 2 * mu * epsilon(u)
+    # takes in displacement, shear modulus, and the coupled normal stresses in order to calculate stress
+    return lmbda * ufl.tr(epsilon(u)) * ufl.Identity(2) + 2 * mu * epsilon(u) # creates 2x2 identity matrix
 
-def solve_elasticity(domain, V, bcs, rho_fn, penal): #computes how much it bends under load.
-    # Solve linear elasticity given density rho_fn
-    u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 
-    E_min = 1e-9
-    # SIMP penalization: E = E_min + (ρ^p)*(1-E_min) (that's what the internet said!)
-    E = E_min + (1 - E_min) * rho_fn.x.array**penal
+def build_bcs(V, domain):
+    def left_edge(x):
+        return np.isclose(x[0], 0.0)
+    
+    dofs = fem.locate_dofs_geometrical(V, left_edge)
+    bc = fem.dirichletbc(np.array([0.0, 0.0], dtype=PETSc.ScalarType), dofs, V)
+    return [bc]
 
-    # Map E to function for FEM coefficients
-    E_fn = fem.Function(rho_fn.function_space)
-    E_fn.x.array[:] = E
+def build_load(V, domain, Lx: float, Ly: float):
+    # point load of -1 in y at top right corner - Sigmund (2001) line 79
+    def top_right(x):
+        return np.logical_and(np.isclose(x[0], Lx), np.isclose(x[1], Ly))
+    
+    # find the DOFs at that point
+    dofs = fem.locate_dofs_geometrical(V, top_right)
+    
 
-    mu0, lmbda0 = 1.0, 0.3
-    mu = E_fn * mu0
-    lmbda = E_fn * lmbda0
+    F = fem.Function(V)
+    F.x.array[:] = 0.0
+    F.x.array[2 * dofs[0] + 1] = -1.0 #2n+1 for the y dof at node n
 
-    # Bilinear form (stiffness)
+    return F
+
+
+def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load): # https://jsdokken.com/dolfinx-tutorial/chapter2/linearelasticity.html
+    u = ufl.TrialFunction(V)
+    v = ufl.TestFunction(V)
+
+    E_coeff = fem.Function(rho_fn.function_space)
+    E_coeff.x.array[:] = simp_stiffness(rho_fn.x.array, penal)
+
     a = ufl.inner(sigma(u, mu, lmbda), epsilon(v)) * ufl.dx
+    L = ufl.dot(F_load, v) * ufl.dx
 
-    # Load: downward force on free end
-    T = fem.Constant(domain, np.array([0.0, -1.0]))
-    L = ufl.inner(T, v) * ufl.ds
 
-    # Solve linear system using PETSc
     problem = LinearProblem(a, L, bcs=bcs,
-                            petsc_options={"ksp_type": "cg", "pc_type": "hypre"})
-    return problem.solve()
+                            petsc_options={"ksp_type": "cg",
+                                           "pc_type": "hypre"})
+    uh = problem.solve()
 
-# ─────────────────────────────────────────────────────────────
-# Sensitivity
-# ─────────────────────────────────────────────────────────────
-def compute_sensitivity(domain, Q, rho_fn, uh, penal): #calculates how much compliance changes for each square
-    # Compute compliance sensitivity (dC/dρ)
-    rho = rho_fn.x.array
-    sed = ufl.inner(sigma(uh, 1.0, 0.3), epsilon(uh))  # strain energy density
-    v = ufl.TestFunction(Q)
-    L = fem.form(sed * v * ufl.dx)
-    vec = fem_petsc.assemble_vector(L)
-    vec.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+    return uh
 
-    ce = vec.array.copy()
-    dc = -penal * rho**(penal - 1) * ce  # SIMP sensitivity formula
+def oc_update(rho, dc, volfrac, nelx, nely): # Sigmund 2001 Appendix (p. 126)
+    l1, l2 = 0.0, 1e5
+    move = 0.2
 
-    return dc, ce
-
-# ─────────────────────────────────────────────────────────────
-# Helmholtz Filter
-# ─────────────────────────────────────────────────────────────
-def build_filter(domain, r_min):
-    # Create Helmholtz filter matrix solver
-    F = fem.functionspace(domain, ("Lagrange", 1))
-    u, v = ufl.TrialFunction(F), ufl.TestFunction(F)
-    a = (r_min**2 * ufl.dot(ufl.grad(u), ufl.grad(v)) + u*v) * ufl.dx
-    A = fem_petsc.assemble_matrix(fem.form(a))
-    A.assemble()
-
-    solver = PETSc.KSP().create(domain.comm)
-    solver.setOperators(A)
-    solver.setType("cg")
-    solver.getPC().setType("hypre")
-
-    return solver, F
-
-def apply_filter(rho_fn, solver, F): #helmholtz helps to prevent checkboarding. smooth density distribution.
-    # Solve (r_min^2 Laplace + I) ρ_smooth = ρ
-    u, v = ufl.TrialFunction(F), ufl.TestFunction(F)
-    L = rho_fn * v * ufl.dx
-    b = fem_petsc.assemble_vector(fem.form(L))
-    b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-
-    rho_smooth = fem.Function(F)
-    solver.solve(b, rho_smooth.x.petsc_vec)
-
-    rho_filtered = fem.Function(rho_fn.function_space)
-    expr = fem.Expression(rho_smooth, rho_fn.function_space.element.interpolation_points())
-    rho_filtered.interpolate(expr)
-
-    return rho_filtered
-
-# ─────────────────────────────────────────────────────────────
-# OC Update
-# ─────────────────────────────────────────────────────────────
-def oc_update(rho, dc, volfrac):
-    # Optimality criteria density update. Using the sensitivities, we increase material where it helps most and remove material where it doesn’t.
-    l1, l2 = 0.0, 1e9
-    while (l2 - l1) / (l1 + l2 + 1e-8) > 1e-4:
+    while (l2 - l1) > 1e-4:
         lmid = 0.5 * (l1 + l2)
-        rho_new = np.clip(
-            rho * np.sqrt(np.maximum(-dc / lmid, 0)),
-            1e-3, 1.0
+
+        rho_new = np.maximum(
+            0.001,
+            np.maximum(
+                rho - move,
+                np.minimum(
+                    1.0,
+                    np.minimum(
+                        rho + move,
+                        rho * np.sqrt(-dc / lmid)
+                    )
+                )
+            )
         )
-        if rho_new.mean() > volfrac:
+
+        if rho_new.sum() - volfrac * nelx * nely > 0:
             l1 = lmid
         else:
             l2 = lmid
+
     return rho_new
 
-# ─────────────────────────────────────────────────────────────
-# Main Solver
-# ─────────────────────────────────────────────────────────────
-def run_simp(nelx=60, nely=20, volfrac=0.4, penal=3.0, r_min=0.04, max_iter=100):
-    domain = build_mesh(nelx, nely)
+
+
+def main():
+    nelx, nely = 80, 50
+    Lx, Ly = 1.6, 1.0
+    volfrac = 0.4
+    penal = 3.0
+    rmin = 0.05
+
+    domain = build_mesh(nelx, nely, Lx, Ly)
     V, Q = build_spaces(domain)
-    bcs = build_bcs(V)
 
-    # Initialize density function
-    rho_fn = fem.Function(Q)
-    rho_fn.x.array[:] = volfrac
+    mu, lmbda = get_lame_parameters(1.0, 0.3)
 
-    # Helmholtz filter
-    filter_solver, F = build_filter(domain, r_min)
+    bcs = build_bcs(V, domain)
+    F = build_load(V, domain, Lx, Ly)
 
-    # XDMF for Paraview output
-    xdmf = XDMFFile(domain.comm, "density.xdmf", "w")
-    xdmf.write_mesh(domain)
-
-    # GIF frames
-    frames = []
-
-    for itr in range(max_iter):
-        # Apply density filter
-        rho_phys = apply_filter(rho_fn, filter_solver, F)
-
-        # Solve elasticity problem
-        uh = solve_elasticity(domain, V, bcs, rho_phys, penal)
-
-        # Compute sensitivity
-        dc, ce = compute_sensitivity(domain, Q, rho_phys, uh, penal)
-        dc_fn = fem.Function(Q)
-        dc_fn.x.array[:] = dc
-        dc = apply_filter(dc_fn, filter_solver, F).x.array
-
-        # OC density update
-        rho_old = rho_fn.x.array.copy()
-        rho_new = oc_update(rho_old, dc, volfrac)
-        rho_fn.x.array[:] = rho_new
-
-        # Convergence check
-        change = np.linalg.norm(rho_new - rho_old)
-        print(f"Iter {itr:3d} | change = {change:.3e}")
-        if change < 1e-3:
-            break
-
-        rho_fn.name = "density"
-        xdmf.write_function(rho_fn, itr)
-
-        rho_grid = rho_fn.x.array.reshape((nely, nelx))
-        plt.figure()
-        plt.imshow(rho_grid, cmap="gray", origin="lower")
-        plt.axis("off")
-        plt.title(f"Iter {itr}")
-        fname = f"_frame_{itr}.png"
-        plt.savefig(fname, bbox_inches="tight")
-        plt.close()
-        frames.append(imageio.imread(fname))
-
-    # Close XDMF file
-    xdmf.close()
-
-    # Save GIF
-    imageio.mimsave("topopt.gif", frames, duration=0.2)
-
-# ─────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    run_simp()
