@@ -1,6 +1,7 @@
 {
     "python.analysis.extraPaths": [
         "./project/solver",
-        "./project/parser"
+        "./project/parser",
+        "./project/solver"
     ]
 }

@@ -1,3 +1,26 @@
+"""
+SIMP Topology Optimization — 2D Compliance Minimization
+========================================================
+Problem:  Cantilever beam, fixed left edge, point load at top-right corner.
+Method:   SIMP + Helmholtz PDE filter + Optimality Criteria update.
+ 
+References
+----------
+[1] Sigmund, O. (2001). A 99 line topology optimization code written in Matlab.
+    Struct. Multidisc. Optim. 21(2), 120-127.
+    https://doi.org/10.1007/s001580050176
+ 
+[2] Lazarov, B.S. & Sigmund, O. (2016). Filters in topology optimization based
+    on Helmholtz-type differential equations.
+    Int. J. Numer. Meth. Engng 86(6), 765-781.
+    https://doi.org/10.1002/nme.3072
+ 
+[3] Bendsøe, M.P. & Sigmund, O. (2003). Topology Optimization: Theory, Methods
+    and Applications. Springer.
+    https://link.springer.com/book/10.1007/978-3-662-05086-6
+
+
+"""
 import numpy as np
 import ufl
 from mpi4py import MPI
@@ -11,12 +34,16 @@ from dolfinx.io import XDMFFile
 import matplotlib.pyplot as plt
 import imageio
 
-# E = 1.0,  nu = 0.2
+# E = 1.0,  nu = 0.3
 # nelx = 80, nely = 50
 # Lx = 1.6,  Ly = 1.0
 # BC: fixed left edge
 # Load: downward force at right edge middle
 def build_mesh(nelx: int, nely: int, Lx: float, Ly: float):
+    """
+    Creates a structured quadrilateral mesh on [0, Lx] x [0, Ly]
+    DOLFINx: mesh.create_rectangle, with CellType.quadrilateral
+    """
     domain = mesh.create_rectangle(
         MPI.COMM_WORLD,
         [np.array([0,0]), np.array([Lx, Ly])],
@@ -25,12 +52,29 @@ def build_mesh(nelx: int, nely: int, Lx: float, Ly: float):
     )
     return domain
 def build_spaces(domain):
+    """
+    V : vector Lagrange P1 space for displacement u
+    Continuou across elements
+
+    Q: Scalar DG0 space for element density rho
+    Piecewise. DG0 is the natural SIMP space.
+
+    Reference: standard FEM choice; see DOLFINx linear elasticity tutorial
+    https://jsdokken.com/dolfinx-tutorial/chapter2/linearelasticity.html
+    """
     V = fem.functionspace(domain, ("Lagrange", 1, (2,))) #displacement needs to be continuous (Lagrange) across the domain
     Q = fem.functionspace(domain, ("DG", 0)) #discontinuous Galerkin. density does not need to be continuous since every element has a separate density
     return V, Q
 E_MIN = 1e-9
 
 def simp_stiffness(rho: np.ndarray, penal: float) -> np.ndarray:
+    """
+    Equation [1, Eq. 1]:
+        E_e(rho_e) = E_min + rho_e^p * (E_0 - E_min)
+ 
+    With E_0 = 1.0:
+        E_e = E_min + (1 - E_min) * rho_e^p
+    """
     # SIMP interpolation - Sigmund (2001) Eq. 1 "xe^p"
     # penal (p) penalizes intermediate densities: grey elements get cheap stiffness
     # but cost full material budget, driving the design toward black and white.
@@ -75,6 +119,26 @@ def build_load(V, domain, Lx: float, Ly: float):
 
     return F
 
+def build_filter(Q, r_min: float):
+    r = r_min / (2.0 * np.sqrt(3.0))
+    
+def apply_filter(a_f, r, rho_fn, Q):
+    j
+def compute_sensitivities(rho: np.ndarray, uh, domain, V, Q, penal: float, mu: float, lmbda: float) -> np.ndarray:
+    strain_energy_expr = ufl.inner(sigma(uh, mu, lmbda), epsilon(uh)) # gives u_e^T * k0 * u_e per element
+ 
+    # Project to DG0: one average value per element
+    se_fn = fem.Function(Q)
+    se_expr = fem.Expression(
+        strain_energy_expr,
+        Q.element.interpolation_points()
+    )
+    se_fn.interpolate(se_expr)
+    se = se_fn.x.array  
+ 
+    # dC/drho_e = -p * rho_e^(p-1) * se_e   [1, Eq. 4]
+    dc = -penal * rho**(penal - 1.0) * se
+    return dc
 
 def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load): # https://jsdokken.com/dolfinx-tutorial/chapter2/linearelasticity.html
     u = ufl.TrialFunction(V)
@@ -122,7 +186,13 @@ def oc_update(rho, dc, volfrac, nelx, nely): # Sigmund 2001 Appendix (p. 126)
 
     return rho_new
 
-
+def compute_compliance(uh, F_load, V) -> float:
+    """
+    c = F^T * U
+    """
+    return float(
+        np.dot(F_load.x.array, uh.x.array)
+    )
 
 def main():
     nelx, nely = 80, 50

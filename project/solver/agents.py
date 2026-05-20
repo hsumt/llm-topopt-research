@@ -3,6 +3,7 @@ class PhysicsGate:
         # 1. Is the structure still connected/functional/printable?
         # 2. Is there checkerboarding?
         # 3. Did the volume fraction overshoot the ceiling?
+        # Check mesh connectivity vs. compliance of constraints separately
         pass
 class SteeringAgent:
     # Was thinking this Agent could check every 10 or so iterations of SIMP to make sure it makes sense
