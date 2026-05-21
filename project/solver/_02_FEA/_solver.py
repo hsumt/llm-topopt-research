@@ -1,3 +1,8 @@
+"""
+_solver.py Implemented 5/14/26
+Initializes the linear problem to solve Finite Element Analysis
+"""
+
 from dolfinx.fem.petsc import LinearProblem
 from _02_FEA._solver import build_weak_form
 

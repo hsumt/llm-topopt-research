@@ -1,4 +1,9 @@
-# Creates the material parameters (shear modulus and lmbda) and the basic stiffness equation
+"""
+_domain.py
+Created on 5/1/26
+
+Creates the material parameters (shear modulus and lmbda) and the basic stiffness equation
+"""
 
 import numpy as np
 

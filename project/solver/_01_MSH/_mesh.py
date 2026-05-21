@@ -1,4 +1,9 @@
-# Creates the mesh and elements as quads
+"""
+_mesh.py
+Created on 5/1/26
+
+Creates the material parameters (shear modulus and lmbda) and the basic stiffness equation
+"""# Creates the mesh and elements as quads
 import numpy as np
 from mpi4py import MPI
 from dolfinx import mesh

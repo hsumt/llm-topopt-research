@@ -1,4 +1,8 @@
-# FEM FunctionSpaces
+"""
+_functionspaces.py 
+Implemented 5/11/26
+Creates the functions to pass over the mesh
+"""
 from dolfinx import fem
 
 

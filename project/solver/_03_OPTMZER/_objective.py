@@ -1,3 +1,9 @@
+"""
+_objective.py
+Created on 5/15/26
+
+Creates the compliance objective
+"""
 import numpy as np
 import ufl
 from dolfinx import fem
