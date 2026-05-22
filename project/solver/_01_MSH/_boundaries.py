@@ -4,7 +4,8 @@ Created on 5/1/26
 
 Creates the loads and the BC clamp
 """
-
+from dolfinx.mesh import locate_entities_boundary, meshtags
+import ufl
 import numpy as np
 from petsc4py import PETSc
 from dolfinx import fem
@@ -20,17 +21,17 @@ def build_bcs(V, domain):
     return [bc]
 
 
-def build_load(V, domain, Lx: float, Ly: float):
-    def bottom_right(x):
-        return np.logical_and(
-            np.isclose(x[0], Lx),
-            np.isclose(x[1], 0.0)
-        )
-
-    dofs = fem.locate_dofs_geometrical(V, bottom_right) #locates base index, not the index in the list
-
-    F = fem.Function(V)
-    F.x.array[:]                   = 0.0 # clears
-    F.x.array[2 * dofs[0] + 1]    = -1.0   # y-DOF at tip node # [Node0_x, Node0_y, Node1_x, Node1_y, Node2_x, Node2_y ...]
-
-    return F
+def build_load(domain, Lx: float, Ly: float):
+    """
+    Distributed downward traction on right edge, total force = -1.
+    Much more stable than a point load for FEM.
+    """
+    fdim = domain.topology.dim - 1
+    right_facets = locate_entities_boundary(
+        domain, fdim, lambda x: np.isclose(x[0], Lx)
+    )
+    marked = meshtags(domain, fdim, right_facets,
+                      np.ones(len(right_facets), dtype=np.int32))
+    ds_right = ufl.Measure("ds", domain=domain,
+                            subdomain_data=marked, subdomain_id=1)
+    return ds_right

@@ -41,7 +41,7 @@ def main():
     Ly         = 1.0
     volfrac    = 0.4
     penal      = 3.0
-    r_min      = 0.05
+    r_min      = 0.08 #0.05 attempt 1
     max_iter   = 100
     tol_change = 0.01
 
@@ -52,7 +52,7 @@ def main():
     V, Q      = build_spaces(domain)
     mu, lmbda = get_lame_parameters(1.0, 0.3)
     bcs       = build_bcs(V, domain)
-    F_load    = build_load(V, domain, Lx, Ly)
+    F_load    = build_load(domain, Lx, Ly)
 
     domain.topology.create_entities(domain.topology.dim)
     n_cells = Q.dofmap.index_map.size_local
@@ -78,7 +78,7 @@ def main():
     for iteration in range(1, max_iter + 1):
 
         rho_tilde = apply_filter(rho_fn.x.array)
-        rho_fn.x.array[:] = rho_tilde
+        # rho_fn.x.array[:] = rho_tilde
 
         uh = solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load)
 
