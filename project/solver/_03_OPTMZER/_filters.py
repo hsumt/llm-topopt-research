@@ -107,9 +107,8 @@ def build_helmholtz_filter_CG1(domain, Q, r_min: float):
         before filtering, then back after.
         Reference: Lazarov & Sigmund (2016), Section 2.3
         """
-        # dc_density = dc_array / v_array          # integrated → density
-        # filtered   = apply_filter(dc_density)    # apply H
-        # return filtered * v_array                # density → integrated
-        return apply_filter(dc_array)
+        dc_density = dc_array / v_array          # integrated → density
+        filtered   = apply_filter(dc_density)    # apply H
+        return filtered * v_array                # density → integrated
 
     return apply_filter, apply_sensitivity_filter

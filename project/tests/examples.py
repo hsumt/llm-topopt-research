@@ -1,6 +1,6 @@
 # simp v2
 
-from agents import PhysicsGate, SteeringAgent
+from project.agents import PhysicsGate, SteeringAgent
 
 
 class SIMPSolver:
