@@ -4,7 +4,7 @@ Initializes the linear problem to solve Finite Element Analysis
 """
 
 from dolfinx.fem.petsc import LinearProblem
-from _02_FEA._solver import build_weak_form
+from _02_FEA._assembly import build_weak_form
 
 def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
     a, L = build_weak_form(V, rho_fn, penal, mu, lmbda, F_load)
@@ -13,7 +13,7 @@ def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
         a, L,
         bcs=bcs,
         petsc_options={
-            "ksp_type": "cg",
+            "ksp_type": "cg",                                              
             "ksp_rtol": 1e-6,
             "ksp_atol": 1e-10,
             "ksp_max_it": 1000,
