@@ -34,3 +34,5 @@ def build_load(V, domain, Lx: float, Ly: float):
     F.x.array[2 * dofs[0] + 1]    = -1.0   # y-DOF at tip node # [Node0_x, Node0_y, Node1_x, Node1_y, Node2_x, Node2_y ...]
 
     return F
+
+

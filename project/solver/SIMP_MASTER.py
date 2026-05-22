@@ -21,9 +21,9 @@ from _03_OPTMZER._MMAupdate  import MMAOptimizer
 from _04_PPRCS.postprocess   import (save_frame, save_gif,
                                      export_xdmf, print_iteration_report)
 
-from agent._steering import steer_code
-from agent._physics import validate
-from agent._critic import critic_opt
+# from agent._steering import steer_code
+# from agent._physics import validate
+# from agent._critic import critic_opt
 def main():
 
     # -----------------------------------------------------------------------
@@ -37,8 +37,8 @@ def main():
     # -----------------------------------------------------------------------
     # 1. PARAMETERS — matching Sigmund (2001) cantilever benchmark
     # -----------------------------------------------------------------------
-    nelx       = 80
-    nely       = 50
+    nelx       = 8 #80
+    nely       = 5 #50
     Lx         = 1.6
     Ly         = 1.0
     volfrac    = 0.4
@@ -54,7 +54,7 @@ def main():
     V, Q      = build_spaces(domain)
     mu, lmbda = get_lame_parameters(1.0, 0.3)
     bcs       = build_bcs(V, domain)
-    F_load    = build_load(domain, Lx, Ly)
+    F_load    = build_load(V, domain, Lx, Ly)
 
     domain.topology.create_entities(domain.topology.dim)
     n_cells = Q.dofmap.index_map.size_local
