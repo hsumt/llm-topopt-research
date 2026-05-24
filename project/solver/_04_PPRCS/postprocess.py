@@ -12,11 +12,40 @@ import imageio
 import h5py
 
 
+def build_cell_perm(domain, Q, nelx: int, nely: int, Lx: float, Ly: float) -> np.ndarray:
+    """
+    Build a permutation array that maps row-major grid index to DOLFINx DG-0 DOF index.
+
+    DOLFINx create_rectangle (quad) uses a diagonal cell ordering, not row-major.
+    perm[iy * nelx + ix]  =  DOF index for the cell at spatial position (ix, iy).
+
+    Usage:
+        rho_spatial = rho_fn.x.array[perm]      # reorder to spatial grid
+        rho_grid    = rho_spatial.reshape((nely, nelx))  # then reshape safely
+    """
+    domain.topology.create_connectivity(2, 0)
+    conn = domain.topology.connectivity(2, 0)
+    geom = domain.geometry
+    dx = Lx / nelx
+    dy = Ly / nely
+    n_cells = nelx * nely
+    perm = np.zeros(n_cells, dtype=int)
+    for c in range(n_cells):
+        verts = conn.links(c)
+        mid = geom.x[verts].mean(axis=0)
+        ix = int(round(mid[0] / dx - 0.5))
+        iy = int(round(mid[1] / dy - 0.5))
+        dof = Q.dofmap.cell_dofs(c)[0]
+        perm[iy * nelx + ix] = dof
+    return perm
+
+
 def save_frame(rho_fn, nelx: int, nely: int, iteration: int,
-               compliance: float, out_dir: str) -> str:
+               compliance: float, out_dir: str, perm: np.ndarray) -> str:
     os.makedirs(out_dir, exist_ok=True)
     rho = rho_fn.x.array.copy()
-    rho_grid = rho.reshape((nely, nelx))
+    # DOLFINx uses diagonal cell ordering; perm maps spatial grid index → DOF index
+    rho_grid = rho[perm].reshape((nely, nelx))
 
     fig, ax = plt.subplots(figsize=(nelx / 20, nely / 20), dpi=100)
     ax.imshow(
@@ -40,7 +69,7 @@ def save_gif(frame_paths: list, out_path: str, fps: int = 5):
     imageio.mimsave(out_path, frames, fps=fps)
 
 
-def export_xdmf(nelx: int, nely: int, rho_history: list, output_dir: str = "_05_OUT"):
+def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray, output_dir: str = "_05_OUT"):
     """
     Export density history to XDMF + HDF5 for ParaView animation.
 
@@ -107,10 +136,11 @@ def export_xdmf(nelx: int, nely: int, rho_history: list, output_dir: str = "_05_
         h5.create_dataset("nodes",        data=coords)
         h5.create_dataset("connectivity", data=connectivity)
         for it, rho in enumerate(rho_history):
-            # rho is already in cell order j*nelx+i from DG-0 x.array
+            # Reorder from DOLFINx diagonal DOF order to spatial row-major order
+            # so density[eid] matches the cell at grid position eid = j*nelx+i
             h5.create_dataset(
                 f"density/iter_{it:04d}",
-                data=rho.astype(np.float64)
+                data=rho[perm].astype(np.float64)
             )
 
     # ------------------------------------------------------------------

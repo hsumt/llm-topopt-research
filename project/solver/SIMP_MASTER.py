@@ -19,11 +19,10 @@ from _03_OPTMZER._objective  import compute_compliance, compute_sensitivities
 from _03_OPTMZER._MMAupdate  import MMAOptimizer
 
 from _04_PPRCS.postprocess   import (save_frame, save_gif,
-                                     export_xdmf, print_iteration_report)
+                                     export_xdmf, print_iteration_report,
+                                     build_cell_perm)
 
-# from agent._steering import steer_code
-# from agent._physics import validate
-# from agent._critic import critic_opt
+
 def main():
 
     # -----------------------------------------------------------------------
@@ -37,13 +36,13 @@ def main():
     # -----------------------------------------------------------------------
     # 1. PARAMETERS — matching Sigmund (2001) cantilever benchmark
     # -----------------------------------------------------------------------
-    nelx       = 8 #80
-    nely       = 5 #50
+    nelx       = 80
+    nely       = 50
     Lx         = 1.6
     Ly         = 1.0
     volfrac    = 0.4
     penal      = 3.0
-    r_min      = 0.08 #0.05 attempt 1
+    r_min      = 0.05
     max_iter   = 100
     tol_change = 0.01
 
@@ -59,7 +58,12 @@ def main():
     domain.topology.create_entities(domain.topology.dim)
     n_cells = Q.dofmap.index_map.size_local
 
+    # DOLFINx create_rectangle (quad) uses diagonal cell ordering, not row-major.
+    # perm[iy*nelx+ix] = DOF index for spatial cell (ix, iy) — used for visualization.
+    perm = build_cell_perm(domain, Q, nelx, nely, Lx, Ly)
+
     rho_fn = fem.Function(Q)
+    rho_fn.name = "density"
     rho_fn.x.array[:] = volfrac
 
     apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(
@@ -80,7 +84,7 @@ def main():
     for iteration in range(1, max_iter + 1):
 
         rho_tilde = apply_filter(rho_fn.x.array)
-        # rho_fn.x.array[:] = rho_tilde
+        rho_fn.x.array[:] = rho_tilde
 
         uh = solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load)
 
@@ -101,14 +105,15 @@ def main():
         )
 
         change  = float(np.max(np.abs(rho_new - rho_old)))
-        rho_old = rho_fn.x.array.copy()
         rho_fn.x.array[:] = rho_new
+        rho_old = rho_fn.x.array.copy()
+
 
         volfrac_report = rho_fn.x.array.sum() / n_cells
         print_iteration_report(iteration, compliance, volfrac_report, change)
 
         frame_paths.append(
-            save_frame(rho_fn, nelx, nely, iteration, compliance, out_dir)
+            save_frame(rho_fn, nelx, nely, iteration, compliance, out_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
 
@@ -122,7 +127,8 @@ def main():
     save_gif(frame_paths, gif_path, fps=5)
     print(f"GIF saved:  {gif_path}")
 
-    export_xdmf(nelx, nely, rho_history, output_dir=OUT_DIR)
+    export_xdmf(nelx, nely, rho_history, perm, output_dir=OUT_DIR)
+
 
 def main_from_spec(spec):
     """
@@ -192,14 +198,13 @@ def main_from_spec(spec):
 
     for iteration in range(1, 101):
 
-        
         rho_tilde = apply_filter(rho_fn.x.array)
         rho_fn.x.array[:] = rho_tilde
 
-        uh         = solve_fea(domain, V, bcs, rho_fn, p["penal"], mu, lmbda, F_load)
+        uh         = solve_fea(domain, V, bcs, rho_fn, live_params["penal"], mu, lmbda, F_load)
         compliance = compute_compliance(uh, F_load)
         dc_drho    = compute_sensitivities(
-                         rho_tilde, uh, Q, p["penal"], mu, lmbda
+                         rho_tilde, uh, Q, live_params["penal"], mu, lmbda
                      )
         dc_drho_filtered = apply_sens_filter(dc_drho)
 
@@ -207,36 +212,36 @@ def main_from_spec(spec):
         g_val          = volfrac_actual - p["volfrac"]
 
         rho_new = optimizer.update(
-            x=rho_fn.x.array.copy(), f0val=compliance,
-            df0dx=dc_drho_filtered, fval=g_val, dfdx=dg_drho,
+            x     = rho_fn.x.array.copy(),
+            f0val = compliance,
+            df0dx = dc_drho_filtered,
+            fval  = g_val,
+            dfdx  = dg_drho,
         )
 
+        # ── CORRECT ORDER: compute change, THEN update rho_fn, THEN update rho_old
         change  = float(np.max(np.abs(rho_new - rho_old)))
-        rho_old = rho_fn.x.array.copy()
         rho_fn.x.array[:] = rho_new
-        
+        rho_old = rho_fn.x.array.copy()
+
         metrics["compliance_history"].append(float(compliance))
         metrics["volfrac_history"].append(float(volfrac_actual))
         metrics["change_history"].append(float(change))
         metrics["l2_change_history"].append(
-            float(np.linalg.norm(rho_new - rho_old) / np.sqrt(n_cells))
+            float(np.linalg.norm(rho_new - rho_fn.x.array) / np.sqrt(n_cells))
         )
         metrics["iteration"] = iteration
 
         if iteration % STEER_EVERY == 0:
             print(f"\n[SteeringAgent] Calling at iteration {iteration}...")
             live_params = steer_code(metrics, live_params)
-            # Apply updated params — only penal affects ongoing loop directly
-            # r_min change would require rebuilding the filter (flag for now)
-            penal = live_params["penal"]
             print(f"[SteeringAgent] Updated: {live_params}")
 
-            
-        print_iteration_report(iteration, compliance,
-                               rho_fn.x.array.sum() / n_cells, change)
+        volfrac_report = rho_fn.x.array.sum() / n_cells
+        print_iteration_report(iteration, compliance, volfrac_report, change)
+
         frame_paths.append(
-            save_frame(rho_fn, p["nelx"], p["nely"],
-                       iteration, compliance, out_dir)
+            save_frame(rho_fn, p["nelx"], p["nely"], iteration, compliance, out_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
 

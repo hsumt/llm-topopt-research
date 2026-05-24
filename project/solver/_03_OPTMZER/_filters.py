@@ -51,6 +51,7 @@ def build_helmholtz_filter_CG1(domain, Q, r_min: float):
     # Linear form: (ρ_raw, ψ)  — RHS reassembled each iteration
     L_h = ufl.inner(rho_dg_fn, psi) * ufl.dx
     linear_form = fem.form(L_h)
+    # DOLFINx 0.10.0: create_vector takes a FunctionSpace, not a Form
     b = fem.petsc.create_vector(linear_form)
 
     # KSP solver — operator set once, reused every iteration
@@ -69,6 +70,7 @@ def build_helmholtz_filter_CG1(domain, Q, r_min: float):
     # Used to convert between integrated and density sensitivities
     one = fem.Constant(domain, PETSc.ScalarType(1.0))
     vol_form = fem.form(one * ufl.TestFunction(Q) * ufl.dx)
+    # DOLFINx 0.10.0: create_vector takes a FunctionSpace, not a Form
     b_vol = fem.petsc.create_vector(vol_form)
     fem.petsc.assemble_vector(b_vol, vol_form)
     b_vol.ghostUpdate(
