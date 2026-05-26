@@ -22,7 +22,9 @@ from _04_PPRCS.postprocess   import (save_frame, save_gif,
                                      export_xdmf, print_iteration_report,
                                      build_cell_perm)
 
-
+from agent._steering   import steer_code
+from agent._physics import validate
+from agent._critic     import criticize
 def main():
 
     # -----------------------------------------------------------------------
@@ -235,6 +237,8 @@ def main_from_spec(spec):
         if iteration % STEER_EVERY == 0:
             print(f"\n[SteeringAgent] Calling at iteration {iteration}...")
             live_params = steer_code(metrics, live_params)
+            # CHANGE: Rebuild filter jneeded for r_min change which is tough
+            penal = live_params["penal"]
             print(f"[SteeringAgent] Updated: {live_params}")
 
         volfrac_report = rho_fn.x.array.sum() / n_cells
@@ -248,10 +252,33 @@ def main_from_spec(spec):
         if change < 0.01 and iteration > 5:
             print(f"\nConverged at iteration {iteration}")
             break
-
     save_gif(frame_paths, gif_path, fps=5)
     export_xdmf(p["nelx"], p["nely"], rho_history, output_dir=OUT_DIR)
     print(f"GIF saved: {gif_path}")
+    
+    
+    
+    metrics["converged"] = (change < 0.01)
+
+    val_result = validate(metrics, rho_fn.x.array, p["volfrac"], n_cells)
+    print("\n--- Physics Validation ---")
+    print(f"PASSED: {val_result['passed']}")
+    for name, chk in val_result["checks"].items():
+        status = "✓" if chk["passed"] else "✗"
+        print(f"  {status} {name}: {chk['value']} (threshold: {chk['threshold']})")
+    if val_result["failure_reasons"]:
+        for r in val_result["failure_reasons"]:
+            print(f"  FAIL: {r}")
+
+    if val_result["passed"]:
+        print("\n--- Critic Agent Summary ---")
+        summary = criticize(metrics, val_result, spec.name)
+        print(summary)
+        # Save summary
+        with open(os.path.join(OUT_DIR, "critic_summary.txt"), "w") as f:
+            f.write(summary)
+    else:
+        print("\nPhysics validation failed — Critic Agent not called.")
 
 
 

@@ -1,3 +1,4 @@
+import numpy as np
 def validate(metrics: dict, rho_final: np.ndarray,
              volfrac_target: float, n_cells: int) -> dict:
     
@@ -5,5 +6,75 @@ def validate(metrics: dict, rho_final: np.ndarray,
     # Check that vol fraction is within the target range
     # No checkerboards
     # Density field is all 0s and 1s
-    monkey = metrics
-    return monkey
+    checks = {}
+    reasons = []
+
+
+    # Compliance monotonic
+    history = metrics["compliance_history"]
+    if len(history) > 5:
+        tail = history[5:]
+        violations = sum(1 for i in range(1, len(tail)) if tail[i] > tail[i-1] * 1.02)
+        mono_ok = violations < len(tail) * 0.1
+        checks["compliance_monotone"] = {
+            "passed": mono_ok,
+            "value": violations,
+            "threshold": f"< {len(tail) * 0.1:.1f} violations"
+        }
+        if not mono_ok:
+            reasons.append(
+                f"Compliance non-monotone: {violations} violations in {len(tail)} iters"
+            
+            )
+    
+    #Vol Fraction check
+    vf_final = float(rho_final.sum() / n_cells) # checks the volume fraction of the final mesh
+    vf_err = abs(vf_final - volfrac_target) #grabs the error value as an abs
+    vf_ok = vf_err < 0.02 #checks within 0.02 of the volume fraction
+    checks["volume_fraction"] = {
+        "passed": vf_ok,
+        "value": round(vf_final, 4),
+        "threshold": f"{volfrac_target} ± 0.02"
+    }
+    if not vf_ok:
+        reasons.append(
+            f"Volume fraction {vf_final:.4f} outside tolerance"
+            f"target {volfrac_target} ± 0.02"
+        )
+    
+
+    #Check [0,1] density field. Checks if density field exceeds 1.000001
+    bounds_ok = bool(rho_final.min() >= -1e-6 and rho_final.max() <= 1.0 + 1e-6)
+    checks["density_bounds"] = {
+        "passed":    bounds_ok,
+        "value":     f"[{rho_final.min():.4f}, {rho_final.max():.4f}]",
+        "threshold": "[0.0, 1.0]"
+    }
+    if not bounds_ok:
+        reasons.append(
+            f"Density out of bounds: min={rho_final.min():.4f}, "
+            f"max={rho_final.max():.4f}"
+        )
+    
+    #check for checkerboarding
+    # Proxy: fraction of elements that are "grey" (0.1 < rho < 0.9)
+    # A well-converged SIMP result should be mostly 0/1 with some grey
+    # at boundaries. If >60% grey the filter is definitely not working and we can immediately send it back.
+    grey_fraction = float(np.mean((rho_final > 0.1) & (rho_final < 0.9)))
+    grey_ok = grey_fraction < 0.6
+    checks["grey_fraction"] = {
+        "passed":    grey_ok,
+        "value":     round(grey_fraction, 4),
+        "threshold": "< 0.60"
+    }
+    if not grey_ok:
+        reasons.append(
+            f"Excessive grey elements ({grey_fraction:.1%}) — "
+            f"filter may be ineffective or penal too low"
+        )
+
+    return {
+        "passed":          len(reasons) == 0,
+        "checks":          checks,
+        "failure_reasons": reasons,
+    }
