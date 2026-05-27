@@ -164,6 +164,7 @@ def main_from_spec(spec):
 
     domain.topology.create_entities(domain.topology.dim)
     n_cells = Q.dofmap.index_map.size_local
+    perm = build_cell_perm(domain, Q, p["nelx"], p["nely"], Lx, Ly)
 
     rho_fn = fem.Function(Q)
     rho_fn.x.array[:] = p["volfrac"]
@@ -253,7 +254,7 @@ def main_from_spec(spec):
             print(f"\nConverged at iteration {iteration}")
             break
     save_gif(frame_paths, gif_path, fps=5)
-    export_xdmf(p["nelx"], p["nely"], rho_history, output_dir=OUT_DIR)
+    export_xdmf(p["nelx"], p["nely"], rho_history, perm, output_dir=OUT_DIR)
     print(f"GIF saved: {gif_path}")
     
     

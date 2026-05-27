@@ -5,1800 +5,1800 @@
   <Grid Name="TopOpt" GridType="Collection" CollectionType="Temporal">
     <Grid Name="iter_0000" GridType="Uniform">
       <Time Value="0"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0000
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0001" GridType="Uniform">
       <Time Value="1"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0001
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0002" GridType="Uniform">
       <Time Value="2"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0002
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0003" GridType="Uniform">
       <Time Value="3"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0003
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0004" GridType="Uniform">
       <Time Value="4"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0004
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0005" GridType="Uniform">
       <Time Value="5"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0005
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0006" GridType="Uniform">
       <Time Value="6"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0006
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0007" GridType="Uniform">
       <Time Value="7"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0007
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0008" GridType="Uniform">
       <Time Value="8"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0008
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0009" GridType="Uniform">
       <Time Value="9"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0009
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0010" GridType="Uniform">
       <Time Value="10"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0010
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0011" GridType="Uniform">
       <Time Value="11"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0011
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0012" GridType="Uniform">
       <Time Value="12"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0012
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0013" GridType="Uniform">
       <Time Value="13"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0013
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0014" GridType="Uniform">
       <Time Value="14"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0014
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0015" GridType="Uniform">
       <Time Value="15"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0015
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0016" GridType="Uniform">
       <Time Value="16"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0016
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0017" GridType="Uniform">
       <Time Value="17"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0017
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0018" GridType="Uniform">
       <Time Value="18"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0018
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0019" GridType="Uniform">
       <Time Value="19"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0019
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0020" GridType="Uniform">
       <Time Value="20"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0020
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0021" GridType="Uniform">
       <Time Value="21"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0021
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0022" GridType="Uniform">
       <Time Value="22"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0022
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0023" GridType="Uniform">
       <Time Value="23"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0023
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0024" GridType="Uniform">
       <Time Value="24"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0024
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0025" GridType="Uniform">
       <Time Value="25"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0025
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0026" GridType="Uniform">
       <Time Value="26"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0026
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0027" GridType="Uniform">
       <Time Value="27"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0027
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0028" GridType="Uniform">
       <Time Value="28"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0028
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0029" GridType="Uniform">
       <Time Value="29"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0029
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0030" GridType="Uniform">
       <Time Value="30"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0030
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0031" GridType="Uniform">
       <Time Value="31"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0031
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0032" GridType="Uniform">
       <Time Value="32"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0032
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0033" GridType="Uniform">
       <Time Value="33"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0033
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0034" GridType="Uniform">
       <Time Value="34"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0034
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0035" GridType="Uniform">
       <Time Value="35"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0035
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0036" GridType="Uniform">
       <Time Value="36"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0036
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0037" GridType="Uniform">
       <Time Value="37"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0037
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0038" GridType="Uniform">
       <Time Value="38"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0038
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0039" GridType="Uniform">
       <Time Value="39"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0039
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0040" GridType="Uniform">
       <Time Value="40"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0040
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0041" GridType="Uniform">
       <Time Value="41"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0041
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0042" GridType="Uniform">
       <Time Value="42"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0042
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0043" GridType="Uniform">
       <Time Value="43"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0043
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0044" GridType="Uniform">
       <Time Value="44"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0044
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0045" GridType="Uniform">
       <Time Value="45"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0045
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0046" GridType="Uniform">
       <Time Value="46"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0046
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0047" GridType="Uniform">
       <Time Value="47"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0047
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0048" GridType="Uniform">
       <Time Value="48"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0048
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0049" GridType="Uniform">
       <Time Value="49"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0049
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0050" GridType="Uniform">
       <Time Value="50"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0050
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0051" GridType="Uniform">
       <Time Value="51"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0051
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0052" GridType="Uniform">
       <Time Value="52"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0052
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0053" GridType="Uniform">
       <Time Value="53"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0053
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0054" GridType="Uniform">
       <Time Value="54"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0054
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0055" GridType="Uniform">
       <Time Value="55"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0055
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0056" GridType="Uniform">
       <Time Value="56"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0056
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0057" GridType="Uniform">
       <Time Value="57"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0057
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0058" GridType="Uniform">
       <Time Value="58"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0058
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0059" GridType="Uniform">
       <Time Value="59"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0059
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0060" GridType="Uniform">
       <Time Value="60"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0060
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0061" GridType="Uniform">
       <Time Value="61"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0061
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0062" GridType="Uniform">
       <Time Value="62"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0062
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0063" GridType="Uniform">
       <Time Value="63"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0063
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0064" GridType="Uniform">
       <Time Value="64"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0064
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0065" GridType="Uniform">
       <Time Value="65"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0065
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0066" GridType="Uniform">
       <Time Value="66"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0066
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0067" GridType="Uniform">
       <Time Value="67"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0067
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0068" GridType="Uniform">
       <Time Value="68"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0068
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0069" GridType="Uniform">
       <Time Value="69"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0069
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0070" GridType="Uniform">
       <Time Value="70"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0070
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0071" GridType="Uniform">
       <Time Value="71"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0071
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0072" GridType="Uniform">
       <Time Value="72"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0072
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0073" GridType="Uniform">
       <Time Value="73"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0073
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0074" GridType="Uniform">
       <Time Value="74"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0074
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0075" GridType="Uniform">
       <Time Value="75"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0075
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0076" GridType="Uniform">
       <Time Value="76"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0076
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0077" GridType="Uniform">
       <Time Value="77"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0077
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0078" GridType="Uniform">
       <Time Value="78"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0078
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0079" GridType="Uniform">
       <Time Value="79"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0079
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0080" GridType="Uniform">
       <Time Value="80"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0080
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0081" GridType="Uniform">
       <Time Value="81"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0081
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0082" GridType="Uniform">
       <Time Value="82"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0082
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0083" GridType="Uniform">
       <Time Value="83"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0083
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0084" GridType="Uniform">
       <Time Value="84"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0084
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0085" GridType="Uniform">
       <Time Value="85"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0085
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0086" GridType="Uniform">
       <Time Value="86"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0086
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0087" GridType="Uniform">
       <Time Value="87"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0087
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0088" GridType="Uniform">
       <Time Value="88"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0088
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0089" GridType="Uniform">
       <Time Value="89"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0089
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0090" GridType="Uniform">
       <Time Value="90"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0090
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0091" GridType="Uniform">
       <Time Value="91"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0091
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0092" GridType="Uniform">
       <Time Value="92"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0092
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0093" GridType="Uniform">
       <Time Value="93"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0093
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0094" GridType="Uniform">
       <Time Value="94"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0094
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0095" GridType="Uniform">
       <Time Value="95"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0095
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0096" GridType="Uniform">
       <Time Value="96"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0096
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0097" GridType="Uniform">
       <Time Value="97"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0097
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0098" GridType="Uniform">
       <Time Value="98"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0098
         </DataItem>
       </Attribute>
     </Grid>
     <Grid Name="iter_0099" GridType="Uniform">
       <Time Value="99"/>
-      <Topology TopologyType="Quadrilateral" NumberOfElements="4000">
-        <DataItem Format="HDF" DataType="Int" Dimensions="4000 4">
+      <Topology TopologyType="Quadrilateral" NumberOfElements="1200">
+        <DataItem Format="HDF" DataType="Int" Dimensions="1200 4">
           topopt.h5:/connectivity
         </DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4131 3">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1281 3">
           topopt.h5:/nodes
         </DataItem>
       </Geometry>
       <Attribute Name="density" AttributeType="Scalar" Center="Cell">
-        <DataItem Format="HDF" DataType="Float" Dimensions="4000">
+        <DataItem Format="HDF" DataType="Float" Dimensions="1200">
           topopt.h5:/density/iter_0099
         </DataItem>
       </Attribute>

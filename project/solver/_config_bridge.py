@@ -56,24 +56,27 @@ _DOF_INDEX = {"x": 0, "y": 1, "z": 2}
 # ------------------------------------------------------------------
 
 def build_bcs_from_spec(spec, V, Lx: float, Ly: float) -> list:
-    """
-    Build Dirichlet BCs from ProblemSpec.bcs list.
+    from dolfinx.fem import Constant
+    from petsc4py import PETSc
 
-    Each BC entry has: location (str), dof (str), value (float)
-    """
     bcs = []
     for bc_spec in spec.bcs:
         predicate = _make_predicate(bc_spec.location, Lx, Ly)
         dof_idx   = _DOF_INDEX[bc_spec.dof]
 
-        V_sub, _  = V.sub(dof_idx).collapse()
-        dofs      = fem.locate_dofs_geometrical(
-                        (V.sub(dof_idx), V_sub), predicate
-                    )
+        V_sub, _ = V.sub(dof_idx).collapse()
+
+        dofs_raw = fem.locate_dofs_geometrical(
+            (V.sub(dof_idx), V_sub),
+            predicate
+        )
+        # dofs_raw[0] = parent space DOF indices
+        # dofs_raw[1] = collapsed subspace DOF indices
+
         bc = fem.dirichletbc(
-            PETSc.ScalarType(bc_spec.value),
-            dofs,
-            V.sub(dof_idx)
+            Constant(V.mesh, PETSc.ScalarType(bc_spec.value)),  # overload 2
+            dofs_raw[1],        # 1D int32 array, subspace indices
+            V.sub(dof_idx)      # subspace
         )
         bcs.append(bc)
 
@@ -81,12 +84,6 @@ def build_bcs_from_spec(spec, V, Lx: float, Ly: float) -> list:
 
 
 def build_load_from_spec(spec, V, Lx: float, Ly: float) -> fem.Function:
-    """
-    Build load vector from ProblemSpec.loads list.
-    Supports multiple load entries (superposition).
-
-    Each load entry has: location (str), dof (str), value (float)
-    """
     F = fem.Function(V)
     F.x.array[:] = 0.0
 
@@ -94,14 +91,17 @@ def build_load_from_spec(spec, V, Lx: float, Ly: float) -> fem.Function:
         predicate = _make_predicate(load_spec.location, Lx, Ly)
         dof_idx   = _DOF_INDEX[load_spec.dof]
 
-        V_sub, _  = V.sub(dof_idx).collapse()
-        dofs      = fem.locate_dofs_geometrical(
-                        (V.sub(dof_idx), V_sub), predicate
-                    )
+        V_sub, _ = V.sub(dof_idx).collapse()
 
-        # dofs is a 2-column array: col 0 = parent DOF, col 1 = subspace DOF
-        # We write into the parent DOF indices
-        for parent_dof, _ in dofs:
+        dofs_raw = fem.locate_dofs_geometrical(
+            (V.sub(dof_idx), V_sub),
+            predicate
+        )
+        # dofs_raw[0] = parent space DOF indices
+        # dofs_raw[1] = subspace DOF indices
+        parent_dofs = dofs_raw[0]   # 1D int32 array
+
+        for parent_dof in parent_dofs:
             F.x.array[parent_dof] += load_spec.value
 
     F.x.scatter_forward()
@@ -115,12 +115,21 @@ def extract_simp_params(spec) -> dict:
 
     is r_min in element units (Sigmund MATLAB) or meters (Filter)
     """
+    nelx = spec.mesh.nx
+    nely = spec.mesh.ny
+    Lx   = float(nelx) / float(nely)   # matches SIMP_MASTER geometry assumption
+    
+    # r_min from parser is in element units (Sigmund convention)
+    # Helmholtz filter expects meters
+    # element_size = Lx / nelx
+    r_min_meters = spec.simp.r_min * (Lx / nelx)
+
     return {
-        "penal":    spec.simp.penal,
-        "volfrac":  spec.simp.vol_frac,
-        "r_min":    spec.simp.r_min,
-        "E":        spec.material.E,
-        "nu":       spec.material.nu,
-        "nelx":     spec.mesh.nx,
-        "nely":     spec.mesh.ny,
+        "penal":   spec.simp.penal,
+        "volfrac": spec.simp.vol_frac,
+        "r_min":   r_min_meters,        # ← converted to meters
+        "E":       spec.material.E,
+        "nu":      spec.material.nu,
+        "nelx":    nelx,
+        "nely":    nely,
     }

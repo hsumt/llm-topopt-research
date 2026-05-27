@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import json
 from anthropic import Anthropic
 from project.parser.prompt import SYSTEM_PROMPT
-from project.schema import ProblemSpec
+from project.parser.schema import ProblemSpec
 import os
 
 load_dotenv()  # reads .env

@@ -72,6 +72,21 @@ def validate(metrics: dict, rho_final: np.ndarray,
             f"Excessive grey elements ({grey_fraction:.1%}) — "
             f"filter may be ineffective or penal too low"
         )
+    # Check for structural connectivity [to do]
+    # conn = _check_connectivity(rho_final, nelx, nely)
+    # checks["structural_connectivity"] = conn
+    # if not conn["passed"]:
+    #     reasons.append(
+    #         f"Structural connectivity failed: {conn['value']}"
+    #     )
+
+    # return {
+    #     "passed":          len(reasons) == 0,
+    #     "checks":          checks,
+    #     "failure_reasons": reasons,
+    # }
+
+
 
     return {
         "passed":          len(reasons) == 0,
