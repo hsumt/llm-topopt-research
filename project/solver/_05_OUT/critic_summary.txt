@@ -1,11 +1,15 @@
-Convergence Behavior:
-The optimizer achieved a 73.1% compliance reduction over 100 iterations, which is a meaningful structural improvement, but the run did not converge — the final design change of 0.235 is substantially above any reasonable convergence threshold (typically < 0.01). The compliance appears to have continued evolving without settling into a stable topology, suggesting the optimizer was still actively redistributing material at termination.
+Convergence Behavior
 
-Anomalies:
-The grey fraction of 21.4% is within the passing threshold but is notably elevated for a cantilever problem at 100 iterations — well-resolved SIMP runs on this problem type typically achieve grey fractions below 10% by convergence. Combined with the non-convergence, this indicates the penalization (SIMP p-factor) may be insufficient to drive density toward binary values, or that the continuation schedule is too slow. The volume fraction landed precisely on target (0.496 vs. 0.500), which is correct behavior, but the large residual design change casts doubt on whether this is a stable equilibrium.
+The optimizer achieved a 77.6% compliance reduction over 70 iterations, converging monotonically with zero compliance-monotonicity violations. The final change of 0.0089 indicates the design field had largely stabilized, though it sits slightly above a tighter convergence threshold (typically 0.001–0.005), suggesting the solution is near but not fully at a local optimum.
 
-Physical Plausibility:
-The compliance reduction and density bounds are physically reasonable for a cantilever under SIMP. The result is not implausible, but it is premature — the topology is likely still in transition and does not yet represent a fully resolved load-path structure with clear load-bearing members.
+Engineering Anomalies
 
-Recommendation:
-Increase the maximum iteration count to at least 300 and implement or accelerate the penalty continuation schedule (e.g., ramp p from 1 to 3 over the first 60 iterations) to drive grey densities toward binary values earlier and allow the topology to stabilize before termination.
+The grey fraction of 0.321 (32.1%) is notable — while it passes the 0.60 threshold, it is elevated for a standard cantilever problem. Well-converged SIMP solutions for cantilevers typically exhibit grey fractions below 0.20. This level of intermediate density suggests either insufficient penalization, a penalty exponent (p) that is too low, or that the filter radius is smoothing boundaries excessively. The density upper bound of 1.0002 is a marginal numerical overshoot and warrants monitoring, though it is inconsequential at this magnitude.
+
+Physical Plausibility
+
+The result is physically plausible. A 77.6% compliance reduction with the volume fraction landing precisely at 0.500 is consistent with expected SIMP behavior for a cantilever under tip or distributed loading. The load path topology should reflect classic diagonal strut-and-tie or arch-like material distribution, which is the expected physical response.
+
+Recommendation
+
+Increase the SIMP penalty exponent (p) from its current value toward 4.0, or apply a continuation scheme ramping p from 1 to 4 over the first 40 iterations, to drive intermediate densities toward binary (0/1) solutions and reduce the grey fraction below 0.20 in the next run.

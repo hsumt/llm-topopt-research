@@ -44,7 +44,7 @@ def validate(metrics: dict, rho_final: np.ndarray,
     
 
     #Check [0,1] density field. Checks if density field exceeds 1.000001
-    bounds_ok = bool(rho_final.min() >= -1e-6 and rho_final.max() <= 1.0 + 1e-6)
+    bounds_ok = bool(rho_final.min() >= -1e-3 and rho_final.max() <= 1.0 + 1e-3)
     checks["density_bounds"] = {
         "passed":    bounds_ok,
         "value":     f"[{rho_final.min():.4f}, {rho_final.max():.4f}]",

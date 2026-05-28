@@ -198,60 +198,78 @@ def main_from_spec(spec):
         "r_min":   p["r_min"],
         "volfrac": p["volfrac"],
     }
+    x_design = np.full(n_cells, p["volfrac"])
+    rho_old  = x_design.copy()
 
-    for iteration in range(1, 101):
+    for iteration in range(1, 301):   # increase to 300
 
-        rho_tilde = apply_filter(rho_fn.x.array)
+        # 1. Physical density = filtered design variable
+        rho_tilde = apply_filter(x_design)
         rho_fn.x.array[:] = rho_tilde
 
-        uh         = solve_fea(domain, V, bcs, rho_fn, live_params["penal"], mu, lmbda, F_load)
-        compliance = compute_compliance(uh, F_load)
-        dc_drho    = compute_sensitivities(
-                         rho_tilde, uh, Q, live_params["penal"], mu, lmbda
-                     )
-        dc_drho_filtered = apply_sens_filter(dc_drho)
-
-        volfrac_actual = rho_fn.x.array.sum() / n_cells
-        g_val          = volfrac_actual - p["volfrac"]
-
-        rho_new = optimizer.update(
-            x     = rho_fn.x.array.copy(),
-            f0val = compliance,
-            df0dx = dc_drho_filtered,
-            fval  = g_val,
-            dfdx  = dg_drho,
+        # 2. FEA
+        uh = solve_fea(
+            domain, V, bcs, rho_fn,
+            live_params["penal"], mu, lmbda, F_load
         )
 
-        # ── CORRECT ORDER: compute change, THEN update rho_fn, THEN update rho_old
-        change  = float(np.max(np.abs(rho_new - rho_old)))
-        rho_fn.x.array[:] = rho_new
-        rho_old = rho_fn.x.array.copy()
+        # 3. Objective
+        compliance = compute_compliance(uh, F_load)
 
+        # 4. Sensitivities w.r.t. physical density
+        dc_drho = compute_sensitivities(
+            rho_tilde, uh, Q, live_params["penal"], mu, lmbda
+        )
+
+        # 5. Chain rule through filter back to design space
+        dc_drho_filtered = apply_sens_filter(dc_drho)
+
+        # 6. Volume constraint on design variable
+        volfrac_actual = x_design.sum() / n_cells
+        g_val = volfrac_actual - live_params["volfrac"]
+
+        # 7. MMA update on design variable
+        x_new = optimizer.update(
+            x=x_design.copy(),
+            f0val=compliance,
+            df0dx=dc_drho_filtered,
+            fval=g_val,
+            dfdx=dg_drho,
+        )
+
+        # 8. Change on design variable
+        change   = float(np.max(np.abs(x_new - x_design)))
+        x_design = x_new.copy()
+        rho_fn.x.array[:] = apply_filter(x_design)  # update for visualization
+
+        # 9. Metrics
         metrics["compliance_history"].append(float(compliance))
         metrics["volfrac_history"].append(float(volfrac_actual))
         metrics["change_history"].append(float(change))
         metrics["l2_change_history"].append(
-            float(np.linalg.norm(rho_new - rho_fn.x.array) / np.sqrt(n_cells))
+            float(np.linalg.norm(x_new - x_design) / np.sqrt(n_cells))
         )
         metrics["iteration"] = iteration
 
+        # 10. Steering agent
         if iteration % STEER_EVERY == 0:
             print(f"\n[SteeringAgent] Calling at iteration {iteration}...")
             live_params = steer_code(metrics, live_params)
-            # CHANGE: Rebuild filter jneeded for r_min change which is tough
-            penal = live_params["penal"]
             print(f"[SteeringAgent] Updated: {live_params}")
 
+        # 11. Report + save
         volfrac_report = rho_fn.x.array.sum() / n_cells
         print_iteration_report(iteration, compliance, volfrac_report, change)
-
         frame_paths.append(
-            save_frame(rho_fn, p["nelx"], p["nely"], iteration, compliance, out_dir, perm)
+            save_frame(rho_fn, p["nelx"], p["nely"],
+                       iteration, compliance, out_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
 
-        if change < 0.01 and iteration > 5:
+        # 12. Convergence
+        if change < 0.01 and iteration > 10:
             print(f"\nConverged at iteration {iteration}")
+            metrics["converged"] = True
             break
     save_gif(frame_paths, gif_path, fps=5)
     export_xdmf(p["nelx"], p["nely"], rho_history, perm, output_dir=OUT_DIR)
