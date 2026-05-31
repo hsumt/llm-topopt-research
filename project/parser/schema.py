@@ -1,4 +1,4 @@
-#schema.py
+# schema.py
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -8,26 +8,33 @@ class BoundaryCondition(BaseModel):
     dof: str
     value: float
 
+
 class Load(BaseModel):
     location: str
-    dof: str # x y z
-    value: float # force
+    dof: str
+    value: float
 
 
 class Material(BaseModel):
-    E: float # YM
-    nu: float # Poisson's
+    E: float
+    nu: float
+
 
 class MeshConfig(BaseModel):
-    nx: int # number of elements x
-    ny: int # number of elements y
-    nz: Optional[int] = None # number of elements in z for 3D
+    nx: int
+    ny: int
+    nz: Optional[int] = None
+    # ADDED: physical dimensions. If omitted, main_from_spec defaults to
+    # Lx = nx/ny (unit-height scaling), Ly = 1.0.
+    # Required for non-unit-aspect problems (MBB 3:1, Michell 6:1, etc.)
+    Lx: Optional[float] = None
+    Ly: Optional[float] = None
 
 
 class SIMPConfig(BaseModel):
-    penal: float # Penalization factor
-    vol_frac: float # VOLUME FRACTION
-    r_min: float # Minimum filter radius
+    penal: float
+    vol_frac: float
+    r_min: float
 
 
 class ProblemSpec(BaseModel):

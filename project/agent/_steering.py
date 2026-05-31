@@ -1,3 +1,6 @@
+"""
+_steering.py
+"""
 import json
 import anthropic
 import numpy as np
@@ -21,7 +24,7 @@ Rules:
 - If volfrac is drifting more than 0.05 from target, do not change volfrac. Other parts of the software handle this.
 - If optimization looks healthy, return the current values unchanged
 - Never set penal above 5.0 or below 1.5. If you're at 5.0 or at 1.5, put a lid on it.
-- Never set r_min below 0.01. Try to keep it at least 0.03.
+- Never change r_min's value. keep it constant.
 """
 
 def steer_code(metrics: dict, current_params: dict) -> dict:

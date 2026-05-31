@@ -8,7 +8,6 @@ from _02_FEA._assembly import build_weak_form
 
 def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
     a, L = build_weak_form(V, rho_fn, penal, mu, lmbda, F_load)
-
     # DOLFINx 0.10.0: petsc_options_prefix is required; keys in petsc_options
     # are unprefixed — PETSc prepends the prefix automatically.
     problem = LinearProblem(

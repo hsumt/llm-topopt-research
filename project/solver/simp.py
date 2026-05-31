@@ -123,7 +123,7 @@ def build_filter(Q, r_min: float):
     r = r_min / (2.0 * np.sqrt(3.0))
     
 def apply_filter(a_f, r, rho_fn, Q):
-    j
+    return a_f
 def compute_sensitivities(rho: np.ndarray, uh, domain, V, Q, penal: float, mu: float, lmbda: float) -> np.ndarray:
     strain_energy_expr = ufl.inner(sigma(uh, mu, lmbda), epsilon(uh)) # gives u_e^T * k0 * u_e per element
  
