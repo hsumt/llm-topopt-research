@@ -68,7 +68,99 @@ def save_gif(frame_paths: list, out_path: str, fps: int = 5):
     frames = [imageio.imread(p) for p in frame_paths]
     imageio.mimsave(out_path, frames, fps=fps)
 
+def save_summary_slide(
+    rho_history: list,
+    compliance_history: list,
+    volfrac_history: list,
+    change_history: list,
+    perm: np.ndarray,
+    nelx: int,
+    nely: int,
+    volfrac_target: float,
+    out_dir: str,
+    problem_name: str = "",
+):
+    """
+    Save a summary slide PNG with:
+      - Initial and final density fields
+      - Compliance over iterations (log scale)
+      - Volume fraction over iterations
+      - Change over iterations
+    """
+    os.makedirs(out_dir, exist_ok=True)
 
+    iters = np.arange(1, len(compliance_history) + 1)
+
+    rho_initial = rho_history[0][perm].reshape((nely, nelx))
+    rho_final   = rho_history[-1][perm].reshape((nely, nelx))
+
+    fig = plt.figure(figsize=(18, 10))
+    fig.suptitle(
+        f"Topology Optimization Summary  —  {problem_name}  |  "
+        f"{len(compliance_history)} iterations  |  "
+        f"Final C = {compliance_history[-1]:.6f}",
+        fontsize=13, fontweight="bold", y=0.98
+    )
+
+    gs = fig.add_gridspec(
+        3, 3,
+        hspace=0.45, wspace=0.35,
+        left=0.06, right=0.97,
+        top=0.92, bottom=0.07
+    )
+
+    # ── Row 0-1, Col 0: initial density ──────────────────────────────
+    ax_init = fig.add_subplot(gs[0:2, 0])
+    ax_init.imshow(1.0 - rho_initial, cmap="gray", vmin=0, vmax=1,
+                   origin="lower", interpolation="nearest")
+    ax_init.set_title("Initial density  (iter 1)", fontsize=9)
+    ax_init.axis("off")
+
+    # ── Row 0-1, Col 1-2: final density ──────────────────────────────
+    ax_final = fig.add_subplot(gs[0:2, 1:])
+    ax_final.imshow(1.0 - rho_final, cmap="gray", vmin=0, vmax=1,
+                    origin="lower", interpolation="nearest")
+    ax_final.set_title(f"Final density  (iter {len(rho_history)})", fontsize=9)
+    ax_final.axis("off")
+
+    # ── Row 2, Col 0: compliance ──────────────────────────────────────
+    ax_c = fig.add_subplot(gs[2, 0])
+    ax_c.semilogy(iters, compliance_history, color="#2563eb", linewidth=1.5)
+    ax_c.set_xlabel("Iteration", fontsize=8)
+    ax_c.set_ylabel("Compliance (log)", fontsize=8)
+    ax_c.set_title("Compliance", fontsize=9)
+    ax_c.tick_params(labelsize=7)
+    ax_c.grid(True, which="both", alpha=0.3)
+
+    # ── Row 2, Col 1: volume fraction ─────────────────────────────────
+    ax_v = fig.add_subplot(gs[2, 1])
+    ax_v.plot(iters, volfrac_history, color="#16a34a", linewidth=1.5)
+    ax_v.axhline(volfrac_target, color="red", linestyle="--",
+                 linewidth=1.0, label=f"Target {volfrac_target}")
+    ax_v.set_xlabel("Iteration", fontsize=8)
+    ax_v.set_ylabel("Volume fraction", fontsize=8)
+    ax_v.set_title("Volume Fraction", fontsize=9)
+    ax_v.legend(fontsize=7)
+    ax_v.tick_params(labelsize=7)
+    ax_v.grid(True, alpha=0.3)
+
+    # ── Row 2, Col 2: change ──────────────────────────────────────────
+    ax_ch = fig.add_subplot(gs[2, 2])
+    ax_ch.plot(iters, change_history, color="#9333ea", linewidth=1.5)
+    ax_ch.axhline(0.01, color="red", linestyle="--",
+                  linewidth=1.0, label="Tolerance 0.01")
+    ax_ch.set_xlabel("Iteration", fontsize=8)
+    ax_ch.set_ylabel("Max density change", fontsize=8)
+    ax_ch.set_title("Convergence (Change)", fontsize=9)
+    ax_ch.legend(fontsize=7)
+    ax_ch.tick_params(labelsize=7)
+    ax_ch.grid(True, alpha=0.3)
+
+    out_path = os.path.join(out_dir, "summary.png")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Summary slide saved → {out_path}")
+    return out_path
 def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray, output_dir: str = "_05_OUT"):
     """
     Export density history to XDMF + HDF5 for ParaView animation.
