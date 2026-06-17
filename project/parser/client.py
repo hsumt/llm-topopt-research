@@ -15,7 +15,7 @@ client = Anthropic(api_key=api_key)
 
 def parse_problem(prompt: str) -> ProblemSpec:
     response = client.messages.create(
-        model="claude-sonnet-4-20250514", 
+        model="claude-sonnet-4-6", 
         max_tokens=500, # Replaced max_tokens_to_sample (deprecated)
         system=SYSTEM_PROMPT, # Anthropic handles system prompts at the top level
         messages=[

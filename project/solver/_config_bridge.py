@@ -173,16 +173,18 @@ def extract_simp_params(spec) -> dict:
     Ly = float(spec.mesh.Ly) if spec.mesh.Ly is not None else 1.0
 
     # r_min element units → meters
-    r_min_meters = spec.simp.r_min * (Lx / nelx)
+    # r_min_meters = spec.simp.r_min * (Lx / nelx)
 
     return {
         "penal":   spec.simp.penal,
         "volfrac": spec.simp.vol_frac,
-        "r_min":   r_min_meters,
+        "r_min":   spec.simp.r_min,
         "E":       spec.material.E,
         "nu":      spec.material.nu,
         "nelx":    nelx,
         "nely":    nely,
-        "Lx":      Lx,   # ADDED: returned so main_from_spec doesn't recompute
-        "Ly":      Ly,   # ADDED
+        "Lx":      Lx,
+        "Ly":      Ly,
+        "max_iter": getattr(spec.simp, "max_iter", 200),
+        "tol_change": getattr(spec.simp, "tol_change", 0.01),
     }

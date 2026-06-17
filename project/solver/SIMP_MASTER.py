@@ -2,35 +2,6 @@
 SIMP_MASTER.py
 Master execute controller.
 
-CHANGED (Bug #1): main() — introduced x_design as a separate array distinct
-  from rho_fn.x.array. Previously, apply_filter() overwrote rho_fn.x.array
-  (the design variable) with the filtered physical density. MMA then received
-  the filtered density as its design input, corrupting sensitivities and update
-  steps. x_design is now the canonical design variable; rho_fn holds only the
-  filtered physical density used by FEA and visualization.
-
-CHANGED (Bug #2): main_from_spec() step 9 — l2_change_history was computed
-  AFTER x_design = x_new.copy(), making x_new - x_design identically zero.
-  Moved computation to BEFORE the update.
-
-CHANGED (Bug #7): removed redundant metrics["converged"] assignment after loop.
-
-CHANGED (Bug #8): _run_main() convergence — restored dual criterion (compliance
-  plateau OR inf-norm change) that was present in the original main() but
-  accidentally dropped during the Task 1.2/1.3 refactor. Without the compliance
-  plateau check, MMA limit-cycling kept change > tol_change indefinitely,
-  causing the loop to run to max_iter even when the physics had converged.
-
-CHANGED (Task 1.1): build_load updated to center-right load, not tip load.
-
-CHANGED (Task 1.2 / 1.3): main() now supports three hardcoded benchmark cases:
-  CASE = "cantilever"  — Sigmund (2001), center-right load, fully clamped left
-  CASE = "mbb"         — Sigmund (2001), half-symmetry, top-left point load
-  CASE = "michell"     — Michell (1904) / Bendsoe & Sigmund (2003), two pin
-                         supports at bottom corners, center-top point load
-
-  To switch cases: comment/uncomment the single CASE = "..." line below.
-  All physics parameters are set per-case inside _run_main().
 """
 
 import os
@@ -54,9 +25,9 @@ from _04_PPRCS.postprocess   import (save_frame, save_gif,
                                      export_xdmf, print_iteration_report,
                                      build_cell_perm)
 
-# from agent._steering import steer_code
-# from agent._physics  import validate
-# from agent._critic   import criticize
+from agent._steering import steer_code
+from agent._physics  import validate
+from agent._critic   import criticize
 
 
 # ---------------------------------------------------------------------------
@@ -64,15 +35,9 @@ from _04_PPRCS.postprocess   import (save_frame, save_gif,
 # Comment out two, leave one active. Ctrl+/ toggles a line.
 # ---------------------------------------------------------------------------
 # CASE = "cantilever"
-# CASE = "mbb"
+CASE = "mbb"
 # DO NOT USE: CASE = "michell"
 
-
-# ---------------------------------------------------------------------------
-# Per-case physics parameters
-# ---------------------------------------------------------------------------
-# All values are standard literature benchmarks.
-# Changing these without a literature reference requires advisor approval.
 #
 # nelx, nely : mesh resolution (elements)
 # Lx, Ly     : domain dimensions
@@ -369,9 +334,11 @@ def main_from_spec(spec):
     )
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    OUT_DIR  = os.path.join(BASE_DIR, "_05_OUT")
+    OUT_DIR  = os.path.join(BASE_DIR, "_05_OUT", "spec")
     out_dir  = os.path.join(OUT_DIR, "frames")
     gif_path = os.path.join(OUT_DIR, "optimization.gif")
+
+    os.makedirs(out_dir, exist_ok=True)
 
     p  = extract_simp_params(spec)
     Lx = p["Lx"]

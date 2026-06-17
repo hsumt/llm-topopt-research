@@ -75,7 +75,21 @@ def validate(metrics: dict, rho_final: np.ndarray,
             f"Excessive grey elements ({grey_fraction:.1%}) — "
             f"filter may be ineffective or penal too low"
         )
-    # Check for structural connectivity [to do]
+
+
+    #     mid_grey_fraction = float(np.mean((rho_final > 0.25) & (rho_final < 0.75)))
+    # grey_ok = mid_grey_fraction < 0.35
+    # checks["grey_fraction"] = {
+    #     "passed":    grey_ok,
+    #     "value":     round(mid_grey_fraction, 4),
+    #     "threshold": "< 0.35 for 0.25 < rho < 0.75"
+    # }
+    # if not grey_ok:
+    #     reasons.append(
+    #         f"Excessive grey elements ({mid_grey_fraction:.1%}) — "
+    #         f"filter may be ineffective or penal too low"
+    #     )
+    # # Check for structural connectivity [to do]
     # conn = _check_connectivity(rho_final, nelx, nely)
     # checks["structural_connectivity"] = conn
     # if not conn["passed"]:

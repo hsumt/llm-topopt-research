@@ -17,7 +17,7 @@ Valid load/BC location strings:
 ───────────────────────────────────────────────────────────────
 EXAMPLE 1 — Cantilever, tip load (Sigmund 2001 benchmark)
 ───────────────────────────────────────────────────────────────
-Input: "Cantilever beam, fixed left edge, 1N downward at right tip, mesh 60x20, vol_frac 0.5"
+Input: "Cantilever beam, fixed left edge, 1N downward at right tip, mesh 60x20, vol_frac 0.5, max 200 optimization iterations, convergence tolerance 0.01"
 Output:
 {
   "name": "Cantilever Beam",
@@ -28,7 +28,7 @@ Output:
     {"location": "left_edge", "dof": "x", "value": 0.0},
     {"location": "left_edge", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 200, "tol_change": 0.01}
 }
 
 RULE: A cantilever ALWAYS requires BOTH x and y fixed at the support edge.
@@ -37,7 +37,7 @@ RULE: A cantilever ALWAYS requires BOTH x and y fixed at the support edge.
 ───────────────────────────────────────────────────────────────
 EXAMPLE 2 — Cantilever, center load (task 1.1)
 ───────────────────────────────────────────────────────────────
-Input: "Cantilever beam, fixed left edge, downward load at center of right edge, mesh 60x20, vol_frac 0.4"
+Input: "Cantilever beam, fixed left edge, downward load at center of right edge, mesh 60x20, vol_frac 0.4, max 300 optimization iterations, convergence tolerance 0.03"
 Output:
 {
   "name": "Cantilever Beam Center Load",
@@ -48,7 +48,7 @@ Output:
     {"location": "left_edge", "dof": "x", "value": 0.0},
     {"location": "left_edge", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 1.5}
+  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 1.5, "max_iter": 300, "tol_change": 0.03}
 }
 
 ───────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ Reference setup:
   Half model: domain [0,L]×[0,H], symmetry at left (fix x), roller at bottom-right (fix y),
               load at top-left (= midpoint of full beam top edge).
 
-Input: "MBB beam, half symmetry, aspect ratio 3:1, mesh 60x20, vol_frac 0.5"
+Input: "MBB beam, half symmetry, aspect ratio 3:1, mesh 60x20, vol_frac 0.5, max 200 optimization iterations, convergence tolerance 0.05"
 Output:
 {
   "name": "MBB Beam",
@@ -70,7 +70,7 @@ Output:
     {"location": "left_edge",    "dof": "x", "value": 0.0},
     {"location": "bottom_right", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 200, "tol_change": 0.05}
 }
 
 Note: left_edge fixes ONLY x (symmetry). Do NOT add a y BC at left_edge for MBB.
@@ -84,7 +84,7 @@ Reference: Michell, A.G.M. (1904). "The limits of economy of material in frame s
 Setup: span L × height H, center point load at top, roller supports at bottom corners.
        Left support also fixes x to prevent horizontal rigid-body motion.
 
-Input: "Simply supported beam, center top load, pinned bottom corners, mesh 60x20, vol_frac 0.5"
+Input: "Simply supported beam, center top load, pinned bottom corners, mesh 60x20, vol_frac 0.5, max 400 optimization iterations, convergence tolerance 0.01"
 Output:
 {
   "name": "Simply Supported Beam",
@@ -96,7 +96,7 @@ Output:
     {"location": "bottom_left",  "dof": "y", "value": 0.0},
     {"location": "bottom_right", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 400, "tol_change": 0.01}
 }
 
 ───────────────────────────────────────────────────────────────

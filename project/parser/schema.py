@@ -35,6 +35,8 @@ class SIMPConfig(BaseModel):
     penal: float
     vol_frac: float
     r_min: float
+    max_iter: int 
+    tol_change: float 
 
 
 class ProblemSpec(BaseModel):
