@@ -64,8 +64,8 @@ from _04_PPRCS.postprocess   import (save_frame, save_gif,
 # Comment out two, leave one active. Ctrl+/ toggles a line.
 # ---------------------------------------------------------------------------
 # CASE = "cantilever"
-CASE = "mbb"
-# CASE = "michell"
+# CASE = "mbb"
+# DO NOT USE: CASE = "michell"
 
 
 # ---------------------------------------------------------------------------
@@ -110,31 +110,34 @@ CASE_PARAMS = {
         "nely":       40,
         "Lx":         3.0,
         "Ly":         1.0,
-        "volfrac":    0.5,
-        "penal":      1.0,
+        "volfrac":    0.4,
+        "penal":      3.0,
         "r_min":      0.06,
         "max_iter":   400,
         "tol_change": 0.01,
         "E":          1.0,
         "nu":         0.3,
     },
-    "michell": {
-        # Michell (1904), Phil. Mag. 8(47):589-597
-        # Reconstructed benchmark: Bendsoe & Sigmund (2003), Chapter 1
-        # Square domain; two pin supports at bottom corners; center-top load.
-        # Analytical solution is the Michell truss — two symmetric fan regions.
-        "nelx":       80,
-        "nely":       80,
-        "Lx":         2.0,
-        "Ly":         2.0,
-        "volfrac":    0.3,
-        "penal":      3.0,
-        "r_min":      0.08,
-        "max_iter":   300,
-        "tol_change": 0.01,
-        "E":          1.0,
-        "nu":         0.3,
-    },
+    # FORCE-PARKED 
+    # Status: stable but not matching expected reference fan toplogy. requires reformulation and literature investigation.
+    # 
+    # "michell": {
+    #     # Michell (1904), Phil. Mag. 8(47):589-597
+    #     # Reconstructed benchmark: Bendsoe & Sigmund (2003), Chapter 1
+    #     # Square domain; two pin supports at bottom corners; center-top load.
+    #     # Analytical solution is the Michell truss — two symmetric fan regions.
+    #     "nelx":       200,
+    #     "nely":       200,
+    #     "Lx":         2.0,
+    #     "Ly":         2.0,
+    #     "volfrac":    0.12,
+    #     "penal":      3.0,
+    #     "r_min":      0.015,
+    #     "max_iter":   300,
+    #     "tol_change": 0.01,
+    #     "E":          1.0,
+    #     "nu":         0.3,
+    # },
 }
 
 
@@ -241,7 +244,7 @@ def _run_main(case: str):
     rho_fn.name = "density"
 
     apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(domain, Q, r_min)
-    optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0)
+    optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0, move=0.2)
     dg_drho     = np.ones(n_cells) / n_cells   # dg/dx_e = 1/n for volume constraint
 
     # ------------------------------------------------------------------
@@ -278,6 +281,7 @@ def _run_main(case: str):
         # H is self-adjoint → applying filter to sensitivity is exact chain rule.
         # (Lazarov & Sigmund 2016, Section 2.3)
         dc_drho_filtered = apply_sens_filter(dc_drho)
+        # dc_drho_filtered = apply_filter(dc_drho)
 
         # Volume constraint: g = (Σ x_e / n) − V* ≤ 0
         volfrac_actual = x_design.sum() / n_cells
@@ -306,12 +310,12 @@ def _run_main(case: str):
             save_frame(rho_fn, nelx, nely, iteration, compliance, out_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
-        if iteration == 50:
-            penal = min(penal + 1.0, 3.0)
-            print(f"  [Continuation] penal → {penal:.1f}")
-        if iteration == 100:
-            penal = min(penal + 1.0, 3.0)
-            print(f"  [Continuation] penal → {penal:.1f}")
+        # if iteration == 50:
+        #     penal = min(penal + 1.0, 3.0)
+        #     print(f"  [Continuation] penal → {penal:.1f}")
+        # if iteration == 100:
+        #     penal = min(penal + 1.0, 3.0)
+        #     print(f"  [Continuation] penal → {penal:.1f}")
 
         # Convergence check 1: compliance plateau.
         # Relative drop in compliance over the last 5 iterations < 1e-4.
@@ -319,17 +323,17 @@ def _run_main(case: str):
         # cycling — which it does near the optimum (limit cycling).
         # Without this check, the loop runs to max_iter unnecessarily.
         # Reference: standard practice; see Sigmund (2001), Section 2 notes.
-        compliance_converged = False
-        if iteration > 15 and len(compliance_history) >= 6:
-            recent_drop = (abs(compliance_history[-1] - compliance_history[-6]) /
-                           (abs(compliance_history[-1]) + 1e-12))
-            compliance_converged = recent_drop < 1e-5
+        design_converged = change < tol_change
 
-        # Convergence check 2: inf-norm change on design variable.
-        # Both checks guard against premature exit with iteration > 10.
-        # The 'or' means whichever criterion fires first terminates the loop.
-        if (change < tol_change or compliance_converged) and iteration > 10:
-            reason = "change" if change < tol_change else "compliance plateau"
+        compliance_converged = False
+        if iteration > 30 and len(compliance_history) >= 21:
+            recent_drop = abs(compliance_history[-1] - compliance_history[-21]) / (
+                abs(compliance_history[-1]) + 1e-12
+            )
+            compliance_converged = recent_drop < 5e-4
+
+        if iteration > 80 and (design_converged or compliance_converged):
+            reason = "design change" if design_converged else "compliance plateau"
             print(f"\nConverged at iteration {iteration} ({reason})")
             break
 
@@ -388,7 +392,7 @@ def main_from_spec(spec):
     rho_fn.name = "density"
 
     apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(domain, Q, p["r_min"])
-    optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0)
+    optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0, move = 0.2)
     dg_drho     = np.ones(n_cells) / n_cells
 
     metrics = {
@@ -418,7 +422,7 @@ def main_from_spec(spec):
     print(f"F_load max: {F_load.x.array.max():.6f}, min: {F_load.x.array.min():.6f}")
     print("=================\n")
 
-    for iteration in range(1, 301):
+    for iteration in range(1, p["max_iter"] +1):
 
         rho_tilde = np.clip(apply_filter(x_design), 1e-3, 1.0)
         rho_fn.x.array[:] = rho_tilde
@@ -469,9 +473,20 @@ def main_from_spec(spec):
         )
         rho_history.append(rho_fn.x.array.copy())
 
-        TOL_CHANGE = 0.005
-        if change < TOL_CHANGE and iteration > 10:
-            print(f"\nConverged at iteration {iteration} (change = {change:.6f})")
+        tol_change = p.get("tol_change", 0.01)
+
+        design_converged = change < tol_change
+
+        compliance_converged = False
+        if iteration > 30 and len(metrics["compliance_history"]) >= 21:
+            recent_drop = abs(
+                metrics["compliance_history"][-1] - metrics["compliance_history"][-21]
+            ) / (abs(metrics["compliance_history"][-1]) + 1e-12)
+            compliance_converged = recent_drop < 5e-4
+
+        if iteration > 80 and (design_converged or compliance_converged):
+            reason = "design change" if design_converged else "compliance plateau"
+            print(f"\nConverged at iteration {iteration} ({reason})")
             metrics["converged"] = True
             break
 

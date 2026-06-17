@@ -19,10 +19,11 @@ from _03_OPTMZER._mma import mmasub  # Deetman's canonical implementation
 class MMAOptimizer:
 
     def __init__(self, n: int, m: int = 1,
-                 x_min: float = 1e-3, x_max: float = 1.0):
+                 x_min: float = 1e-3, x_max: float = 1.0, move: float = 0.05):
         self.n    = n
         self.m    = m
         self.iter = 0
+        self.move = move
 
         self.xmin = x_min * np.ones((n, 1))
         self.xmax = x_max * np.ones((n, 1))
@@ -63,7 +64,8 @@ class MMAOptimizer:
             f0val, df0,
             fv, dfdx_,
             self.low, self.upp,
-            self.a0, self.a, self.c, self.d
+            self.a0, self.a, self.c, self.d,
+            move = self.move
         )
 
         # Shift history

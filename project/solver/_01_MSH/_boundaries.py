@@ -235,47 +235,43 @@ def build_load_mbb(V, domain, Lx: float, Ly: float, nely: int):
 # ---------------------------------------------------------------------------
 
 def build_bcs_michell(V, domain, Lx: float, Ly: float):
-    """
-    Michell arch: pin supports at bottom-left (0,0) and bottom-right (Lx,0).
-
-    Uses collapsed-subspace locate_dofs_geometrical — same reason as
-    build_bcs_mbb (see module docstring Bug #9).
-
-    Default argument (cx=corner_x) in the inner function prevents Python
-    late-binding: without it both loop iterations capture the final value
-    of corner_x (Lx), missing the bottom-left corner entirely.
-
-    Reference: Michell (1904); Bendsoe & Sigmund (2003), Chapter 1.
-    """
     tol = 1e-10
+    tol_x = (Lx / 200) * 0.6  # ideally pass nelx instead of hardcoding 200
+    cx = Lx / 2.0
 
     V_x, _ = V.sub(0).collapse()
     V_y, _ = V.sub(1).collapse()
 
-    bcs = []
-    for corner_x in [0.0, Lx]:
-        def at_corner(x, cx=corner_x):
-            return np.logical_and(
-                np.isclose(x[0], cx,  atol=tol),
-                np.isclose(x[1], 0.0, atol=tol)
-            )
+    def bottom_left(x):
+        return np.logical_and(
+            np.isclose(x[0], 0.0, atol=tol),
+            np.isclose(x[1], 0.0, atol=tol)
+        )
 
-        dofs_x      = fem.locate_dofs_geometrical((V.sub(0), V_x), at_corner)
-        dofs_y      = fem.locate_dofs_geometrical((V.sub(1), V_y), at_corner)
-        parent_x    = dofs_x[0]
-        parent_y    = dofs_y[0]
+    def bottom_right(x):
+        return np.logical_and(
+            np.isclose(x[0], Lx, atol=tol),
+            np.isclose(x[1], 0.0, atol=tol)
+        )
 
-        if len(parent_x) == 0 or len(parent_y) == 0:
-            raise RuntimeError(
-                f"build_bcs_michell: corner at x={corner_x} found "
-                f"{len(parent_x)} u_x DOFs and {len(parent_y)} u_y DOFs. "
-                f"Expected 1 each."
-            )
+    def bottom_center(x):
+        return np.logical_and(
+            np.isclose(x[0], cx, atol=tol_x),
+            np.isclose(x[1], 0.0, atol=tol)
+        )
 
-        bcs.append(fem.dirichletbc(PETSc.ScalarType(0.0), parent_x, V.sub(0)))
-        bcs.append(fem.dirichletbc(PETSc.ScalarType(0.0), parent_y, V.sub(1)))
+    dofs_bl_x = fem.locate_dofs_geometrical((V.sub(0), V_x), bottom_left)[0]
+    dofs_bl_y = fem.locate_dofs_geometrical((V.sub(1), V_y), bottom_left)[0]
+    dofs_br_x = fem.locate_dofs_geometrical((V.sub(0), V_x), bottom_right)[0]  # was missing
+    dofs_br_y = fem.locate_dofs_geometrical((V.sub(1), V_y), bottom_right)[0]
+    # dofs_bc_y — remove entirely
 
-    return bcs   # 4 BCs: [u_x@BL, u_y@BL, u_x@BR, u_y@BR]
+    return [
+        fem.dirichletbc(PETSc.ScalarType(0.0), dofs_bl_x, V.sub(0)),
+        fem.dirichletbc(PETSc.ScalarType(0.0), dofs_bl_y, V.sub(1)),
+        fem.dirichletbc(PETSc.ScalarType(0.0), dofs_br_x, V.sub(0)),  # was missing
+        fem.dirichletbc(PETSc.ScalarType(0.0), dofs_br_y, V.sub(1)),
+    ]
 
 
 def build_load_michell(V, domain, Lx: float, Ly: float, nelx: int, nely: int):

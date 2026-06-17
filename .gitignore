@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 venv/
 env/
+solver/_05_OUT/
+*.gif
+*.xdmf
+*.h5

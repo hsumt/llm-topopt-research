@@ -30,7 +30,8 @@ def build_helmholtz_filter_CG1(domain, Q, r_min: float):
       r²(∇ρ̃ · n) = 0 on ∂Ω 
       Lazarov & Sigmund (2006), Section 2.1.
     """
-    r_pde = r_min / (2.0 * np.sqrt(3.0))
+    # r_pde = r_min / (2.0 * np.sqrt(3.0))
+    r_pde = r_min
 
     V_cg = fem.functionspace(domain, ("Lagrange", 1))
 
