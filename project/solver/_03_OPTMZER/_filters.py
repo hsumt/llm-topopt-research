@@ -17,6 +17,23 @@ import ufl
 from dolfinx import fem
 from petsc4py import PETSc
 
+# def r_min_elements_to_physical(r_min_elements, Lx, Ly, nelx, nely):
+#     dx = float(Lx) / float(nelx)
+#     dy = float(Ly) / float(nely)
+#     return float(r_min_elements) * min(dx, dy)
+
+
+def heaviside_projection(rho_tilde, beta, eta=0.5):
+    denom = np.tanh(beta * eta) + np.tanh(beta * (1.0 - eta))
+    return (
+        np.tanh(beta * eta) + np.tanh(beta * (rho_tilde - eta))
+    ) / denom
+
+
+def heaviside_projection_derivative(rho_tilde, beta, eta=0.5):
+    denom = np.tanh(beta * eta) + np.tanh(beta * (1.0 - eta))
+    sech2 = 1.0 / np.cosh(beta * (rho_tilde - eta))**2
+    return beta * sech2 / denom
 
 def build_helmholtz_filter_CG1(domain, Q, r_min: float):
     """
@@ -31,7 +48,7 @@ def build_helmholtz_filter_CG1(domain, Q, r_min: float):
       Lazarov & Sigmund (2006), Section 2.1.
     """
     # r_pde = r_min / (2.0 * np.sqrt(3.0))
-    r_pde = r_min
+    r_pde = float(r_min)
 
     V_cg = fem.functionspace(domain, ("Lagrange", 1))
 

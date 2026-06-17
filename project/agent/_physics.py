@@ -63,32 +63,32 @@ def validate(metrics: dict, rho_final: np.ndarray,
     # Proxy: fraction of elements that are "grey" (0.1 < rho < 0.9)
     # A well-converged SIMP result should be mostly 0/1 with some grey
     # at boundaries. If >60% grey the filter is definitely not working and we can immediately send it back.
-    grey_fraction = float(np.mean((rho_final > 0.1) & (rho_final < 0.9)))
-    grey_ok = grey_fraction < 0.6
-    checks["grey_fraction"] = {
-        "passed":    grey_ok,
-        "value":     round(grey_fraction, 4),
-        "threshold": "< 0.60"
-    }
-    if not grey_ok:
-        reasons.append(
-            f"Excessive grey elements ({grey_fraction:.1%}) — "
-            f"filter may be ineffective or penal too low"
-        )
-
-
-    #     mid_grey_fraction = float(np.mean((rho_final > 0.25) & (rho_final < 0.75)))
-    # grey_ok = mid_grey_fraction < 0.35
+    # grey_fraction = float(np.mean((rho_final > 0.1) & (rho_final < 0.9)))
+    # grey_ok = grey_fraction < 0.6
     # checks["grey_fraction"] = {
     #     "passed":    grey_ok,
-    #     "value":     round(mid_grey_fraction, 4),
-    #     "threshold": "< 0.35 for 0.25 < rho < 0.75"
+    #     "value":     round(grey_fraction, 4),
+    #     "threshold": "< 0.60"
     # }
     # if not grey_ok:
     #     reasons.append(
-    #         f"Excessive grey elements ({mid_grey_fraction:.1%}) — "
+    #         f"Excessive grey elements ({grey_fraction:.1%}) — "
     #         f"filter may be ineffective or penal too low"
     #     )
+
+
+    mid_grey_fraction = float(np.mean((rho_final > 0.25) & (rho_final < 0.75)))
+    grey_ok = mid_grey_fraction < 0.35
+    checks["grey_fraction"] = {
+        "passed":    grey_ok,
+        "value":     round(mid_grey_fraction, 4),
+        "threshold": "< 0.35 for 0.25 < rho < 0.75"
+    }
+    if not grey_ok:
+        reasons.append(
+            f"Excessive grey elements ({mid_grey_fraction:.1%}) — "
+            f"filter may be ineffective or penal too low"
+        )
     # # Check for structural connectivity [to do]
     # conn = _check_connectivity(rho_final, nelx, nely)
     # checks["structural_connectivity"] = conn

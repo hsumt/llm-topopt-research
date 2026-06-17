@@ -277,3 +277,25 @@ def print_iteration_report(iteration: int, compliance: float,
         f"Vol = {volfrac_actual:.4f} | "
         f"Change = {change:.6f}"
     )
+def save_final_density(rho_fn, nelx, nely, out_dir, perm):
+    os.makedirs(out_dir, exist_ok=True)
+    rho = rho_fn.x.array.copy()
+    rho_grid = rho[perm].reshape((nely, nelx))
+
+    fig, ax = plt.subplots(figsize=(nelx / 20, nely / 20), dpi=150)
+    ax.imshow(
+        1.0 - rho_grid,
+        cmap="gray",
+        vmin=0.0,
+        vmax=1.0,
+        origin="lower",
+        interpolation="nearest"
+    )
+    ax.set_title("Final density")
+    ax.axis("off")
+    plt.tight_layout(pad=0.1)
+
+    path = os.path.join(out_dir, "final_density.png")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return path

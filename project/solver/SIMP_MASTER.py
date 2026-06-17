@@ -17,7 +17,12 @@ from _01_MSH._domain         import get_lame_parameters
 from _02_FEA._functionspaces import build_spaces
 from _02_FEA._solver         import solve_fea
 
-from _03_OPTMZER._filters    import build_helmholtz_filter_CG1
+from _03_OPTMZER._filters import (
+    build_helmholtz_filter_CG1,
+    # r_min_elements_to_physical,
+    heaviside_projection,
+    heaviside_projection_derivative,
+)
 from _03_OPTMZER._objective  import compute_compliance, compute_sensitivities
 from _03_OPTMZER._MMAupdate  import MMAOptimizer
 
@@ -25,7 +30,7 @@ from _04_PPRCS.postprocess   import (save_frame, save_gif,
                                      export_xdmf, print_iteration_report,
                                      build_cell_perm)
 
-from agent._steering import steer_code
+# from agent._steering import steer_code Unused.
 from agent._physics  import validate
 from agent._critic   import criticize
 
@@ -34,8 +39,8 @@ from agent._critic   import criticize
 # SELECT BENCHMARK CASE
 # Comment out two, leave one active. Ctrl+/ toggles a line.
 # ---------------------------------------------------------------------------
-# CASE = "cantilever"
-CASE = "mbb"
+CASE = "cantilever"
+# CASE = "mbb"
 # DO NOT USE: CASE = "michell"
 
 #
@@ -208,7 +213,14 @@ def _run_main(case: str):
     rho_fn      = fem.Function(Q)
     rho_fn.name = "density"
 
-    apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(domain, Q, r_min)
+    r_min_phys = float(r_min)
+    print(f"r_min={r_min_phys:.6g} physical units")
+
+    apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(domain, Q, r_min_phys)
+
+    beta = 1.0
+    beta_schedule = {50: 2.0, 100: 4.0, 150: 8.0, 200: 16.0}
+    eta = 0.5
     optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0, move=0.2)
     dg_drho     = np.ones(n_cells) / n_cells   # dg/dx_e = 1/n for volume constraint
 
@@ -230,35 +242,36 @@ def _run_main(case: str):
         # Clip to [1e-3, 1.0]: lower bound prevents singular K (void = soft,
         # not zero stiffness). Upper bound is physical material limit.
         rho_tilde = np.clip(apply_filter(x_design), 1e-3, 1.0)
-        rho_fn.x.array[:] = rho_tilde
+        rho_phys = np.clip(heaviside_projection(rho_tilde, beta, eta), 1e-3, 1.0)
+        rho_fn.x.array[:] = rho_phys
 
-        # FEA: solve K(ρ̃) u = F
         uh = solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load)
 
-        # Compliance: C = F^T u  (Sigmund 2001, Eq. 1)
         compliance = compute_compliance(uh, F_load)
         compliance_history.append(float(compliance))
 
-        # Sensitivities dC/dρ̃_e (Sigmund 2001, Eq. 5)
-        dc_drho = compute_sensitivities(rho_tilde, uh, Q, penal, mu, lmbda)
+        dc_drho_phys = compute_sensitivities(rho_phys, uh, Q, penal, mu, lmbda)
 
-        # Chain rule through Helmholtz filter: dC/dx = H^T(dC/dρ̃) = H(dC/dρ̃)
-        # H is self-adjoint → applying filter to sensitivity is exact chain rule.
-        # (Lazarov & Sigmund 2016, Section 2.3)
-        dc_drho_filtered = apply_sens_filter(dc_drho)
-        # dc_drho_filtered = apply_filter(dc_drho)
+        dproj = heaviside_projection_derivative(rho_tilde, beta, eta)
 
-        # Volume constraint: g = (Σ x_e / n) − V* ≤ 0
-        volfrac_actual = x_design.sum() / n_cells
-        g_val          = volfrac_actual - volfrac
+        # objective chain rule:
+        # x_design -> filter -> rho_tilde -> projection -> rho_phys -> compliance
+        dc_dx = apply_sens_filter(dc_drho_phys * dproj)
 
-        # MMA update on design variable only
+        # volume constraint must match physical projected density
+        volfrac_actual = rho_phys.sum() / n_cells
+        g_val = volfrac_actual - volfrac
+
+        # volume chain rule:
+        # x_design -> filter -> projection -> mean(rho_phys)
+        dg_dx = apply_sens_filter(np.ones(n_cells) * dproj / n_cells)
+
         x_new = optimizer.update(
-            x     = x_design.copy(),
-            f0val = compliance,
-            df0dx = dc_drho_filtered,
-            fval  = g_val,
-            dfdx  = dg_drho,
+            x=x_design.copy(),
+            f0val=compliance,
+            df0dx=dc_dx,
+            fval=g_val,
+            dfdx=dg_dx,
         )
 
         # Compute change BEFORE committing update (Bug #2 fix)
@@ -266,7 +279,8 @@ def _run_main(case: str):
         x_design = x_new.copy()
 
         # Re-filter for visualization (so saved frame reflects updated design)
-        rho_fn.x.array[:] = np.clip(apply_filter(x_design), 1e-3, 1.0)
+        rho_tilde = np.clip(apply_filter(x_design), 1e-3, 1.0)
+        rho_fn.x.array[:] = np.clip(heaviside_projection(rho_tilde, beta, eta), 1e-3, 1.0)
 
         volfrac_report = rho_fn.x.array.sum() / n_cells
         print_iteration_report(iteration, compliance, volfrac_report, change)
@@ -281,7 +295,9 @@ def _run_main(case: str):
         # if iteration == 100:
         #     penal = min(penal + 1.0, 3.0)
         #     print(f"  [Continuation] penal → {penal:.1f}")
-
+        if iteration in beta_schedule:
+            beta = beta_schedule[iteration]
+            print(f"  [Projection continuation] beta -> {beta:.1f}")
         # Convergence check 1: compliance plateau.
         # Relative drop in compliance over the last 5 iterations < 1e-4.
         # This fires when the physics has converged even if MMA is still
@@ -289,7 +305,7 @@ def _run_main(case: str):
         # Without this check, the loop runs to max_iter unnecessarily.
         # Reference: standard practice; see Sigmund (2001), Section 2 notes.
         design_converged = change < tol_change
-
+        
         compliance_converged = False
         if iteration > 30 and len(compliance_history) >= 21:
             recent_drop = abs(compliance_history[-1] - compliance_history[-21]) / (
@@ -322,7 +338,7 @@ def main():
     _run_main(CASE)
 
 
-def main_from_spec(spec):
+def main_from_spec(spec, parser_usage=None):
     """
     Entry point driven by the parser agent.
     Accepts a ProblemSpec Pydantic object, runs the full SIMP loop with agents.
@@ -337,8 +353,13 @@ def main_from_spec(spec):
     OUT_DIR  = os.path.join(BASE_DIR, "_05_OUT", "spec")
     out_dir  = os.path.join(OUT_DIR, "frames")
     gif_path = os.path.join(OUT_DIR, "optimization.gif")
+    import shutil
 
+    if os.path.exists(OUT_DIR):
+        shutil.rmtree(OUT_DIR)
     os.makedirs(out_dir, exist_ok=True)
+
+    # os.makedirs(out_dir, exist_ok=True)
 
     p  = extract_simp_params(spec)
     Lx = p["Lx"]
@@ -358,7 +379,18 @@ def main_from_spec(spec):
     rho_fn      = fem.Function(Q)
     rho_fn.name = "density"
 
-    apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(domain, Q, p["r_min"])
+    r_min_phys = float(p["r_min"])
+
+    apply_filter, apply_sens_filter = build_helmholtz_filter_CG1(
+        domain,
+        Q,
+        r_min_phys
+    )
+
+
+    beta = 1.0
+    beta_schedule = {50: 2.0, 100: 4.0, 150: 8.0, 200: 16.0}
+    eta = 0.5
     optimizer   = MMAOptimizer(n=n_cells, x_min=1e-3, x_max=1.0, move = 0.2)
     dg_drho     = np.ones(n_cells) / n_cells
 
@@ -388,34 +420,39 @@ def main_from_spec(spec):
     print(f"F_load nonzero DOFs: {np.count_nonzero(F_load.x.array)}")
     print(f"F_load max: {F_load.x.array.max():.6f}, min: {F_load.x.array.min():.6f}")
     print("=================\n")
-
+    reason = "max_iter_reached"
     for iteration in range(1, p["max_iter"] +1):
 
         rho_tilde = np.clip(apply_filter(x_design), 1e-3, 1.0)
-        rho_fn.x.array[:] = rho_tilde
+        rho_phys = np.clip(heaviside_projection(rho_tilde, beta, eta), 1e-3, 1.0)
+        rho_fn.x.array[:] = rho_phys
 
-        uh = solve_fea(
-            domain, V, bcs, rho_fn,
-            live_params["penal"], mu, lmbda, F_load
-        )
+        uh = solve_fea(domain, V, bcs, rho_fn, live_params["penal"], mu, lmbda, F_load)
 
         compliance = compute_compliance(uh, F_load)
 
-        dc_drho = compute_sensitivities(
-            rho_tilde, uh, Q, live_params["penal"], mu, lmbda
-        )
+        dc_drho_phys = compute_sensitivities(rho_phys, uh, Q, live_params["penal"], mu, lmbda)
 
-        dc_drho_filtered = apply_sens_filter(dc_drho)
+        dproj = heaviside_projection_derivative(rho_tilde, beta, eta)
 
-        volfrac_actual = x_design.sum() / n_cells
-        g_val          = volfrac_actual - live_params["volfrac"]
+        # objective chain rule:
+        # x_design -> filter -> rho_tilde -> projection -> rho_phys -> compliance
+        dc_dx = apply_sens_filter(dc_drho_phys * dproj)
+
+        # volume constraint must match physical projected density
+        volfrac_actual = rho_phys.sum() / n_cells
+        g_val = volfrac_actual - live_params["volfrac"]
+
+        # volume chain rule:
+        # x_design -> filter -> projection -> mean(rho_phys)
+        dg_dx = apply_sens_filter(np.ones(n_cells) * dproj / n_cells)
 
         x_new = optimizer.update(
-            x     = x_design.copy(),
-            f0val = compliance,
-            df0dx = dc_drho_filtered,
-            fval  = g_val,
-            dfdx  = dg_drho,
+            x=x_design.copy(),
+            f0val=compliance,
+            df0dx=dc_dx,
+            fval=g_val,
+            dfdx=dg_dx,
         )
 
         # Bug #2 fix: compute BEFORE update
@@ -424,7 +461,12 @@ def main_from_spec(spec):
 
         x_design = x_new.copy()
 
-        rho_fn.x.array[:] = np.clip(apply_filter(x_design), 1e-3, 1.0)
+        rho_tilde = np.clip(apply_filter(x_design), 1e-3, 1.0)
+        rho_fn.x.array[:] = np.clip(
+            heaviside_projection(rho_tilde, beta, eta),
+            1e-3,
+            1.0
+        )
 
         metrics["compliance_history"].append(float(compliance))
         metrics["volfrac_history"].append(float(volfrac_actual))
@@ -443,7 +485,9 @@ def main_from_spec(spec):
         tol_change = p.get("tol_change", 0.01)
 
         design_converged = change < tol_change
-
+        if iteration in beta_schedule:
+            beta = beta_schedule[iteration]
+            print(f"  [Projection continuation] beta -> {beta:.1f}")
         compliance_converged = False
         if iteration > 30 and len(metrics["compliance_history"]) >= 21:
             recent_drop = abs(
@@ -461,7 +505,7 @@ def main_from_spec(spec):
     export_xdmf(p["nelx"], p["nely"], rho_history, perm, output_dir=OUT_DIR)
     print(f"GIF saved: {gif_path}")
 
-    from _04_PPRCS.postprocess import save_summary_slide
+    from _04_PPRCS.postprocess import save_summary_slide, save_final_density
     save_summary_slide(
         rho_history=rho_history,
         compliance_history=metrics["compliance_history"],
@@ -475,7 +519,68 @@ def main_from_spec(spec):
         problem_name=spec.name,
     )
 
-    val_result = validate(metrics, rho_fn.x.array, p["volfrac"], n_cells)
+
+    import json
+    # import os
+    rho_final = rho_fn.x.array.copy()
+
+    final_density_path = save_final_density(
+        rho_fn,
+        p["nelx"],
+        p["nely"],
+        OUT_DIR,
+        perm
+    )
+
+    val_result = validate(metrics, rho_final, p["volfrac"], n_cells)
+
+    critic_input = {
+        "problem": spec.name,
+        "parsed_spec": spec.model_dump(),
+        "run_config": {
+            "nelx": p["nelx"],
+            "nely": p["nely"],
+            "Lx": p["Lx"],
+            "Ly": p["Ly"],
+            "E": p["E"],
+            "nu": p["nu"],
+            "volfrac_target": p["volfrac"],
+            "penal": live_params["penal"],
+            "r_min": p["r_min"],
+            "filter": "Helmholtz PDE filter",
+            "projection": "Heaviside projection",
+            "beta_final": beta,
+            "steering_enabled": False,
+        },
+        "final_result": {
+            "iterations": metrics["iteration"],
+            "converged": metrics["converged"],
+            "convergence_reason": reason,
+            "final_compliance": metrics["compliance_history"][-1],
+            "initial_compliance": metrics["compliance_history"][0],
+            "compliance_reduction_pct": round(
+                100 * (1 - metrics["compliance_history"][-1] / metrics["compliance_history"][0]),
+                2
+            ),
+            "final_volume_fraction": float(rho_final.sum() / n_cells),
+            "final_change": metrics["change_history"][-1],
+            "final_l2_change": metrics["l2_change_history"][-1],
+        },
+        "validation": val_result,
+        "artifacts": {
+            "summary_png": "summary.png",
+            "final_density_png": os.path.basename(final_density_path),
+            "optimization_gif": "optimization.gif",
+            "xdmf": "topopt.xdmf",
+            "h5": "topopt.h5",
+        }
+    }
+
+    critic_input_path = os.path.join(OUT_DIR, "critic_input.json")
+    with open(critic_input_path, "w") as f:
+        json.dump(critic_input, f, indent=2)
+
+    # val_result = validate(metrics, rho_fn.x.array, p["volfrac"], n_cells)
     print("\n--- Physics Validation ---")
     print(f"PASSED: {val_result['passed']}")
     for name, chk in val_result["checks"].items():
@@ -484,16 +589,39 @@ def main_from_spec(spec):
     if val_result["failure_reasons"]:
         for r in val_result["failure_reasons"]:
             print(f"  FAIL: {r}")
-
+    summary = None
     if val_result["passed"]:
         print("\n--- Critic Agent Summary ---")
-        summary = criticize(metrics, val_result, spec.name)
+        summary, critic_usage = criticize(critic_input)
         print(summary)
         with open(os.path.join(OUT_DIR, "critic_summary.txt"), "w") as f:
             f.write(summary)
     else:
+        summary = "Critic Agent not called because physics validation failed."
         print("\nPhysics validation failed — Critic Agent not called.")
+    compute_cost = {
+        "optimization_iterations": metrics["iteration"],
+        "parser_tokens": parser_usage["total_tokens"] if parser_usage else None,
+        "critic_tokens": critic_usage["total_tokens"],
+        "total_llm_tokens": (
+            (parser_usage["total_tokens"] if parser_usage else 0)
+            + critic_usage["total_tokens"]
+        )
+    }
+    result_packet = {
+        "critic_agent_summary": summary,
+        "final_result": critic_input["final_result"],
+        "validation": val_result,
+        "what_claude_saw": critic_input,
+        "artifact_files": critic_input["artifacts"],
+        "compute_cost": compute_cost,
+    }
 
+    with open(os.path.join(OUT_DIR, "result_packet.json"), "w") as f:
+        json.dump(result_packet, f, indent=2)
+
+    with open(os.path.join(OUT_DIR, "critic_summary.txt"), "w") as f:
+        f.write(summary)
 
 if __name__ == "__main__":
     main()

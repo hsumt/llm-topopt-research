@@ -1,4 +1,6 @@
 # client.py
+from typing import Tuple
+
 from dotenv import load_dotenv
 import json
 from anthropic import Anthropic
@@ -13,7 +15,7 @@ api_key = os.environ["ANTHROPIC_API_KEY"]
 
 client = Anthropic(api_key=api_key)
 
-def parse_problem(prompt: str) -> ProblemSpec:
+def parse_problem(prompt: str) -> Tuple[ProblemSpec, dict]:
     response = client.messages.create(
         model="claude-sonnet-4-6", 
         max_tokens=500, # Replaced max_tokens_to_sample (deprecated)
@@ -22,7 +24,19 @@ def parse_problem(prompt: str) -> ProblemSpec:
             {"role": "user", "content": prompt}
         ]
     )
+    print("Parser usage:")
+    print("  input tokens :", response.usage.input_tokens)
+    print("  output tokens:", response.usage.output_tokens)
+    print("  total tokens :", response.usage.input_tokens + response.usage.output_tokens)
 
+    parser_tokens = {
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+        "total_tokens": (
+            response.usage.input_tokens +
+            response.usage.output_tokens
+        )
+    }
     text = response.content[0].text.strip()
     # Find the first { and the last } in the response
     start_idx = text.find('{')
@@ -40,4 +54,4 @@ def parse_problem(prompt: str) -> ProblemSpec:
     except Exception as e:
         raise ValueError("JSON does not match ProblemSpec schema: {data}") from e
 
-    return problem
+    return problem, parser_tokens
