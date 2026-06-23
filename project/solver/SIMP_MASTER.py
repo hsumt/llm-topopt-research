@@ -245,7 +245,7 @@ def _run_main(case: str):
         rho_phys = np.clip(heaviside_projection(rho_tilde, beta, eta), 1e-3, 1.0)
         rho_fn.x.array[:] = rho_phys
 
-        uh = solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load)
+        uh, _residual = solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load)
 
         compliance = compute_compliance(uh, F_load)
         compliance_history.append(float(compliance))
@@ -399,6 +399,8 @@ def main_from_spec(spec, parser_usage=None):
         "volfrac_history":    [],
         "change_history":     [],
         "l2_change_history":  [],
+        "residual_history":   [],
+        "final_sensitivity": [],
         "iteration":          0,
         "converged":          False,
     }
@@ -427,11 +429,14 @@ def main_from_spec(spec, parser_usage=None):
         rho_phys = np.clip(heaviside_projection(rho_tilde, beta, eta), 1e-3, 1.0)
         rho_fn.x.array[:] = rho_phys
 
-        uh = solve_fea(domain, V, bcs, rho_fn, live_params["penal"], mu, lmbda, F_load)
+        uh, residual = solve_fea(domain, V, bcs, rho_fn, live_params["penal"], mu, lmbda, F_load)
 
         compliance = compute_compliance(uh, F_load)
 
         dc_drho_phys = compute_sensitivities(rho_phys, uh, Q, live_params["penal"], mu, lmbda)
+
+        metrics["residual_history"].append(residual)
+        metrics["final_senstiviity"] = dc_drho_phys.copy()
 
         dproj = heaviside_projection_derivative(rho_tilde, beta, eta)
 
@@ -599,6 +604,7 @@ def main_from_spec(spec, parser_usage=None):
     else:
         summary = "Critic Agent not called because physics validation failed."
         print("\nPhysics validation failed — Critic Agent not called.")
+        critic_usage = {"total_tokens": 0}
     compute_cost = {
         "optimization_iterations": metrics["iteration"],
         "parser_tokens": parser_usage["total_tokens"] if parser_usage else None,

@@ -22,7 +22,7 @@ from petsc4py import PETSc
 #     dy = float(Ly) / float(nely)
 #     return float(r_min_elements) * min(dx, dy)
 
-
+# Equation 9 Source [5]
 def heaviside_projection(rho_tilde, beta, eta=0.5):
     denom = np.tanh(beta * eta) + np.tanh(beta * (1.0 - eta))
     return (

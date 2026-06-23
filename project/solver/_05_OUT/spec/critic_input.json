@@ -3,11 +3,11 @@
   "parsed_spec": {
     "name": "Cantilever Beam",
     "mesh": {
-      "nx": 80,
-      "ny": 50,
+      "nx": 60,
+      "ny": 20,
       "nz": null,
-      "Lx": 1.6,
-      "Ly": 1.0
+      "Lx": null,
+      "Ly": null
     },
     "material": {
       "E": 1.0,
@@ -15,7 +15,7 @@
     },
     "loads": [
       {
-        "location": "right_center",
+        "location": "right_tip",
         "dof": "y",
         "value": -1.0
       }
@@ -41,9 +41,9 @@
     }
   },
   "run_config": {
-    "nelx": 80,
-    "nely": 50,
-    "Lx": 1.6,
+    "nelx": 60,
+    "nely": 20,
+    "Lx": 3.0,
     "Ly": 1.0,
     "E": 1.0,
     "nu": 0.3,
@@ -52,41 +52,51 @@
     "r_min": 0.05,
     "filter": "Helmholtz PDE filter",
     "projection": "Heaviside projection",
-    "beta_final": 4.0,
+    "beta_final": 2.0,
     "steering_enabled": false
   },
   "final_result": {
-    "iterations": 128,
+    "iterations": 81,
     "converged": true,
     "convergence_reason": "compliance plateau",
-    "final_compliance": 0.013652830130418132,
-    "initial_compliance": 0.07410627547214038,
-    "compliance_reduction_pct": 81.58,
-    "final_volume_fraction": 0.3999958486561687,
-    "final_change": 0.03351063573023422,
-    "final_l2_change": 0.0020232587202486316
+    "final_compliance": 0.2091160695338106,
+    "initial_compliance": 1.2434740699148241,
+    "compliance_reduction_pct": 83.18,
+    "final_volume_fraction": 0.3999992226225562,
+    "final_change": 0.038917749094927456,
+    "final_l2_change": 0.0016895742352211502
   },
   "validation": {
     "passed": true,
     "checks": {
-      "compliance_monotone": {
+      "compliance_positivity": {
         "passed": true,
-        "value": 0,
-        "threshold": "< 12.3 violations"
+        "value": 0.209116,
+        "threshold": ">0.0"
+      },
+      "equilibrium_residual": {
+        "passed": true,
+        "value": 6.387328972384126e-10,
+        "threshold": "< 1e-5 (relative)"
       },
       "volume_fraction": {
         "passed": true,
         "value": 0.4,
         "threshold": "0.4 \u00b1 0.02"
       },
+      "sensitivity_sign": {
+        "passed": true,
+        "value": 0,
+        "threshold": "0 positive entries (dc/drho <= 0 everywhere)"
+      },
       "density_bounds": {
         "passed": true,
-        "value": "[0.0086, 0.9874]",
+        "value": "[0.0010, 0.9904]",
         "threshold": "[0.0, 1.0]"
       },
       "grey_fraction": {
         "passed": true,
-        "value": 0.199,
+        "value": 0.285,
         "threshold": "< 0.35 for 0.25 < rho < 0.75"
       }
     },

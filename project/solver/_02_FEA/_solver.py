@@ -22,4 +22,15 @@ def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
         }
     )
     uh = problem.solve()
-    return uh
+    uh.x.scatter_forward()
+
+    # Residual: r = A u - b
+    r = problem.b.copy()
+    problem.A.mult(uh.x.petsc_vec, r)   # r = A u
+    r.axpy(-1.0, problem.b)             # r = A u - b
+
+    residual_norm = r.norm()
+    rhs_norm = problem.b.norm()
+    relative_residual = residual_norm / rhs_norm if rhs_norm > 0 else residual_norm
+
+    return uh, relative_residual

@@ -5,7 +5,7 @@ into structured JSON matching the ProblemSpec schema.
 
 Field defaults when not stated:
   material : E=1.0, nu=0.3
-  simp     : penal=3.0, r_min=1.5
+  simp     : penal=3.0, r_min=0.05
   mesh     : Lx=nx/ny (unit height, width scales with count), Ly=1.0
              Omit Lx/Ly from JSON if the user does not specify physical dimensions.
 
@@ -28,7 +28,7 @@ Output:
     {"location": "left_edge", "dof": "x", "value": 0.0},
     {"location": "left_edge", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 200, "tol_change": 0.01}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 0.05, "max_iter": 200, "tol_change": 0.01}
 }
 
 RULE: A cantilever ALWAYS requires BOTH x and y fixed at the support edge.
@@ -48,7 +48,7 @@ Output:
     {"location": "left_edge", "dof": "x", "value": 0.0},
     {"location": "left_edge", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 1.5, "max_iter": 300, "tol_change": 0.03}
+  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 0.05, "max_iter": 300, "tol_change": 0.03}
 }
 
 ───────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ Output:
     {"location": "left_edge",    "dof": "x", "value": 0.0},
     {"location": "bottom_right", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 200, "tol_change": 0.05}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 0.05, "max_iter": 200, "tol_change": 0.05}
 }
 
 Note: left_edge fixes ONLY x (symmetry). Do NOT add a y BC at left_edge for MBB.
@@ -96,7 +96,7 @@ Output:
     {"location": "bottom_left",  "dof": "y", "value": 0.0},
     {"location": "bottom_right", "dof": "y", "value": 0.0}
   ],
-  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 1.5, "max_iter": 400, "tol_change": 0.01}
+  "simp": {"penal": 3.0, "vol_frac": 0.5, "r_min": 0.05, "max_iter": 400, "tol_change": 0.01}
 }
 
 ───────────────────────────────────────────────────────────────
