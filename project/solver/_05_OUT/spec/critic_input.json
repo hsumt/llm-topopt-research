@@ -6,16 +6,16 @@
       "nx": 60,
       "ny": 20,
       "nz": null,
-      "Lx": null,
-      "Ly": null
+      "Lx": 3.0,
+      "Ly": 1.0
     },
     "material": {
       "E": 1.0,
-      "nu": 0.3
+      "nu": 0.0
     },
     "loads": [
       {
-        "location": "right_tip",
+        "location": "right_center",
         "dof": "y",
         "value": -1.0
       }
@@ -46,42 +46,42 @@
     "Lx": 3.0,
     "Ly": 1.0,
     "E": 1.0,
-    "nu": 0.3,
+    "nu": 0.0,
     "volfrac_target": 0.4,
     "penal": 3.0,
     "r_min": 0.05,
     "filter": "Helmholtz PDE filter",
     "projection": "Heaviside projection",
-    "beta_final": 2.0,
+    "beta_final": 8.0,
     "steering_enabled": false
   },
   "final_result": {
-    "iterations": 81,
+    "iterations": 178,
     "converged": true,
     "convergence_reason": "compliance plateau",
-    "final_compliance": 0.2091160695338106,
-    "initial_compliance": 1.2434740699148241,
-    "compliance_reduction_pct": 83.18,
-    "final_volume_fraction": 0.3999992226225562,
-    "final_change": 0.038917749094927456,
-    "final_l2_change": 0.0016895742352211502
+    "final_compliance": 0.3020914288062309,
+    "initial_compliance": 2.382554560535555,
+    "compliance_reduction_pct": 87.32,
+    "final_volume_fraction": 0.3997595099271842,
+    "final_change": 0.19657306171466699,
+    "final_l2_change": 0.015058496452398264
   },
   "validation": {
     "passed": true,
     "checks": {
       "compliance_positivity": {
         "passed": true,
-        "value": 0.209116,
+        "value": 0.302091,
         "threshold": ">0.0"
       },
       "equilibrium_residual": {
         "passed": true,
-        "value": 6.387328972384126e-10,
+        "value": 2.9024272925192782e-09,
         "threshold": "< 1e-5 (relative)"
       },
       "volume_fraction": {
         "passed": true,
-        "value": 0.4,
+        "value": 0.3998,
         "threshold": "0.4 \u00b1 0.02"
       },
       "sensitivity_sign": {
@@ -91,12 +91,12 @@
       },
       "density_bounds": {
         "passed": true,
-        "value": "[0.0010, 0.9904]",
+        "value": "[0.0010, 0.9999]",
         "threshold": "[0.0, 1.0]"
       },
       "grey_fraction": {
         "passed": true,
-        "value": 0.285,
+        "value": 0.1067,
         "threshold": "< 0.35 for 0.25 < rho < 0.75"
       }
     },
