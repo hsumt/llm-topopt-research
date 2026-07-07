@@ -338,7 +338,7 @@ def main():
     _run_main(CASE)
 
 
-def main_from_spec(spec, parser_usage=None):
+def main_from_spec(spec, parser_usage=None, out_dir=None):
     """
     Entry point driven by the parser agent.
     Accepts a ProblemSpec Pydantic object, runs the full SIMP loop with agents.
@@ -350,14 +350,18 @@ def main_from_spec(spec, parser_usage=None):
     )
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    OUT_DIR  = os.path.join(BASE_DIR, "_05_OUT", "spec")
-    out_dir  = os.path.join(OUT_DIR, "frames")
-    gif_path = os.path.join(OUT_DIR, "optimization.gif")
-    import shutil
-
-    if os.path.exists(OUT_DIR):
-        shutil.rmtree(OUT_DIR)
-    os.makedirs(out_dir, exist_ok=True)
+    if out_dir is None:
+        # Default behaviour when called directly (not from batch runner)
+        OUT_DIR = os.path.join(BASE_DIR, "_05_OUT", "spec")
+        import shutil
+        if os.path.exists(OUT_DIR):
+            shutil.rmtree(OUT_DIR)
+    else:
+        # Batch runner supplied a pre-created, unique directory per run
+        OUT_DIR = out_dir
+    frames_dir = os.path.join(OUT_DIR, "frames")
+    gif_path   = os.path.join(OUT_DIR, "optimization.gif")
+    os.makedirs(frames_dir, exist_ok=True)
 
     # os.makedirs(out_dir, exist_ok=True)
 
@@ -625,9 +629,11 @@ def main_from_spec(spec, parser_usage=None):
 
     with open(os.path.join(OUT_DIR, "result_packet.json"), "w") as f:
         json.dump(result_packet, f, indent=2)
-
+ 
     with open(os.path.join(OUT_DIR, "critic_summary.txt"), "w") as f:
         f.write(summary)
+ 
+    return result_packet
 
 if __name__ == "__main__":
     main()
