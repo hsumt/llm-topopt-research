@@ -1,0 +1,112 @@
+{
+  "problem": "Cantilever Beam",
+  "parsed_spec": {
+    "name": "Cantilever Beam",
+    "mesh": {
+      "nx": 60,
+      "ny": 20,
+      "nz": null,
+      "Lx": 3.0,
+      "Ly": 1.0
+    },
+    "material": {
+      "E": 1.0,
+      "nu": 0.3
+    },
+    "loads": [
+      {
+        "location": "right_tip",
+        "dof": "y",
+        "value": -1.0
+      }
+    ],
+    "bcs": [
+      {
+        "location": "left_edge",
+        "dof": "x",
+        "value": 0.0
+      },
+      {
+        "location": "left_edge",
+        "dof": "y",
+        "value": 0.0
+      }
+    ],
+    "simp": {
+      "penal": 3.0,
+      "vol_frac": 0.4,
+      "r_min": 0.1,
+      "max_iter": 200,
+      "tol_change": 0.01
+    }
+  },
+  "run_config": {
+    "nelx": 60,
+    "nely": 20,
+    "Lx": 3.0,
+    "Ly": 1.0,
+    "E": 1.0,
+    "nu": 0.3,
+    "volfrac_target": 0.4,
+    "penal": 3.0,
+    "r_min": 0.1,
+    "filter": "Helmholtz PDE filter",
+    "projection": "Heaviside projection",
+    "beta_final": 16.0,
+    "steering_enabled": false
+  },
+  "final_result": {
+    "iterations": 200,
+    "converged": true,
+    "convergence_reason": "compliance plateau",
+    "final_compliance": 0.1803035319493691,
+    "initial_compliance": 1.2434726721535618,
+    "compliance_reduction_pct": 85.5,
+    "final_volume_fraction": 0.39987339276391204,
+    "final_change": 0.16198716135867297,
+    "final_l2_change": 0.014828151971363654
+  },
+  "validation": {
+    "passed": true,
+    "checks": {
+      "compliance_positivity": {
+        "passed": true,
+        "value": 0.180304,
+        "threshold": ">0.0"
+      },
+      "equilibrium_residual": {
+        "passed": true,
+        "value": 9.395568814744353e-11,
+        "threshold": "< 1e-5 (relative)"
+      },
+      "volume_fraction": {
+        "passed": true,
+        "value": 0.3999,
+        "threshold": "0.4 \u00b1 0.02"
+      },
+      "sensitivity_sign": {
+        "passed": true,
+        "value": 0,
+        "threshold": "0 positive entries (dc/drho <= 0 everywhere)"
+      },
+      "density_bounds": {
+        "passed": true,
+        "value": "[0.0010, 0.9981]",
+        "threshold": "[0.0, 1.0]"
+      },
+      "grey_fraction": {
+        "passed": true,
+        "value": 0.1533,
+        "threshold": "< 0.35 for 0.25 < rho < 0.75"
+      }
+    },
+    "failure_reasons": []
+  },
+  "artifacts": {
+    "summary_png": "summary.png",
+    "final_density_png": "final_density.png",
+    "optimization_gif": "optimization.gif",
+    "xdmf": "topopt.xdmf",
+    "h5": "topopt.h5"
+  }
+}

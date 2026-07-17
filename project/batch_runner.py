@@ -14,7 +14,11 @@ sys.path.insert(0, "project/solver")
 from client import parse_problem
 from SIMP_MASTER import main_from_spec
  
- 
+"""
+To run:
+"cd /workspaces/llm-topopt-research
+/dolfinx-env/bin/python project/batch_runner.py project/prompts.txt"
+"""
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -50,8 +54,12 @@ def _load_prompts(path: str) -> list[tuple[int, str]]:
  
 def run_batch(prompts_file: str = "prompts.txt"):
     BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-    BATCH_DIR = os.path.join(BASE_DIR, "project", "solver", "_05_OUT", "batch")
+    BATCH_DIR = os.path.join(BASE_DIR, "solver", "_05_OUT", "batch")
     os.makedirs(BATCH_DIR, exist_ok=True)
+    import shutil
+    if os.path.exists(BATCH_DIR):
+        shutil.rmtree(BATCH_DIR)
+    os.makedirs(BATCH_DIR)
  
     prompts = _load_prompts(prompts_file)
     total   = len(prompts)

@@ -286,7 +286,8 @@ def _run_main(case: str):
         print_iteration_report(iteration, compliance, volfrac_report, change)
 
         frame_paths.append(
-            save_frame(rho_fn, nelx, nely, iteration, compliance, out_dir, perm)
+            save_frame(rho_fn, p["nelx"], p["nely"],
+                    iteration, compliance, out_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
         # if iteration == 50:
@@ -440,7 +441,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None):
         dc_drho_phys = compute_sensitivities(rho_phys, uh, Q, live_params["penal"], mu, lmbda)
 
         metrics["residual_history"].append(residual)
-        metrics["final_senstiviity"] = dc_drho_phys.copy()
+        metrics["final_senstivity"] = dc_drho_phys.copy()
 
         dproj = heaviside_projection_derivative(rho_tilde, beta, eta)
 
@@ -487,7 +488,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None):
         print_iteration_report(iteration, compliance, volfrac_report, change)
         frame_paths.append(
             save_frame(rho_fn, p["nelx"], p["nely"],
-                       iteration, compliance, out_dir, perm)
+                       iteration, compliance, frames_dir, perm)
         )
         rho_history.append(rho_fn.x.array.copy())
 

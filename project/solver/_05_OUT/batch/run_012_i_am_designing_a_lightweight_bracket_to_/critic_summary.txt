@@ -1,0 +1,14 @@
+Convergence Behavior
+The optimization ran for the full 200 iterations without meeting the topology-change convergence criterion (tol_change = 0.01), terminating due to max_iter_reached. The final element-wise change of 0.0413 remains roughly four times above the target tolerance, though the L2 change (0.00386) is relatively small, suggesting the design is slowly evolving rather than oscillating wildly. Compliance dropped 83.53% from the initial value (2.410 → 0.397), indicating the optimizer made substantial structural progress even without formal convergence.
+
+Engineering Anomalies
+1. Non-convergence at max iterations: The final_change of 0.0413 versus a 0.01 threshold is a meaningful gap, not a near-miss; the design has not stabilized.
+2. Grey fraction of 0.305 (30.5% of elements in the intermediate density band 0.25–0.75) is high, passing the stated threshold of 0.35 but only marginally. For a Heaviside projection run at beta_final = 16, this level of greyness is unexpectedly large and suggests the projection is not fully binarizing the field, potentially because the filter radius r_min = 0.1 (in normalized units relative to Ly = 1.0, this corresponds to just 2 elements in the y-direction), which may be too coarse to regularize effectively against the 60×20 mesh.
+3. Density bounds reach only [0.001, 0.997], not the sharp 0/1 limits expected from a beta = 16 Heaviside projection; this is consistent with the elevated grey fraction and incomplete binarization.
+4. The filter radius r_min = 0.1 on a domain of Lx = 3.0 corresponds to approximately 2 elements in the y-direction but only ~2 elements in x out of 60, making the filter anisotropically weak along the long axis.
+
+Physical Plausibility
+The boundary conditions describe a cantilever-type bracket (full left-edge fixed, downward point load at right-center), which is a physically coherent setup for a wall-mounted bracket. An 83.5% compliance reduction with volume constrained to 40% is plausible for this load case. However, the 30.5% grey fraction means a significant portion of the design domain is not clearly solid or void; this would be unmanufacturable as stated and makes precise physical interpretation of the topology premature. The validation status is passed per the provided checks, but numerical convergence has not been achieved.
+
+Recommendation
+Increase max_iter to at least 350 and raise beta_final incrementally (e.g., to 32 or 64 via continuation) to drive the Heaviside projection toward a sharper 0/1 density field; simultaneously verify that r_min is expressed in consistent physical length units and consider increasing it to span at least 3–4 elements in the shorter (y) dimension to improve regularization and reduce the grey fraction below 0.20.

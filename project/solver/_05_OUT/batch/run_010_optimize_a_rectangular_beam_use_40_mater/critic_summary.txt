@@ -1,0 +1,14 @@
+Convergence Behavior
+The optimizer ran to the full 200-iteration limit, stopping on a compliance plateau rather than on the density-change tolerance criterion. Although compliance was reduced substantially (85.5%, from 1.2434 to 0.1803), the final density-change metric (max change = 0.1620, L2 change = 0.01483) did not fall below the specified tolerance of 0.01, indicating that the density field had not fully settled by the iteration budget's end. Numerical convergence in the FEM sense is confirmed — the equilibrium residual is 9.4e-11, well below the 1e-5 threshold — but topological convergence of the design variable field is incomplete.
+
+Engineering Anomalies
+1. Density field not converged: The final max-change value of 0.1620 is more than 16× the convergence tolerance of 0.01; even the L2 change (0.01483) marginally exceeds that threshold. The design should be treated as a snapshot, not a fully converged topology.
+2. Grey fraction at boundary of concern: 15.33% of elements fall in the intermediate-density band (0.25–0.75). While this passes the <35% threshold, it is non-negligible for a Heaviside-projected run with beta_final = 16. A higher beta or additional continuation steps would normally drive this lower.
+3. Maximum density caps at 0.9981 rather than 1.0: This is a mild but notable shortfall under Heaviside projection with beta = 16; it may indicate that the projection or density update was cut short before full binarization.
+4. Filter radius r_min = 0.1 relative to element size: With nx = 60 over Lx = 3.0, the element length is 0.05. An r_min of 0.1 corresponds to roughly 2 elements, which is at the lower end of what reliably suppresses checkerboard patterns and mesh dependence with a PDE Helmholtz filter.
+
+Physical Plausibility
+For a 3:1 aspect-ratio 2-D cantilever beam with a downward tip load and full left-edge fixity, an 85.5% compliance reduction to a small positive value is qualitatively consistent with well-known SIMP benchmark results. The volume fraction of 0.3999 matches the 0.4 target to within 0.03%, and sensitivity signs are globally correct. The result is physically plausible as a load-path structure, but the residual grey fraction and incomplete density convergence mean the topology may still shift if the run were continued, so manufacturing-readiness cannot be confirmed from this packet alone. The validation status reported is passed.
+
+Recommendation
+Increase max_iter to at least 400 (or add a secondary convergence check on L2 change < 0.005) and apply beta continuation more aggressively (e.g., doubling beta every 25–30 iterations up to beta = 32 or 64) so that the Heaviside projection fully binarizes the field before the budget expires; this should simultaneously reduce the grey fraction below 10% and allow the density-change tolerance to be met, yielding a genuinely converged, more manufacturable topology.
