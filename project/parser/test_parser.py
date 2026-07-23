@@ -1,12 +1,14 @@
-# test_parser.py
+"""Manual parser smoke tests. These call the live Anthropic API."""
+
 from client import parse_problem
 
-examples = [
-    "Cantilever beam, fixed left edge, 1N downward at tip, mesh 60x20, vol_frac 0.5",
-    "MBB beam, simply supported corners, uniform load on top, mesh 120x40, vol_frac 0.4",
-    "Short column, fixed bottom, compressive load 5N top, mesh 20x20x20, vol_frac 0.3"
+EXAMPLES = [
+    "Cantilever beam, fixed left edge, 1 N downward point force at the midpoint of the right edge, mesh 60x20, volume fraction 0.5",
+    "MBB beam, half symmetry, point load downward at top-left, mesh 120x40, volume fraction 0.4",
 ]
 
-for prompt in examples:
-    problem = parse_problem(prompt)
-    print(problem.model_dump_json(indent=2))
+for prompt in EXAMPLES:
+    spec, defaulted_fields, usage = parse_problem(prompt)
+    print(spec.model_dump_json(indent=2))
+    print("defaulted:", [f.field_path for f in defaulted_fields])
+    print("tokens:", usage)

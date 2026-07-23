@@ -1,49 +1,67 @@
-"""
-_objective.py
-Created on 5/15/26
+"""Compliance objective and SIMP sensitivities."""
 
-Creates the compliance objective
-"""
+from __future__ import annotations
+
 import numpy as np
 import ufl
 from dolfinx import fem
-from _02_FEA._assembly import sigma, epsilon
+from petsc4py import PETSc
+from dolfinx.fem import petsc as fem_petsc
+
+from _01_MSH._domain import E_MIN
+from _02_FEA._assembly import epsilon, sigma
+
 
 def compute_compliance(uh, F_load) -> float:
-    """
-    Equation [1, Eq.(1)]:
-        c(rho) = F^T * U  =  U^T * K(rho) * U 
-    """
-    return float(np.dot(F_load.x.array, uh.x.array))
+    """Compute c = F^T U using the same algebraic nodal load vector as FEA."""
+    value = float(np.dot(F_load.x.array, uh.x.array))
+    if not np.isfinite(value):
+        raise FloatingPointError("Compliance is non-finite")
+    return value
+
+
 def compute_sensitivities(
     rho: np.ndarray,
     uh,
     Q,
     penal: float,
     mu: float,
-    lmbda: float
+    lmbda: float,
 ) -> np.ndarray:
-    """
-    Equation: dc/dρ_e = -p * ρ_e^(p-1) * u_e^T * k_0 * u_e
-    Reference: Sigmund (2001), Eq.(4); Bendsøe & Sigmund (2003), Eq.(1.8)
+    r"""Return element-integrated SIMP compliance derivatives.
 
-    strain_energy_expr = ε(u) : σ(u) per unit volume — the elemental
-    strain energy density. For DG-0, one DOF per cell, so interpolation
-    collapses to a single point per element (the cell centroid).
-    """
-    strain_energy_expr = ufl.inner(sigma(uh, mu, lmbda), epsilon(uh))
+    Equation
+    --------
+    dc/drho_e = -p (E0-Emin) rho_e^(p-1) integral_{Omega_e}
+                epsilon(u):C0:epsilon(u) dOmega.
 
-    se_fn   = fem.Function(Q)
-    se_expr = fem.Expression(
-        strain_energy_expr,
-        Q.element.interpolation_points()   # ← FIXED: call the method
+    Reference
+    ---------
+    Sigmund (2001), Eq. (4); Bendsøe & Sigmund (2003), Eq. (1.8).
+
+    The DG-0 test function makes each assembled vector entry the *cell
+    integral* of the reference strain-energy density. Centroid interpolation
+    is not used because it omits the element measure and is not exact for Q1
+    quadrilateral strain-energy fields.
+    """
+    q = ufl.TestFunction(Q)
+    energy_form = fem.form(
+        ufl.inner(sigma(uh, mu, lmbda), epsilon(uh)) * q * ufl.dx
     )
-    se_fn.interpolate(se_expr)
-    se = se_fn.x.array
+    energy_vec = fem.petsc.assemble_vector(energy_form)
+    energy_vec.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    elemental_energy = energy_vec.array.copy()
+    energy_vec.destroy()
 
-    # SIMP sensitivity chain rule — Sigmund (2001) Eq.(4)
-    dc = -penal * rho**(penal - 1.0) * se
-
+    dc = (
+        -penal
+        * (1.0 - E_MIN)
+        * np.power(rho, penal - 1.0)
+        * elemental_energy
+    )
+    if not np.all(np.isfinite(dc)):
+        raise FloatingPointError("Non-finite compliance sensitivities")
     return dc
-
-    

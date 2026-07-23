@@ -13,7 +13,7 @@ Reference:
 """
 
 import numpy as np
-from _03_OPTMZER._mma import mmasub  # Deetman's canonical implementation
+from _03_OPTMZER._mma import kktcheck, mmasub  # Deetman's canonical implementation
 
 
 class MMAOptimizer:
@@ -40,6 +40,7 @@ class MMAOptimizer:
         self.a  = np.zeros((m, 1))
         self.c  = 1000.0 * np.ones((m, 1))
         self.d  = np.zeros((m, 1))
+        self.last_subproblem_solution = None
 
     def update(self,
                x:     np.ndarray,   # current densities, shape (n,)
@@ -57,7 +58,8 @@ class MMAOptimizer:
         fv    = np.array([[fval]])
         dfdx_ = dfdx.reshape(self.m, self.n)
 
-        xmma, _, _, _, _, _, _, _, _, self.low, self.upp = mmasub(
+        (xmma, ymma, zmma, lam, xsi, eta, mu, zet, slack,
+         self.low, self.upp) = mmasub(
             self.m, self.n, self.iter,
             xval, self.xmin, self.xmax,
             self.xold1, self.xold2,
@@ -65,11 +67,54 @@ class MMAOptimizer:
             fv, dfdx_,
             self.low, self.upp,
             self.a0, self.a, self.c, self.d,
-            move = self.move
+            move=self.move,
         )
+        self.last_subproblem_solution = {
+            "x": xmma.copy(),
+            "y": ymma.copy(),
+            "z": zmma.copy(),
+            "lam": lam.copy(),
+            "xsi": xsi.copy(),
+            "eta": eta.copy(),
+            "mu": mu.copy(),
+            "zet": zet.copy(),
+            "s": slack.copy(),
+        }
 
         # Shift history
         self.xold2 = self.xold1.copy()
         self.xold1 = xval.copy()
 
         return xmma.flatten()
+
+    def kkt_diagnostics(self, x, df0dx, fval, dfdx):
+        """Evaluate a diagnostic original-problem KKT residual.
+
+        The multipliers come from the last MMA subproblem while gradients and
+        constraint values are re-evaluated at the returned design. Therefore
+        this is diagnostic evidence, not a calibrated hard pass/fail gate.
+        """
+        if self.last_subproblem_solution is None:
+            return {"available": False, "reason": "no MMA subproblem solution"}
+        q = self.last_subproblem_solution
+        residual, norm, maximum = kktcheck(
+            self.m, self.n,
+            np.asarray(x, dtype=float).reshape(self.n, 1),
+            q["y"], q["z"], q["lam"], q["xsi"], q["eta"],
+            q["mu"], q["zet"], q["s"],
+            self.xmin, self.xmax,
+            np.asarray(df0dx, dtype=float).reshape(self.n, 1),
+            np.asarray([[fval]], dtype=float),
+            np.asarray(dfdx, dtype=float).reshape(self.m, self.n),
+            self.a0, self.a, self.c, self.d,
+        )
+        return {
+            "available": True,
+            "residual_norm": float(norm),
+            "residual_max": float(maximum),
+            "residual_size": int(np.asarray(residual).size),
+            "interpretation": (
+                "diagnostic only; last MMA-subproblem multipliers evaluated "
+                "with final re-evaluated objective/constraint gradients"
+            ),
+        }

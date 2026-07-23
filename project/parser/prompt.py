@@ -48,7 +48,11 @@ DEFAULT VALUES — compute, do not hardcode, where noted
   material.E       : 1.0                    (non-dimensionalised)
   material.nu      : 0.3
   simp.penal       : 3.0
-  simp.r_min       : MESH-RELATIVE, NOT a flat constant.
+  simp.r_min       : CONE-EQUIVALENT PHYSICAL FILTER RADIUS.
+                      The deterministic filter converts it using
+                      r_pde = r_min / (2*sqrt(3)) and solves
+                      -r_pde^2 Laplacian(rho_tilde) + rho_tilde = rho.
+                      It is MESH-RELATIVE, NOT a flat constant.
                       Compute as 2.5 * element_size, where
                       element_size = Lx / nx  (use Ly / ny if that's smaller,
                       i.e. element_size = min(Lx/nx, Ly/ny)).
@@ -78,6 +82,22 @@ Valid load/BC location strings:
   Corners : top_left, top_right, bottom_left, bottom_right, right_tip
   Centers : right_center, top_center, bottom_center, left_center
 
+Load objects must include a ``kind`` field:
+  point_force   : value is a discrete nodal point-force resultant; location must be a
+                  corner or center point. For this project, right_tip is an
+                  alias for the midpoint of the free right edge.
+  edge_resultant: value is the total force distributed over a full edge.
+  edge_traction : value is force per unit edge length.
+Never represent a point force by selecting a full edge. If the user's wording
+does not determine whether an edge value is a resultant or a traction, choose
+edge_resultant as the runnable default and list loads[i].kind in
+defaulted_fields so the user is asked.
+
+The current deterministic solver is 2-D only. Never emit mesh.nz or dof='z'.
+If the user requests a 3-D problem, do not fabricate a 2-D substitute; the
+output will be rejected by the schema and the caller must report that 3-D is
+not implemented.
+
 ───────────────────────────────────────────────────────────────
 EXAMPLE 1 — Cantilever, tip load, mostly explicit
 ───────────────────────────────────────────────────────────────
@@ -95,7 +115,7 @@ Output:
     "name": "Cantilever Beam",
     "mesh": {"nx": 60, "ny": 20, "Lx": 3.0, "Ly": 1.0},
     "material": {"E": 1.0, "nu": 0.3},
-    "loads": [{"location": "right_tip", "dof": "y", "value": -1.0}],
+    "loads": [{"location": "right_tip", "dof": "y", "value": -1.0, "kind": "point_force"}],
     "bcs": [
       {"location": "left_edge", "dof": "x", "value": 0.0},
       {"location": "left_edge", "dof": "y", "value": 0.0}
@@ -130,7 +150,7 @@ Output:
     "name": "Cantilever Beam",
     "mesh": {"nx": 80, "ny": 50, "Lx": 1.6, "Ly": 1.0},
     "material": {"E": 1.0, "nu": 0.3},
-    "loads": [{"location": "right_center", "dof": "y", "value": -1.0}],
+    "loads": [{"location": "right_center", "dof": "y", "value": -1.0, "kind": "point_force"}],
     "bcs": [
       {"location": "left_edge", "dof": "x", "value": 0.0},
       {"location": "left_edge", "dof": "y", "value": 0.0}
@@ -162,7 +182,7 @@ Output:
     "name": "MBB Beam",
     "mesh": {"nx": 120, "ny": 40, "Lx": 3.0, "Ly": 1.0},
     "material": {"E": 1.0, "nu": 0.3},
-    "loads": [{"location": "top_left", "dof": "y", "value": -1.0}],
+    "loads": [{"location": "top_left", "dof": "y", "value": -1.0, "kind": "point_force"}],
     "bcs": [
       {"location": "left_edge",    "dof": "x", "value": 0.0},
       {"location": "bottom_right", "dof": "y", "value": 0.0}
@@ -188,6 +208,8 @@ HARD RULES
 - A cantilever ALWAYS requires BOTH x and y fixed at the support edge.
   Fixing only x leaves vertical rigid-body motion -> singular stiffness matrix.
 - Downward force -> negative y value.
+- Every load includes kind: point_force, edge_resultant, or edge_traction.
+- The current solver is 2-D only: never emit nz or z DOFs.
 - Never include // comments or trailing commas.
 - ALWAYS include Lx and Ly in mesh, computed per the rule above if not stated.
 - ALWAYS compute r_min as mesh-relative (2.5 * element_size) when not

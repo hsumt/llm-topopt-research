@@ -1,96 +1,86 @@
-"""
-_config_bridge.py
-Translates ProblemSpec from parser to SIMP loop inputs.
+"""Translate a validated ``ProblemSpec`` into deterministic DOLFINx inputs."""
 
-CHANGED:
-  - _make_predicate: added center-edge locations (right_center, top_center,
-    bottom_center, left_center). These require nelx/nely for tolerance. 
-    Signature now includes nelx, nely.
-  - build_bcs_from_spec, build_load_from_spec: pass nelx, nely to predicate.
-  - extract_simp_params: reads Lx/Ly from schema if provided; returns them.
-"""
+from __future__ import annotations
 
 import numpy as np
 from dolfinx import fem
+from dolfinx.mesh import locate_entities_boundary
 from petsc4py import PETSc
-from dolfinx.mesh import locate_entities_boundary, meshtags
 
-# ------------------------------------------------------------------
-# Location string → geometric predicate
-# ------------------------------------------------------------------
+from _03_OPTMZER._filters import R_MIN_CONVENTION, r_pde_from_r_min
 
-def _make_predicate(location: str, Lx: float, Ly: float,
-                    nelx: int = 80, nely: int = 50):
-    """
-    Maps the parser's location string to a DOLFINx geometric predicate.
 
-    Center predicates (right_center, top_center, etc.) use a tolerance of
-    60% of one element dimension. This finds exactly one node when the mesh
-    count is even, and the two nearest nodes when odd (load splits equally).
+EDGE_LOCATIONS = {"left_edge", "right_edge", "bottom_edge", "top_edge"}
+POINT_LOCATIONS = {
+    "right_tip", "right_center", "left_center", "top_center", "bottom_center",
+    "bottom_left", "bottom_right", "top_left", "top_right",
+}
 
-    Add new location strings here as new problem types are added.
-    """
-    atol_x = (Lx / nelx) * 0.6   # 60% of element width
-    atol_y = (Ly / nely) * 0.6   # 60% of element height
+
+def _make_predicate(location: str, Lx: float, Ly: float, nelx: int, nely: int):
+    """Map a schema location name to a geometric predicate."""
+    atol_x = (Lx / nelx) * 0.6
+    atol_y = (Ly / nely) * 0.6
 
     predicates = {
-        # Full edges
-        "left_edge":   lambda x: np.isclose(x[0], 0.0),
-        "right_edge":  lambda x: np.isclose(x[0], Lx),
+        "left_edge": lambda x: np.isclose(x[0], 0.0),
+        "right_edge": lambda x: np.isclose(x[0], Lx),
         "bottom_edge": lambda x: np.isclose(x[1], 0.0),
-        "top_edge":    lambda x: np.isclose(x[1], Ly),
-
-        # Corners
-        "right_tip":    lambda x: np.logical_and(
-                            np.isclose(x[0], Lx), np.isclose(x[1], 0.0)),
-        # "right_center": lambda x: np.logical_and(
-        #                     np.isclose(x[0], Lx), np.isclose(x[1], Ly / 2.0, atol=atol_y)),
-        "bottom_left":  lambda x: np.logical_and(
-                            np.isclose(x[0], 0.0), np.isclose(x[1], 0.0)),
+        "top_edge": lambda x: np.isclose(x[1], Ly),
+        "bottom_left": lambda x: np.logical_and(
+            np.isclose(x[0], 0.0), np.isclose(x[1], 0.0)
+        ),
         "bottom_right": lambda x: np.logical_and(
-                            np.isclose(x[0], Lx),  np.isclose(x[1], 0.0)),
-        "top_left":     lambda x: np.logical_and(
-                            np.isclose(x[0], 0.0), np.isclose(x[1], Ly)),
-        "top_right":    lambda x: np.logical_and(
-                            np.isclose(x[0], Lx),  np.isclose(x[1], Ly)),
-
-        # ADDED: Center-edge locations (task 1.1, MBB, Michell)
-        # atol_y / atol_x: tolerance = 0.6 × element size in the perpendicular direction.
-        # Ensures single-node selection for even mesh counts.
+            np.isclose(x[0], Lx), np.isclose(x[1], 0.0)
+        ),
+        "top_left": lambda x: np.logical_and(
+            np.isclose(x[0], 0.0), np.isclose(x[1], Ly)
+        ),
+        "top_right": lambda x: np.logical_and(
+            np.isclose(x[0], Lx), np.isclose(x[1], Ly)
+        ),
+        # In this project, "tip" denotes the free-end load point of the
+        # standard rectangular cantilever: the midpoint of the right edge.
+        "right_tip": lambda x: np.logical_and(
+            np.isclose(x[0], Lx),
+            np.isclose(x[1], Ly / 2.0, atol=atol_y),
+        ),
         "right_center": lambda x: np.logical_and(
-                            np.isclose(x[0], Lx),
-                            np.isclose(x[1], Ly / 2.0, atol=atol_y)),
-        "left_center":  lambda x: np.logical_and(
-                            np.isclose(x[0], 0.0),
-                            np.isclose(x[1], Ly / 2.0, atol=atol_y)),
-        "top_center":   lambda x: np.logical_and(
-                            np.isclose(x[1], Ly),
-                            np.isclose(x[0], Lx / 2.0, atol=atol_x)),
+            np.isclose(x[0], Lx),
+            np.isclose(x[1], Ly / 2.0, atol=atol_y),
+        ),
+        "left_center": lambda x: np.logical_and(
+            np.isclose(x[0], 0.0),
+            np.isclose(x[1], Ly / 2.0, atol=atol_y),
+        ),
+        "top_center": lambda x: np.logical_and(
+            np.isclose(x[1], Ly),
+            np.isclose(x[0], Lx / 2.0, atol=atol_x),
+        ),
         "bottom_center": lambda x: np.logical_and(
-                            np.isclose(x[1], 0.0),
-                            np.isclose(x[0], Lx / 2.0, atol=atol_x)),
+            np.isclose(x[1], 0.0),
+            np.isclose(x[0], Lx / 2.0, atol=atol_x),
+        ),
     }
-
-    if location not in predicates:
-        raise ValueError(
-            f"Unknown location '{location}'. "
-            f"Valid options: {list(predicates.keys())}"
-        )
-    return predicates[location]
+    try:
+        return predicates[location]
+    except KeyError as exc:
+        raise ValueError(f"Unknown location '{location}'") from exc
 
 
-# ------------------------------------------------------------------
-# DOF string → subspace index
-# ------------------------------------------------------------------
-
-_DOF_INDEX = {"x": 0, "y": 1, "z": 2}
+_DOF_INDEX = {"x": 0, "y": 1}
 
 
-# ------------------------------------------------------------------
-# Main translation functions
-# ------------------------------------------------------------------
+def _locate_boundary_vertices(domain, predicate):
+    domain.topology.create_connectivity(0, domain.topology.dim)
+    return locate_entities_boundary(domain, 0, predicate)
+
 
 def build_bcs_from_spec(spec, V, Lx, Ly, nelx=80, nely=50):
+    """Build component-wise Dirichlet conditions from the structured spec."""
+    if V.mesh.comm.size != 1:
+        raise NotImplementedError("The verified configuration bridge is serial-only.")
+
     bcs = []
     domain = V.mesh
     fdim = domain.topology.dim - 1
@@ -99,92 +89,152 @@ def build_bcs_from_spec(spec, V, Lx, Ly, nelx=80, nely=50):
         predicate = _make_predicate(bc_spec.location, Lx, Ly, nelx, nely)
         dof_idx = _DOF_INDEX[bc_spec.dof]
 
-        # Corner locations must use vertex topology (dim=0)
-        CORNER_LOCATIONS = {
-            "right_tip", "bottom_left", "bottom_right", "top_left", "top_right"
-        }
-        if bc_spec.location in CORNER_LOCATIONS:
-            domain.topology.create_connectivity(0, domain.topology.dim)
-            entities = locate_entities_boundary(domain, 0, predicate)
-        else:
+        if bc_spec.location in EDGE_LOCATIONS:
             entities = locate_entities_boundary(domain, fdim, predicate)
+            entity_dim = fdim
+        else:
+            entities = _locate_boundary_vertices(domain, predicate)
+            entity_dim = 0
 
-        dofs = fem.locate_dofs_topological(V.sub(dof_idx), 
-                   0 if bc_spec.location in CORNER_LOCATIONS else fdim, 
-                   entities)
-
-        bc = fem.dirichletbc(PETSc.ScalarType(bc_spec.value), dofs, V.sub(dof_idx))
-        print(f"BC '{bc_spec.location}' dof='{bc_spec.dof}': entities={len(entities)}, dofs={len(dofs)}")
+        dofs = fem.locate_dofs_topological(V.sub(dof_idx), entity_dim, entities)
+        if len(dofs) == 0:
+            raise RuntimeError(
+                f"BC '{bc_spec.location}' ({bc_spec.dof}) selected zero DOFs."
+            )
+        bc = fem.dirichletbc(
+            PETSc.ScalarType(bc_spec.value), dofs, V.sub(dof_idx)
+        )
+        print(
+            f"BC '{bc_spec.location}' dof='{bc_spec.dof}': "
+            f"entities={len(entities)}, dofs={len(dofs)}"
+        )
         bcs.append(bc)
-
     return bcs
 
+
+def _edge_nodal_weights(coords: np.ndarray, location: str) -> np.ndarray:
+    """Trapezoidal tributary weights for ordered nodes on a straight edge."""
+    if len(coords) < 2:
+        raise RuntimeError(f"Edge load '{location}' selected fewer than two nodes")
+    axis = 1 if location in {"left_edge", "right_edge"} else 0
+    order = np.argsort(coords[:, axis])
+    s = coords[order, axis]
+    ds = np.diff(s)
+    if np.any(ds <= 0.0):
+        raise RuntimeError("Duplicate or unordered edge-load coordinates")
+    ordered = np.empty(len(s), dtype=float)
+    ordered[0] = ds[0] / 2.0
+    ordered[-1] = ds[-1] / 2.0
+    if len(s) > 2:
+        ordered[1:-1] = (ds[:-1] + ds[1:]) / 2.0
+    weights = np.empty_like(ordered)
+    weights[order] = ordered
+    return weights
+
+
 def build_load_from_spec(spec, V, Lx, Ly, nelx=80, nely=50):
+    """Build an algebraic nodal force vector with explicit load semantics.
+
+    ``point_force``: ``value`` is a discrete nodal point-force resultant. A center
+    predicate may select two neighboring nodes on odd meshes; the force is
+    divided equally.
+
+    ``edge_resultant``: ``value`` is the total resultant on the selected edge,
+    distributed using normalized trapezoidal tributary lengths.
+
+    ``edge_traction``: ``value`` is force per unit length. Multiplication by
+    tributary edge length gives each nodal force.
+    """
+    if V.mesh.comm.size != 1:
+        raise NotImplementedError("The verified load builder is serial-only.")
+
     F = fem.Function(V)
     F.x.array[:] = 0.0
-    domain = V.mesh
 
     for load_spec in spec.loads:
         predicate = _make_predicate(load_spec.location, Lx, Ly, nelx, nely)
         dof_idx = _DOF_INDEX[load_spec.dof]
 
-        # Point loads: use vertex topology (dim=0)
-        vdim = 0
-        domain.topology.create_connectivity(vdim, domain.topology.dim)
-        vertices = locate_entities_boundary(domain, vdim, predicate)
-        
-        print(f"Load '{load_spec.location}' dof='{load_spec.dof}': vertices={len(vertices)}")
-
-        if len(vertices) == 0:
+        # Use the collapsed-subspace form so parent DOFs and geometric
+        # coordinates remain explicitly paired. This avoids relying on raw
+        # interleaving or on vertex/DOF arrays having the same ordering.
+        V_sub, _ = V.sub(dof_idx).collapse()
+        located = fem.locate_dofs_geometrical((V.sub(dof_idx), V_sub), predicate)
+        parent_dofs = np.asarray(located[0], dtype=np.int32)
+        sub_dofs = np.asarray(located[1], dtype=np.int32)
+        if len(parent_dofs) == 0:
             raise RuntimeError(
-                f"build_load_from_spec: no vertex found for "
-                f"location='{load_spec.location}', dof='{load_spec.dof}'."
+                f"Load '{load_spec.location}' ({load_spec.dof}) selected zero DOFs."
             )
 
-        dofs = fem.locate_dofs_topological(V.sub(dof_idx), vdim, vertices)
+        if load_spec.kind == "point_force":
+            if load_spec.location in EDGE_LOCATIONS:
+                raise ValueError(
+                    f"A point_force requires a point/center/corner location, not "
+                    f"'{load_spec.location}'. Use edge_resultant or edge_traction."
+                )
+            nodal_values = np.full(
+                len(parent_dofs), load_spec.value / len(parent_dofs), dtype=float
+            )
+        else:
+            if load_spec.location not in EDGE_LOCATIONS:
+                raise ValueError(
+                    f"{load_spec.kind} requires a full edge location, not "
+                    f"'{load_spec.location}'."
+                )
+            coords = V_sub.tabulate_dof_coordinates()[sub_dofs]
+            tributary = _edge_nodal_weights(coords, load_spec.location)
+            if load_spec.kind == "edge_resultant":
+                nodal_values = load_spec.value * tributary / tributary.sum()
+            elif load_spec.kind == "edge_traction":
+                nodal_values = load_spec.value * tributary
+            else:
+                raise ValueError(f"Unsupported load kind '{load_spec.kind}'")
 
-        print(f"  dofs (parent indices): {dofs}")
+        for dof, value in zip(parent_dofs, nodal_values):
+            F.x.array[dof] += value
 
-        load_per_node = load_spec.value / len(dofs)
-        for d in dofs:
-            F.x.array[d] += load_per_node  # dofs are already parent indices
+        print(
+            f"Load '{load_spec.location}' kind='{load_spec.kind}' "
+            f"dof='{load_spec.dof}': dofs={len(parent_dofs)}, "
+            f"resultant={float(np.sum(nodal_values)):.6g}"
+        )
 
     F.x.scatter_forward()
+    if not np.all(np.isfinite(F.x.array)) or np.count_nonzero(F.x.array) == 0:
+        raise RuntimeError("The assembled nodal load vector is empty or non-finite")
     return F
 
 
 def extract_simp_params(spec) -> dict:
-    """
-    Pull SIMP + geometry parameters from spec.
-    Returns a plain dict so SIMP_MASTER stays decoupled from Pydantic.
-
-    CHANGED: Reads Lx/Ly from schema (new fields). Falls back to nelx/nely
-             aspect-ratio default if not provided. Returns Lx/Ly so
-             main_from_spec does not recompute them independently.
-
-    r_min in spec is in element units (Sigmund MATLAB convention).
-    Helmholtz filter expects meters → convert here.
-    """
+    """Extract solver parameters without silently converting units."""
     nelx = spec.mesh.nx
     nely = spec.mesh.ny
-
-    # CHANGED: use schema Lx/Ly when provided; default to unit-height scaling
-    Lx = float(spec.mesh.Lx) if spec.mesh.Lx is not None else float(nelx) / float(nely)
+    Lx = float(spec.mesh.Lx) if spec.mesh.Lx is not None else nelx / nely
     Ly = float(spec.mesh.Ly) if spec.mesh.Ly is not None else 1.0
 
-    # r_min element units → meters
-    # r_min_meters = spec.simp.r_min * (Lx / nelx)
+    element_size = min(Lx / nelx, Ly / nely)
+    r_min_elements = float(spec.simp.r_min) / element_size
+    if r_min_elements < 1.0:
+        raise ValueError(
+            f"r_min={spec.simp.r_min:g} spans only {r_min_elements:.3f} elements; "
+            "use at least one element width to regularize the density field."
+        )
 
     return {
-        "penal":   spec.simp.penal,
-        "volfrac": spec.simp.vol_frac,
-        "r_min":   spec.simp.r_min,
-        "E":       spec.material.E,
-        "nu":      spec.material.nu,
-        "nelx":    nelx,
-        "nely":    nely,
-        "Lx":      Lx,
-        "Ly":      Ly,
-        "max_iter": getattr(spec.simp, "max_iter", 200),
-        "tol_change": getattr(spec.simp, "tol_change", 0.01),
+        "penal": float(spec.simp.penal),
+        "volfrac": float(spec.simp.vol_frac),
+        "r_min_convention": R_MIN_CONVENTION,
+        "r_min": float(spec.simp.r_min),
+        "r_pde": r_pde_from_r_min(float(spec.simp.r_min)),
+        "r_min_elements": r_min_elements,
+        "element_size": element_size,
+        "E": float(spec.material.E),
+        "nu": float(spec.material.nu),
+        "nelx": nelx,
+        "nely": nely,
+        "Lx": Lx,
+        "Ly": Ly,
+        "max_iter": int(spec.simp.max_iter),
+        "tol_change": float(spec.simp.tol_change),
     }

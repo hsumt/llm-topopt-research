@@ -9,3 +9,6 @@ solver/_05_OUT/
 *.gif
 *.xdmf
 *.h5
+project/solver/_05_OUT/**
+!project/solver/_05_OUT/*/
+!project/solver/_05_OUT/*/.gitkeep

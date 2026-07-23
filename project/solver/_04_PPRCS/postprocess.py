@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import imageio
+import imageio.v2 as imageio
 import h5py
 
 
@@ -161,7 +161,8 @@ def save_summary_slide(
     plt.close(fig)
     print(f"Summary slide saved → {out_path}")
     return out_path
-def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray, output_dir: str = "_05_OUT"):
+def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray,
+                Lx: float, Ly: float, output_dir: str = "_05_OUT"):
     """
     Export density history to XDMF + HDF5 for ParaView animation.
 
@@ -170,6 +171,7 @@ def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray, outpu
     nelx, nely   : mesh element counts
     rho_history  : list of np.ndarray, each shape (nely*nelx,), one per iteration.
                    Each array is rho_fn.x.array.copy() from DG-0 space.
+    Lx, Ly       : physical domain dimensions
     output_dir   : directory to write topopt.h5 and topopt.xdmf
 
     DOLFINx cell ordering (create_rectangle, quadrilateral):
@@ -194,8 +196,8 @@ def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray, outpu
     coords = np.zeros((n_nodes, 3), dtype=np.float64)
     for j in range(n_nodes_y):
         for i in range(n_nodes_x):
-            coords[j * n_nodes_x + i, 0] = i   # x
-            coords[j * n_nodes_x + i, 1] = j   # y
+            coords[j * n_nodes_x + i, 0] = (Lx * i) / nelx
+            coords[j * n_nodes_x + i, 1] = (Ly * j) / nely
             # z = 0 (plane problem)
 
     # ------------------------------------------------------------------

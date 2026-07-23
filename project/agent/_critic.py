@@ -20,6 +20,8 @@ Constraints:
 - Do not modify parameters.
 - Do not issue an independent pass/fail verdict; refer only to the provided validation status.
 - Distinguish numerical convergence from physical/manufacturing interpretability.
+- No topology image content is included. Artifact filenames are not visual evidence.
+- Do not claim connectivity, load-path geometry, checkerboard absence, symmetry, thin-member quality, or visible support/load consistency unless a deterministic metric for that property is explicitly included in the packet.
 - Output plain text with these headings:
   Convergence Behavior
   Engineering Anomalies
