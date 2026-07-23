@@ -79,6 +79,7 @@ def save_summary_slide(
     volfrac_target: float,
     out_dir: str,
     problem_name: str = "",
+    tol_change: float = 0.01,
 ):
     """
     Save a summary slide PNG with:
@@ -147,8 +148,8 @@ def save_summary_slide(
     # ── Row 2, Col 2: change ──────────────────────────────────────────
     ax_ch = fig.add_subplot(gs[2, 2])
     ax_ch.plot(iters, change_history, color="#9333ea", linewidth=1.5)
-    ax_ch.axhline(0.01, color="red", linestyle="--",
-                  linewidth=1.0, label="Tolerance 0.01")
+    ax_ch.axhline(tol_change, color="red", linestyle="--",
+                  linewidth=1.0, label=f"Tolerance {tol_change:g}")
     ax_ch.set_xlabel("Iteration", fontsize=8)
     ax_ch.set_ylabel("Max density change", fontsize=8)
     ax_ch.set_title("Convergence (Change)", fontsize=9)

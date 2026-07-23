@@ -37,6 +37,16 @@ def _add(checks, failures, warnings, name, passed, value, threshold, severity, m
             warnings.append(message)
 
 
+
+def _add_diagnostic(checks, name, value, interpretation):
+    """Record an informational metric with no pass/fail interpretation."""
+    checks[name] = {
+        "passed": None,
+        "value": value,
+        "threshold": interpretation,
+        "severity": "diagnostic",
+    }
+
 def _checkerboard_index(rho_grid: np.ndarray) -> float:
     """Return a normalized alternating 2x2-mode indicator (informational)."""
     if rho_grid.ndim != 2 or min(rho_grid.shape) < 2:
@@ -293,25 +303,40 @@ def validate(
         grid = np.asarray(rho_grid, dtype=float)
         if grid.ndim == 2 and grid.size == n_cells and np.all(np.isfinite(grid)):
             checkerboard = _checkerboard_index(grid)
-            _add(
-                checks, failures, warnings,
-                "checkerboard_alternating_mode_index", checkerboard < 0.25,
-                checkerboard, "< 0.25 (uncalibrated spatial diagnostic)", "quality",
-                f"Checkerboard alternating-mode diagnostic is elevated ({checkerboard:.3f}).",
+            _add_diagnostic(
+                checks,
+                "checkerboard_alternating_mode_index",
+                checkerboard,
+                (
+                    "informational only; uncalibrated 2x2 alternating-mode proxy. "
+                    "It can respond to legitimate diagonal/stair-stepped boundaries "
+                    "and must not be described as proof of checkerboarding."
+                ),
             )
             if support_cell_mask is not None and load_cell_mask is not None:
-                try:
-                    connected, detail = _load_support_connected(
-                        grid, support_cell_mask, load_cell_mask, threshold=0.5
-                    )
-                except (TypeError, ValueError) as exc:
-                    connected, detail = False, f"invalid connectivity evidence: {exc}"
-                _add(
-                    checks, failures, warnings,
-                    "load_to_support_connectivity_rho_0p5", connected,
-                    detail, "four-neighbor path through rho_phys >= 0.5", "quality",
-                    "Thresholded topology has no demonstrated load-to-support path: "
-                    + detail,
+                connectivity = {}
+                for threshold in (0.3, 0.5, 0.7):
+                    try:
+                        connected, detail = _load_support_connected(
+                            grid,
+                            support_cell_mask,
+                            load_cell_mask,
+                            threshold=threshold,
+                        )
+                    except (TypeError, ValueError) as exc:
+                        connected, detail = False, f"invalid evidence: {exc}"
+                    connectivity[f"rho_{threshold:.1f}"] = {
+                        "connected": bool(connected),
+                        "detail": detail,
+                    }
+                _add_diagnostic(
+                    checks,
+                    "load_to_support_connectivity_threshold_sweep",
+                    connectivity,
+                    (
+                        "informational threshold sweep using four-neighbor cell "
+                        "connectivity; no calibrated hard threshold"
+                    ),
                 )
         else:
             _add(
@@ -329,26 +354,48 @@ def validate(
             np.isfinite(float(kkt[key])) for key in ("residual_norm", "residual_max")
         )
         if finite_kkt:
-            checks["kkt_residual_diagnostic"] = {
-                "passed": True,
-                "value": {
+            _add_diagnostic(
+                checks,
+                "kkt_residual_diagnostic",
+                {
                     "norm": float(kkt["residual_norm"]),
                     "max": float(kkt["residual_max"]),
                 },
-                "threshold": "diagnostic only; no calibrated hard threshold",
-                "severity": "diagnostic",
-            }
+                (
+                    "diagnostic only; last MMA-subproblem multipliers evaluated "
+                    "with final re-evaluated gradients; not a convergence certificate"
+                ),
+            )
         else:
             warnings.append("KKT diagnostic contains non-finite values.")
     else:
         warnings.append("KKT diagnostic is unavailable.")
 
-    converged = bool(metrics.get("converged", False))
+    design_converged = bool(metrics.get("design_converged", False))
+    objective_plateau = bool(metrics.get("objective_plateau", False))
+    continuation_complete = bool(metrics.get("continuation_complete", False))
     _add(
         checks, failures, warnings,
-        "optimizer_convergence_status", converged,
-        converged, "True", "quality",
-        "The optimizer stopped at the iteration cap rather than a convergence criterion.",
+        "design_convergence_status", design_converged,
+        design_converged, "max design change < configured tol_change", "quality",
+        "The returned design did not satisfy the configured max-change tolerance.",
+    )
+    _add(
+        checks, failures, warnings,
+        "continuation_completion_status", continuation_complete,
+        continuation_complete,
+        "all effective beta steps applied and held for the required tail",
+        "quality",
+        "The effective continuation plan was not completed and settled.",
+    )
+    _add_diagnostic(
+        checks,
+        "objective_plateau_status",
+        objective_plateau,
+        (
+            "informational only; objective stagnation does not establish design "
+            "convergence"
+        ),
     )
 
     return {

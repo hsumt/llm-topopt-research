@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 from dolfinx import fem
@@ -57,6 +58,7 @@ from _04_PPRCS.postprocess import (
 )
 from agent._critic import criticize
 from agent._physics import validate
+from _verification_manifest import load_hash_bound_artifact, load_manifest_status
 
 
 CASE = "cantilever"
@@ -70,10 +72,14 @@ CASE_PARAMS = {
         "volfrac": 0.4,
         "penal": 3.0,
         "r_min": 0.05,
-        "max_iter": 200,
+        "max_iter": 250,
         "tol_change": 0.01,
         "E": 1.0,
         "nu": 0.3,
+        "formulation": "plane_stress",
+        "unit_system": "nondimensional",
+        "thickness": 1.0,
+        "edge_traction_definition": "line_load",
     },
     "mbb": {
         "nelx": 120,
@@ -87,6 +93,10 @@ CASE_PARAMS = {
         "tol_change": 0.01,
         "E": 1.0,
         "nu": 0.3,
+        "formulation": "plane_stress",
+        "unit_system": "nondimensional",
+        "thickness": 1.0,
+        "edge_traction_definition": "line_load",
     },
 }
 
@@ -108,11 +118,17 @@ class OptimizationResult:
     metrics: dict
     beta_final: float
     beta_schedule_effective: dict[int, float]
+    beta_schedule_omitted: dict[int, float]
     convergence_reason: str
     cell_volumes: np.ndarray
 
 
-def _effective_beta_schedule(max_iter: int) -> dict[int, float]:
+def _effective_beta_schedule(max_iter: int):
+    """Return executable and omitted continuation steps.
+
+    A beta update is executable only if the configured run leaves at least
+    ``BETA_HOLD_ITERATIONS`` subsequent optimization iterations at that beta.
+    """
     latest_usable = max_iter - BETA_HOLD_ITERATIONS
     effective = {
         iteration: beta
@@ -128,9 +144,42 @@ def _effective_beta_schedule(max_iter: int) -> dict[int, float]:
         print(
             "[Continuation] Not activating late beta steps without a "
             f"{BETA_HOLD_ITERATIONS}-iteration optimization tail: {omitted}. "
-            "Increase max_iter to execute them."
+            "This run will report the requested and effective schedules separately."
         )
-    return effective
+    return effective, omitted
+
+
+def _termination_status(
+    *,
+    iteration: int,
+    change: float,
+    tol_change: float,
+    objective_plateau: bool,
+    last_beta_change: int,
+    effective_beta_schedule: dict[int, float],
+):
+    """Classify design, objective, and continuation status independently."""
+    design_converged = bool(change < tol_change)
+    all_effective_steps_applied = bool(
+        not effective_beta_schedule or iteration >= max(effective_beta_schedule)
+    )
+    continuation_settled = bool(
+        iteration - last_beta_change >= BETA_HOLD_ITERATIONS
+    )
+    continuation_complete = bool(
+        all_effective_steps_applied and continuation_settled
+    )
+    may_stop = bool(iteration >= 80 and continuation_complete)
+    fully_converged = bool(design_converged and continuation_complete)
+    return {
+        "design_converged": design_converged,
+        "objective_plateau": bool(objective_plateau),
+        "continuation_complete": continuation_complete,
+        "continuation_settled": continuation_settled,
+        "all_effective_steps_applied": all_effective_steps_applied,
+        "may_stop": may_stop,
+        "fully_converged": fully_converged,
+    }
 
 
 def _check_problem_setup(domain, bcs, F_load):
@@ -171,6 +220,7 @@ def _evaluate_state(
     penal,
     mu,
     lmbda,
+    thickness,
     cell_volumes,
 ):
     """Evaluate one design state and return objective, gradients, and diagnostics."""
@@ -179,7 +229,8 @@ def _evaluate_state(
     rho_fn.x.scatter_forward()
 
     uh, solve_diag = solve_fea(
-        domain, V, bcs, rho_fn, penal, mu, lmbda, F_load
+        domain, V, bcs, rho_fn, penal, mu, lmbda, F_load,
+        thickness=thickness,
     )
     compliance = float(solve_diag["compliance"])
 
@@ -192,7 +243,7 @@ def _evaluate_state(
         )
 
     dc_drho_phys = compute_sensitivities(
-        rho_phys, uh, Q, penal, mu, lmbda
+        rho_phys, uh, Q, penal, mu, lmbda, thickness=thickness
     )
     dproj = heaviside_projection_derivative(rho_tilde, beta, ETA)
 
@@ -241,6 +292,7 @@ def _run_optimization(
     p: dict,
     frames_dir: str,
     perm: np.ndarray,
+    save_frames: bool = True,
 ) -> OptimizationResult:
     """Run the deterministic SIMP/MMA loop."""
     _check_problem_setup(domain, bcs, F_load)
@@ -263,7 +315,9 @@ def _run_optimization(
     x_design = np.full(n_cells, float(p["volfrac"]), dtype=float)
 
     beta = 1.0
-    beta_schedule = _effective_beta_schedule(int(p["max_iter"]))
+    beta_schedule, beta_schedule_omitted = _effective_beta_schedule(
+        int(p["max_iter"])
+    )
     last_beta_change = 0
 
     metrics = {
@@ -280,6 +334,10 @@ def _run_optimization(
         "final_dc_dx_design": None,
         "final_kkt_diagnostics": None,
         "iteration": 0,
+        "design_converged": False,
+        "objective_plateau": False,
+        "continuation_complete": False,
+        "requested_continuation_complete": False,
         "converged": False,
     }
     rho_history: list[np.ndarray] = []
@@ -306,6 +364,7 @@ def _run_optimization(
             penal=float(p["penal"]),
             mu=p["mu"],
             lmbda=p["lmbda"],
+            thickness=float(p["thickness"]),
             cell_volumes=cell_volumes,
         )
 
@@ -354,47 +413,59 @@ def _run_optimization(
         print_iteration_report(
             iteration, state["compliance"], state["volfrac"], change
         )
-        frame_paths.append(
-            save_frame(
-                rho_fn,
-                p["nelx"],
-                p["nely"],
-                iteration,
-                state["compliance"],
-                frames_dir,
-                perm,
+        if save_frames:
+            frame_paths.append(
+                save_frame(
+                    rho_fn,
+                    p["nelx"],
+                    p["nely"],
+                    iteration,
+                    state["compliance"],
+                    frames_dir,
+                    perm,
+                )
             )
-        )
         rho_history.append(state["rho_phys"].copy())
 
         # Commit the design update after recording the state that generated it.
         x_design = x_new
 
-        design_converged = change < float(p["tol_change"])
-        compliance_converged = False
+        objective_plateau = False
         if len(metrics["compliance_history"]) >= 21:
             c_now = metrics["compliance_history"][-1]
             c_old = metrics["compliance_history"][-21]
             recent_change = abs(c_now - c_old) / max(abs(c_now), 1.0e-12)
-            compliance_converged = recent_change < 5.0e-4
+            objective_plateau = recent_change < 5.0e-4
 
-        all_continuation_steps_applied = (
-            not beta_schedule or iteration >= max(beta_schedule)
+        status = _termination_status(
+            iteration=iteration,
+            change=change,
+            tol_change=float(p["tol_change"]),
+            objective_plateau=objective_plateau,
+            last_beta_change=last_beta_change,
+            effective_beta_schedule=beta_schedule,
         )
-        continuation_settled = (
-            iteration - last_beta_change >= BETA_HOLD_ITERATIONS
-        )
-        may_stop = (
-            iteration >= 80
-            and all_continuation_steps_applied
-            and continuation_settled
-        )
-        if may_stop and (design_converged or compliance_converged):
-            reason = (
-                "design_change" if design_converged else "compliance_plateau"
+        metrics.update({
+            "design_converged": status["design_converged"],
+            "objective_plateau": status["objective_plateau"],
+            "continuation_complete": status["continuation_complete"],
+            "requested_continuation_complete": bool(
+                not beta_schedule_omitted and status["continuation_complete"]
+            ),
+            "converged": status["fully_converged"],
+        })
+
+        if status["may_stop"] and status["fully_converged"]:
+            reason = "design_change"
+            print(f"\nDesign converged at iteration {iteration}")
+            break
+        if status["may_stop"] and status["objective_plateau"]:
+            reason = "objective_plateau_only"
+            print(
+                f"\nStopped at iteration {iteration}: objective plateau, "
+                f"but max design change={change:.6g} exceeds "
+                f"tol={float(p['tol_change']):.6g}."
             )
-            metrics["converged"] = True
-            print(f"\nConverged at iteration {iteration} ({reason})")
             break
 
     # Exact final re-evaluation: x_design is the last MMA output, whereas the
@@ -413,6 +484,7 @@ def _run_optimization(
         penal=float(p["penal"]),
         mu=p["mu"],
         lmbda=p["lmbda"],
+        thickness=float(p["thickness"]),
         cell_volumes=cell_volumes,
     )
     _replace_final_state_metrics(metrics, final_state, beta)
@@ -423,6 +495,22 @@ def _run_optimization(
         final_g,
         final_state["dg_dx_design"],
     )
+    final_status = _termination_status(
+        iteration=int(metrics["iteration"]),
+        change=float(metrics["change_history"][-1]),
+        tol_change=float(p["tol_change"]),
+        objective_plateau=bool(metrics["objective_plateau"]),
+        last_beta_change=last_beta_change,
+        effective_beta_schedule=beta_schedule,
+    )
+    metrics.update({
+        "design_converged": final_status["design_converged"],
+        "continuation_complete": final_status["continuation_complete"],
+        "requested_continuation_complete": bool(
+            not beta_schedule_omitted and final_status["continuation_complete"]
+        ),
+        "converged": final_status["fully_converged"],
+    })
     rho_final = final_state["rho_phys"].copy()
     rho_history[-1] = rho_final.copy()
     rho_fn.x.array[:] = rho_final
@@ -430,15 +518,16 @@ def _run_optimization(
 
     # Overwrite the final frame so image, density history, and final compliance
     # all describe the same state.
-    frame_paths[-1] = save_frame(
-        rho_fn,
-        p["nelx"],
-        p["nely"],
-        metrics["iteration"],
-        final_state["compliance"],
-        frames_dir,
-        perm,
-    )
+    if save_frames:
+        frame_paths[-1] = save_frame(
+            rho_fn,
+            p["nelx"],
+            p["nely"],
+            metrics["iteration"],
+            final_state["compliance"],
+            frames_dir,
+            perm,
+        )
 
     return OptimizationResult(
         rho_fn=rho_fn,
@@ -448,14 +537,32 @@ def _run_optimization(
         metrics=metrics,
         beta_final=beta,
         beta_schedule_effective=beta_schedule,
+        beta_schedule_omitted=beta_schedule_omitted,
         convergence_reason=reason,
         cell_volumes=cell_volumes,
     )
 
 
 def _prepare_output_dir(path: str, clear: bool):
-    if clear and os.path.exists(path):
-        shutil.rmtree(path)
+    """Prepare an output directory without deleting the directory itself.
+
+    Retaining ``path`` avoids requiring delete permission on its parent
+    directory. When ``clear`` is True, only the existing contents are removed.
+    """
+    path = os.path.abspath(path)
+    os.makedirs(path, exist_ok=True)
+
+    if clear:
+        for entry in os.scandir(path):
+            entry_path = entry.path
+
+            if entry.is_symlink() or entry.is_file(follow_symlinks=False):
+                os.unlink(entry_path)
+            elif entry.is_dir(follow_symlinks=False):
+                shutil.rmtree(entry_path)
+            else:
+                os.unlink(entry_path)
+
     os.makedirs(os.path.join(path, "frames"), exist_ok=True)
 
 
@@ -483,6 +590,7 @@ def _export_run(result: OptimizationResult, p: dict, out_dir: str, perm, name: s
         volfrac_target=p["volfrac"],
         out_dir=out_dir,
         problem_name=name,
+        tol_change=p["tol_change"],
     )
     final_density_path = save_final_density(
         result.rho_fn, p["nelx"], p["nely"], out_dir, perm
@@ -514,6 +622,11 @@ def _build_hardcoded_case(case: str):
         mu=mu,
         lmbda=lmbda,
         element_size=min(p["Lx"] / p["nelx"], p["Ly"] / p["nely"]),
+        r_min_convention="cone_equivalent_radius",
+        r_pde=float(p["r_min"]) / (2.0 * np.sqrt(3.0)),
+        r_min_elements=float(p["r_min"]) / min(
+            p["Lx"] / p["nelx"], p["Ly"] / p["nely"]
+        ),
     )
     if case == "cantilever":
         bcs = build_bcs(V, domain)
@@ -649,9 +762,43 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         load_cell_mask=load_mask,
     )
 
+    project_root = Path(base).parent
+    verification_status = load_manifest_status(project_root)
+    if run_provenance is None:
+        run_provenance = {
+            "clarification_policy": "unknown",
+            "defaulted_fields": [],
+            "parser_field_provenance": [],
+            "final_field_provenance": [],
+            "clarifications_presented": [],
+            "confirmed_defaults": [],
+            "accepted_remaining_defaults": [],
+            "accepted_after_invalid_input": [],
+            "user_overrides": [],
+            "invalid_responses": [],
+            "opted_out": False,
+            "opted_out_at_field": None,
+            "final_preview_confirmed": False,
+            "confirmation_received": False,
+            "semantic_assurance": {
+                "status": "unknown",
+                "confirmation_required": True,
+                "final_preview_confirmed": False,
+            },
+        }
+    semantic_status = (
+        run_provenance.get("semantic_assurance", {}).get("status", "unknown")
+    )
+
     final = {
         "iterations": result.metrics["iteration"],
         "converged": result.metrics["converged"],
+        "design_converged": result.metrics["design_converged"],
+        "objective_plateau": result.metrics["objective_plateau"],
+        "continuation_complete": result.metrics["continuation_complete"],
+        "requested_continuation_complete": result.metrics[
+            "requested_continuation_complete"
+        ],
         "convergence_reason": result.convergence_reason,
         "final_compliance": result.metrics["compliance_history"][-1],
         "initial_compliance": result.metrics["compliance_history"][0],
@@ -682,6 +829,10 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
             "Ly": p["Ly"],
             "E": p["E"],
             "nu": p["nu"],
+            "formulation": p["formulation"],
+            "unit_system": p["unit_system"],
+            "thickness": p["thickness"],
+            "edge_traction_definition": p["edge_traction_definition"],
             "kinematics": "2-D small-strain plane stress",
             "execution": "serial",
             "volfrac_target": p["volfrac"],
@@ -695,11 +846,17 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
             "robust_three_projection": False,
             "beta_schedule_requested": REQUESTED_BETA_SCHEDULE,
             "beta_schedule_effective": result.beta_schedule_effective,
+            "beta_schedule_omitted": result.beta_schedule_omitted,
             "beta_final": result.beta_final,
             "steering_enabled": False,
         },
         "final_result": final,
         "validation": validation,
+        "semantic_assurance": run_provenance.get("semantic_assurance", {}),
+        "numerical_verification_suite": {
+            key: verification_status.get(key)
+            for key in ("available", "current", "passed", "reason")
+        },
         "artifacts": artifacts,
         "evidence_scope": {
             "topology_image_content_included": False,
@@ -714,7 +871,8 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     print("\n--- Deterministic Validation ---")
     print(f"HARD CHECKS PASSED: {validation['passed']}")
     for name, check in validation["checks"].items():
-        marker = "OK" if check["passed"] else "FAIL"
+        passed = check.get("passed")
+        marker = "INFO" if passed is None else ("OK" if passed else "FAIL")
         print(
             f"  {marker:4s} [{check['severity']}] {name}: "
             f"{check['value']} (threshold: {check['threshold']})"
@@ -742,15 +900,6 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         "critic_tokens": int(critic_usage.get("total_tokens", 0)),
         "total_llm_tokens": parser_tokens + int(critic_usage.get("total_tokens", 0)),
     }
-    if run_provenance is None:
-        run_provenance = {
-            "clarification_policy": "unknown",
-            "defaulted_fields": [],
-            "clarifications_presented": [],
-            "user_overrides": [],
-            "confirmation_received": False,
-        }
-
     derivative_evidence = {
         "direct_simp_sign_derivative": {
             "key": "final_dc_drho_phys",
@@ -766,6 +915,58 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         },
     }
 
+    publication_blockers = []
+    if not validation["passed"]:
+        publication_blockers.append("hard deterministic validation failed")
+    if not final["design_converged"]:
+        publication_blockers.append("design-change convergence tolerance not met")
+    if not final["requested_continuation_complete"]:
+        publication_blockers.append(
+            "full requested beta continuation schedule was not completed and held"
+        )
+    if semantic_status not in {"fully_explicit", "user_confirmed"}:
+        publication_blockers.append(
+            f"prompt/spec semantic assurance is '{semantic_status}'"
+        )
+    if not verification_status.get("passed", False):
+        publication_blockers.append(
+            "current source hashes are not covered by a passing verification manifest"
+        )
+    mesh_study_path = (
+        project_root
+        / "solver"
+        / "_05_OUT"
+        / "vv"
+        / "mesh_refinement_manifest.json"
+    )
+    mesh_refinement_status = load_hash_bound_artifact(
+        mesh_study_path,
+        project_root,
+        success_key="completed",
+    )
+    if not mesh_refinement_status.get("passed", False):
+        publication_blockers.append(
+            "current source hashes are not covered by a completed "
+            "mesh-refinement study manifest"
+        )
+
+    publication_readiness = {
+        "ready_for_final_publication_dataset": not publication_blockers,
+        "blockers": publication_blockers,
+        "hard_validation_passed": bool(validation["passed"]),
+        "design_converged": bool(final["design_converged"]),
+        "requested_continuation_complete": bool(
+            final["requested_continuation_complete"]
+        ),
+        "semantic_assurance_status": semantic_status,
+        "verification_manifest_current": bool(
+            verification_status.get("passed", False)
+        ),
+        "mesh_refinement_study_available": bool(
+            mesh_refinement_status.get("passed", False)
+        ),
+    }
+
     packet = {
         "critic_agent_summary": critic_summary,
         "final_result": final,
@@ -775,9 +976,16 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         "compute_cost": compute_cost,
         "derivative_evidence": derivative_evidence,
         "interaction_provenance": run_provenance,
+        "numerical_verification_suite": verification_status,
+        "mesh_refinement_study": mesh_refinement_status,
+        "publication_readiness": publication_readiness,
         "model_limitations": {
             "point_force": "discrete nodal point force; local stresses at the loaded node are singularity-sensitive",
             "dirichlet_values": "homogeneous displacement constraints only",
+            "dimensional_scope": (
+                "nondimensional plane-stress formulation with unit out-of-plane "
+                "thickness; edge_traction is a 2-D line load"
+            ),
             "critic_visual_access": False,
         },
     }
@@ -789,6 +997,12 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     print(f"Final compliance:  {final['final_compliance']:.8g}")
     print(f"Final volume:      {final['final_volume_fraction']:.6f}")
     print(f"Output directory:  {out_dir}")
+    print(
+        "Publication ready: "
+        f"{publication_readiness['ready_for_final_publication_dataset']}"
+    )
+    for blocker in publication_readiness["blockers"]:
+        print(f"  BLOCKER: {blocker}")
     print("====================")
     return packet
 

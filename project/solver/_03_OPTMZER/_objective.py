@@ -27,6 +27,7 @@ def compute_sensitivities(
     penal: float,
     mu: float,
     lmbda: float,
+    thickness: float = 1.0,
 ) -> np.ndarray:
     r"""Return element-integrated SIMP compliance derivatives.
 
@@ -48,7 +49,7 @@ def compute_sensitivities(
     energy_form = fem.form(
         ufl.inner(sigma(uh, mu, lmbda), epsilon(uh)) * q * ufl.dx
     )
-    energy_vec = fem.petsc.assemble_vector(energy_form)
+    energy_vec = fem_petsc.assemble_vector(energy_form)
     energy_vec.ghostUpdate(
         addv=PETSc.InsertMode.ADD,
         mode=PETSc.ScatterMode.REVERSE,
@@ -56,8 +57,12 @@ def compute_sensitivities(
     elemental_energy = energy_vec.array.copy()
     energy_vec.destroy()
 
+    if thickness <= 0.0:
+        raise ValueError("thickness must be positive")
+
     dc = (
-        -penal
+        -float(thickness)
+        * penal
         * (1.0 - E_MIN)
         * np.power(rho, penal - 1.0)
         * elemental_energy

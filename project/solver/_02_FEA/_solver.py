@@ -10,7 +10,7 @@ from dolfinx.fem import petsc as fem_petsc
 from _02_FEA._assembly import build_stiffness_form
 
 
-def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
+def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load, thickness=1.0):
     """Solve K(rho) U = F and return displacement plus diagnostics.
 
     ``F_load`` is a ``fem.Function(V)`` whose coefficient vector is the actual
@@ -23,19 +23,21 @@ def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load):
             "MPI-safe load assembly, reductions, and output are not yet implemented."
         )
 
-    a = fem.form(build_stiffness_form(V, rho_fn, penal, mu, lmbda))
-    A = fem.petsc.assemble_matrix(a, bcs=bcs)
+    a = fem.form(build_stiffness_form(
+        V, rho_fn, penal, mu, lmbda, thickness=thickness
+    ))
+    A = fem_petsc.assemble_matrix(a, bcs=bcs)
     A.assemble()
 
     b = F_load.x.petsc_vec.copy()
 
     # Apply lifting so non-zero Dirichlet values remain mathematically correct.
-    fem.petsc.apply_lifting(b, [a], bcs=[bcs])
+    fem_petsc.apply_lifting(b, [a], bcs=[bcs])
     b.ghostUpdate(
         addv=PETSc.InsertMode.ADD,
         mode=PETSc.ScatterMode.REVERSE,
     )
-    fem.petsc.set_bc(b, bcs)
+    fem_petsc.set_bc(b, bcs)
 
     uh = fem.Function(V)
     uh.name = "displacement"

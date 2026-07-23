@@ -12,6 +12,7 @@ sys.path.insert(0, "project/parser")
 sys.path.insert(0, "project/solver")
  
 from client import parse_problem
+from provenance import summarize_semantic_assurance
 from SIMP_MASTER import main_from_spec
  
 """
@@ -94,6 +95,9 @@ def run_batch(prompts_file: str = "prompts.txt"):
             "final_volfrac":     None,
             "iterations":        None,
             "converged":         None,
+            "design_converged":  None,
+            "objective_plateau": None,
+            "semantic_assurance_status": None,
             "clarification_policy": "silent_defaults",
         }
  
@@ -101,7 +105,7 @@ def run_batch(prompts_file: str = "prompts.txt"):
  
         try:
             # --- Parse (all defaults accepted silently) ---
-            spec, defaulted_fields, parser_usage = parse_problem(prompt)
+            spec, defaulted_fields, field_provenance, parser_usage = parse_problem(prompt)
             run_record["parse_ok"] = True
  
             if defaulted_fields:
@@ -110,13 +114,42 @@ def run_batch(prompts_file: str = "prompts.txt"):
  
             # --- Run SIMP ---
             # main_from_spec is patched to accept out_dir (see SIMP_MASTER patch).
+            final_field_provenance = []
+            for item in field_provenance:
+                record = item.model_dump()
+                record["final_value"] = item.value
+                record["interaction_status"] = (
+                    "accepted_silently"
+                    if item.source in {
+                        "defaulted",
+                        "inferred_from_benchmark_name",
+                        "inferred_from_language",
+                    }
+                    else "unchanged"
+                )
+                final_field_provenance.append(record)
+
             provenance = {
                 "clarification_policy": "silent_defaults",
                 "defaulted_fields": [f.model_dump() for f in defaulted_fields],
+                "parser_field_provenance": [
+                    item.model_dump() for item in field_provenance
+                ],
+                "final_field_provenance": final_field_provenance,
                 "clarifications_presented": [],
-                "accepted_defaults": [f.field_path for f in defaulted_fields],
+                "confirmed_defaults": [],
+                "accepted_remaining_defaults": [
+                    f.field_path for f in defaulted_fields
+                ],
                 "user_overrides": [],
+                "opted_out": False,
+                "opted_out_at_field": None,
+                "final_preview_confirmed": False,
                 "confirmation_received": False,
+                "semantic_assurance": summarize_semantic_assurance(
+                    field_provenance,
+                    final_preview_confirmed=False,
+                ),
                 "original_prompt": prompt,
             }
             result_packet = main_from_spec(
@@ -135,6 +168,13 @@ def run_batch(prompts_file: str = "prompts.txt"):
                 run_record["final_volfrac"]     = fr.get("final_volume_fraction")
                 run_record["iterations"]        = fr.get("iterations")
                 run_record["converged"]         = fr.get("converged")
+                run_record["design_converged"]  = fr.get("design_converged")
+                run_record["objective_plateau"] = fr.get("objective_plateau")
+                run_record["semantic_assurance_status"] = (
+                    result_packet.get("interaction_provenance", {})
+                    .get("semantic_assurance", {})
+                    .get("status")
+                )
  
             run_record["status"] = "success"
  

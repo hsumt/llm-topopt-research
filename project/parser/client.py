@@ -1,4 +1,4 @@
-"""Anthropic parser client with deterministic physics-sensitive defaults."""
+"""Anthropic parser client with deterministic defaults and semantic provenance."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ try:
     from project.parser.prompt import SYSTEM_PROMPT
 except ModuleNotFoundError:
     from prompt import SYSTEM_PROMPT
-from schema import DefaultedField, ParserResult, ProblemSpec
+from provenance import validate_field_provenance
+from schema import DefaultedField, FieldProvenance, ParserResult, ProblemSpec
 
 load_dotenv()
 
@@ -22,11 +23,6 @@ R_MIN_CONVENTION = "cone_equivalent_radius"
 
 
 def compute_default_r_min(Lx: float, Ly: float, nx: int, ny: int) -> float:
-    """Return a cone-equivalent physical filter radius spanning 2.5 elements.
-
-    No absolute-unit clamp is applied. A fixed clamp such as [0.01, 0.10]
-    breaks mesh and unit scaling and contradicts the intended invariant.
-    """
     values = (Lx, Ly, nx, ny)
     if not all(float(v) > 0.0 for v in values):
         raise ValueError(f"Invalid geometry/mesh for r_min default: {values}")
@@ -44,7 +40,6 @@ def _client() -> Anthropic:
 
 
 def _extract_json_object(text: str) -> dict:
-    """Extract and decode one top-level JSON object from model output."""
     text = text.strip()
     start = text.find("{")
     end = text.rfind("}")
@@ -57,19 +52,16 @@ def _extract_json_object(text: str) -> dict:
         raise ValueError(f"LLM returned invalid JSON:\n{candidate}") from exc
 
 
-def parse_problem(prompt: str) -> Tuple[ProblemSpec, List[DefaultedField], dict]:
-    """Parse natural language into a validated 2-D ``ProblemSpec``.
-
-    The LLM may identify that ``simp.r_min`` was omitted, but Python computes
-    the actual default deterministically from the resolved physical geometry
-    and mesh. The LLM never has final authority over this arithmetic.
-    """
+def parse_problem(
+    prompt: str,
+) -> Tuple[ProblemSpec, List[DefaultedField], List[FieldProvenance], dict]:
+    """Parse one request and fail closed on missing or stale field provenance."""
     if not prompt or not prompt.strip():
         raise ValueError("Problem description cannot be empty")
 
     response = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2200,
+        max_tokens=3800,
         temperature=0,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
@@ -89,7 +81,7 @@ def parse_problem(prompt: str) -> Tuple[ProblemSpec, List[DefaultedField], dict]
     if response.stop_reason == "max_tokens":
         raise ValueError(
             "Parser response was truncated at max_tokens. Increase max_tokens "
-            "or shorten the defaulted-field questions."
+            "or shorten the provenance evidence strings."
         )
     if not response.content:
         raise ValueError("Parser returned no content")
@@ -104,6 +96,7 @@ def parse_problem(prompt: str) -> Tuple[ProblemSpec, List[DefaultedField], dict]
 
     spec = result.spec
     defaulted_fields = result.defaulted_fields
+    field_provenance = result.field_provenance
 
     r_min_default = next(
         (f for f in defaulted_fields if f.field_path == "simp.r_min"), None
@@ -117,5 +110,9 @@ def parse_problem(prompt: str) -> Tuple[ProblemSpec, List[DefaultedField], dict]
         spec = ProblemSpec.model_validate(payload)
         r_min_default.default_used = correct
         r_min_default.question = f"What filter radius should I use? Default: {correct:.6g}"
+        for item in field_provenance:
+            if item.field_path == "simp.r_min":
+                item.value = correct
 
-    return spec, defaulted_fields, parser_tokens
+    validate_field_provenance(spec, defaulted_fields, field_provenance)
+    return spec, defaulted_fields, field_provenance, parser_tokens

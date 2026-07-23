@@ -8,7 +8,10 @@ EXAMPLES = [
 ]
 
 for prompt in EXAMPLES:
-    spec, defaulted_fields, usage = parse_problem(prompt)
+    spec, defaulted_fields, field_provenance, usage = parse_problem(prompt)
     print(spec.model_dump_json(indent=2))
     print("defaulted:", [f.field_path for f in defaulted_fields])
+    print("provenance:")
+    for item in field_provenance:
+        print(f"  {item.field_path}: {item.source} <- {item.evidence}")
     print("tokens:", usage)

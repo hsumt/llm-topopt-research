@@ -19,7 +19,7 @@ def sigma(u, mu, lmbda):
     )
 
 
-def build_stiffness_form(V, rho_fn, penal, mu, lmbda):
+def build_stiffness_form(V, rho_fn, penal, mu, lmbda, thickness=1.0):
     """Return the SIMP-weighted bilinear stiffness form.
 
     The external load is *not* represented as a UFL body-force integral. Point
@@ -34,8 +34,12 @@ def build_stiffness_form(V, rho_fn, penal, mu, lmbda):
     E_coeff.x.array[:] = simp_stiffness(rho_fn.x.array, penal)
     E_coeff.x.scatter_forward()
 
+    if thickness <= 0.0:
+        raise ValueError("thickness must be positive")
+
     return (
-        E_coeff
+        float(thickness)
+        * E_coeff
         * ufl.inner(sigma(u, mu, lmbda), epsilon(v))
         * ufl.dx
     )

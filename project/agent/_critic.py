@@ -22,6 +22,12 @@ Constraints:
 - Distinguish numerical convergence from physical/manufacturing interpretability.
 - No topology image content is included. Artifact filenames are not visual evidence.
 - Do not claim connectivity, load-path geometry, checkerboard absence, symmetry, thin-member quality, or visible support/load consistency unless a deterministic metric for that property is explicitly included in the packet.
+- The checkerboard alternating-mode index is an uncalibrated diagnostic. Do not state that a topology has checkerboards solely because this index is elevated.
+- Increasing beta sharpens intermediate densities. Do not claim that increasing beta suppresses checkerboarding unless the packet contains comparative evidence establishing that relationship.
+- Density values within 1e-3 of 0 or 1 are effectively void or solid. Do not flag them merely because they are not exactly equal to the bound.
+- Do not recommend a parameter change as causal unless the packet contains an A/B comparison or an explicit deterministic rule supporting that causal claim.
+- Treat objective plateau, design convergence, and continuation completion as separate statuses. Never describe objective plateau alone as full optimizer convergence.
+- If semantic_assurance is unconfirmed, state that conclusions apply to the parsed model only; do not claim that the model faithfully represents the original natural-language request.
 - Output plain text with these headings:
   Convergence Behavior
   Engineering Anomalies

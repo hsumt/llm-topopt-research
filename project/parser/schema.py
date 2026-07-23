@@ -1,13 +1,15 @@
-"""Pydantic schemas for the natural-language topology-optimization parser.
+"""Pydantic schemas for the verified natural-language TopOpt interface.
 
-The current deterministic solver is intentionally restricted to 2-D, small-strain,
-linear-elastic problems. The schema rejects unsupported 3-D inputs instead of allowing
-them to reach a 2-D DOLFINx implementation and fail or, worse, run incorrectly.
+The deterministic solver is deliberately restricted to 2-D, small-strain,
+isotropic linear elasticity in plane stress. Quantities are currently
+nondimensional and the out-of-plane thickness is fixed to one. Making these
+assumptions explicit prevents apparently dimensional prompts from being run
+under an unstated or inconsistent unit convention.
 """
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -20,6 +22,34 @@ Location = Literal[
 ]
 Dof2D = Literal["x", "y"]
 LoadKind = Literal["point_force", "edge_resultant", "edge_traction"]
+ProvenanceSource = Literal[
+    "explicit",
+    "inferred_from_benchmark_name",
+    "inferred_from_language",
+    "defaulted",
+    "fixed_by_solver_scope",
+    "user_confirmed",
+    "user_overridden",
+    "contradictory",
+]
+
+
+class AnalysisConfig(BaseModel):
+    """Explicit scope and dimensional convention of the current solver."""
+
+    formulation: Literal["plane_stress"] = "plane_stress"
+    unit_system: Literal["nondimensional"] = "nondimensional"
+    thickness: float = 1.0
+    edge_traction_definition: Literal["line_load"] = "line_load"
+
+    @model_validator(mode="after")
+    def validate_analysis(self):
+        if abs(self.thickness - 1.0) > 1.0e-14:
+            raise ValueError(
+                "The verified build currently assumes unit out-of-plane "
+                "thickness. Non-unit thickness is not yet supported."
+            )
+        return self
 
 
 class BoundaryCondition(BaseModel):
@@ -45,7 +75,8 @@ class Load(BaseModel):
         default="point_force",
         description=(
             "point_force is a discrete nodal resultant; edge_resultant is a "
-            "total edge force; edge_traction is force per in-plane edge length."
+            "total edge force; edge_traction is a 2-D line load (force per "
+            "in-plane edge length) under the declared unit-thickness model."
         ),
     )
 
@@ -114,6 +145,7 @@ class SIMPConfig(BaseModel):
 
 class ProblemSpec(BaseModel):
     name: str
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     mesh: MeshConfig
     material: Material
     loads: List[Load]
@@ -130,15 +162,39 @@ class ProblemSpec(BaseModel):
 
 
 class DefaultedField(BaseModel):
-    """One field filled by the parser rather than stated by the user."""
+    """One scalar field filled by the parser rather than stated by the user."""
 
     field_path: str
-    default_used: Union[str, float, int]
+    default_used: Union[str, float, int, bool]
     question: str
 
 
+class FieldProvenance(BaseModel):
+    """Field-level audit trail linking model values to prompt evidence."""
+
+    field_path: str
+    source: ProvenanceSource
+    value: Any
+    evidence: Optional[str] = None
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_evidence(self):
+        if self.source in {
+            "explicit",
+            "inferred_from_benchmark_name",
+            "inferred_from_language",
+            "contradictory",
+        } and not (self.evidence and self.evidence.strip()):
+            raise ValueError(
+                f"field provenance source '{self.source}' requires evidence text"
+            )
+        return self
+
+
 class ParserResult(BaseModel):
-    """Complete runnable specification plus an audit trail of defaults."""
+    """Complete runnable specification plus defaults and semantic provenance."""
 
     spec: ProblemSpec
     defaulted_fields: List[DefaultedField] = Field(default_factory=list)
+    field_provenance: List[FieldProvenance] = Field(default_factory=list)

@@ -1,42 +1,5 @@
 """
 _boundaries.py
-BCs and loads for the hardcoded main() benchmark path.
-For the spec-driven path, see _config_bridge.py.
-
-CHANGED (Bug #3, Task 1.1):
-  build_load: switched from fragile index arithmetic to V.sub(1) subspace
-  approach. Changed load location from bottom-right tip to center-right.
-
-CHANGED (Bug #9, Task 1.2/1.3):
-  build_bcs_mbb, build_bcs_michell: replaced locate_entities_boundary +
-  locate_dofs_topological with the collapsed-subspace form of
-  locate_dofs_geometrical.
-
-  Two constraints apply simultaneously in this DOLFINx version:
-
-  (a) locate_dofs_topological requires facet->DOF connectivity to exist
-      before the call. domain.topology.create_entities() is called AFTER
-      BCs are constructed in _run_main(), so topological lookup silently
-      returned empty DOF arrays (BC[0] n_dofs=2 instead of 41), leaving
-      the structure under-constrained → singular K → compliance ~2.7e6.
-
-  (b) locate_dofs_geometrical(V.sub(i), predicate) raises
-      "Cannot tabulate coordinates for a FunctionSpace" — subspaces do
-      not support coordinate tabulation directly.
-
-  The correct pattern for subspace BCs is the two-argument collapsed form:
-      V_sub, _ = V.sub(i).collapse()
-      dofs_raw = fem.locate_dofs_geometrical((V.sub(i), V_sub), predicate)
-      parent_dofs = dofs_raw[0]
-      bc = fem.dirichletbc(value, parent_dofs, V.sub(i))
-
-  This is identical to the pattern already used in all build_load_*
-  functions and is robust to call order (no topology dependency).
-
-CHANGED (Task 1.2/1.3):
-  build_load_mbb, build_load_michell: replaced 2*i+1 raw DOF index
-  arithmetic with V.sub(1).collapse() + locate_dofs_geometrical. Also
-  fixed point-load tolerances from 1e-10 to (L/n)*0.6.
 """
 
 import numpy as np
@@ -149,14 +112,6 @@ def build_bcs_mbb(V, domain, Lx: float, Ly: float):
     V_x, _      = V.sub(0).collapse()
     dofs_raw    = fem.locate_dofs_geometrical((V.sub(0), V_x), left_edge)
 
-
-    print(f"DEBUG dofs_raw type:      {type(dofs_raw)}")
-    print(f"DEBUG dofs_raw length:    {len(dofs_raw)}")
-    print(f"DEBUG dofs_raw[0] length: {len(dofs_raw[0])}")
-    print(f"DEBUG dofs_raw[0][:10]:   {dofs_raw[0][:10]}")
-    print(f"DEBUG dofs_raw[1][:10]:   {dofs_raw[1][:10]}")
-
-    
     parent_dofs = dofs_raw[0]
     if len(parent_dofs) == 0:
         raise RuntimeError("build_bcs_mbb: left edge u_x BC found 0 DOFs.")
