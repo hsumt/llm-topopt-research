@@ -22,16 +22,16 @@ VERIFIED_RELATIVE_FILES = [
     "batch_runner.py",
     "solver/SIMP_MASTER.py",
     "solver/_config_bridge.py",
-    "solver/_verification_manifest.py",
     "topopt/fem/assembly.py",
     "topopt/fem/solver.py",
     "topopt/optimization/filters.py",
     "topopt/optimization/objective.py",
     "topopt/optimization/mma_optimizer.py",
-    "solver/reference_q4.py",
-    "solver/mesh_refinement_study.py",
-    "solver/diagnostic_calibration.py",
-    "solver/verification_tests.py",
+    "verification/manifest.py",
+    "verification/reference_q4.py",
+    "verification/mesh_refinement.py",
+    "verification/diagnostic_calibration.py",
+    "verification/run_suite.py",
 ]
 
 def _sha256(path: Path) -> str:

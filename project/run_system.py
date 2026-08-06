@@ -1,5 +1,5 @@
 """Interactive natural-language runner for the verified 2-D SIMP pipeline.
-
+    (/dolfinx-env/bin/python -m project.verification.run_suite)
 Run from the repository root:
 
     /dolfinx-env/bin/python -m project.run_system

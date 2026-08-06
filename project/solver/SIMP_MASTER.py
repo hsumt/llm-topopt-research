@@ -61,7 +61,7 @@ from project.topopt.postprocess.outputs import (
 )
 from project.llm.critic import criticize
 from project.verification.gate import validate
-from project.solver._verification_manifest import (
+from project.verification.manifest import (
     load_hash_bound_artifact,
     load_manifest_status,
 )

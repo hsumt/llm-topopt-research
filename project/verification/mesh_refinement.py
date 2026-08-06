@@ -7,8 +7,8 @@ changes for professor-approved interpretation.
 
 Examples
 --------
-    /dolfinx-env/bin/python project/solver/mesh_refinement_study.py --case cantilever
-    /dolfinx-env/bin/python project/solver/mesh_refinement_study.py --case mbb
+    /dolfinx-env/bin/python -m project.verification.mesh_refinement --case cantilever
+    /dolfinx-env/bin/python -m project.verification.mesh_refinement --case mbb
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from project.topopt.fem.domain import get_lame_parameters
 from project.topopt.fem.mesh import build_mesh
 from project.topopt.fem.functionspaces import build_spaces
 from project.topopt.postprocess.outputs import build_cell_perm
-from project.solver._verification_manifest import source_hashes
+from project.verification.manifest import source_hashes
 from project.solver.SIMP_MASTER import CASE_PARAMS, _run_optimization
 
 

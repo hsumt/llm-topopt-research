@@ -2,7 +2,7 @@
 
 Run inside the project DOLFINx environment from the repository root:
 
-    /dolfinx-env/bin/python -m project.solver.verification_tests
+    /dolfinx-env/bin/python -m project.verification.run_suite
 
 On success, this writes a hash-bound verification manifest. Result packets only
 recognize the suite when that manifest still matches the current source files.
@@ -35,9 +35,9 @@ from project.topopt.optimization.filters import (
     r_pde_from_r_min,
 )
 from project.topopt.optimization.objective import compute_sensitivities
-from project.solver._verification_manifest import write_manifest
+from project.verification.manifest import write_manifest
 from project.verification.gate import validate
-from project.solver.reference_q4 import structured_q4_cantilever
+from project.verification.reference_q4 import structured_q4_cantilever
 from project.solver.SIMP_MASTER import _termination_status
 from project.parser.provenance import (
     canonical_field_paths,

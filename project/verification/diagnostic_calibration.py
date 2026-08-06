@@ -3,6 +3,11 @@
 This script does not choose a checkerboard pass threshold. It demonstrates how
 the alternating-mode proxy responds to synthetic fields so the project can
 calibrate or redesign the metric using professor-approved examples.
+
+
+    /dolfinx-env/bin/python -m project.verification.diagnostic_calibration
+
+
 """
 
 from __future__ import annotations
@@ -16,8 +21,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 from project.verification.gate import _checkerboard_index
-from project.solver._verification_manifest import source_hashes
-
+from project.verification.manifest import source_hashes
 
 def _horizontal_member(ny=40, nx=120):
     grid = np.zeros((ny, nx), dtype=float)
