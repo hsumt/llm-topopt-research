@@ -118,7 +118,7 @@ def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
                 print(f"         Defaulted fields: {', '.join(defaulted_paths)}")
  
             # --- Run SIMP ---
-            # main_from_spec is patched to accept out_dir (see SIMP_MASTER patch).
+            # Run the deterministic controller with an isolated output directory.
             final_field_provenance = []
             for item in field_provenance:
                 record = item.model_dump()
