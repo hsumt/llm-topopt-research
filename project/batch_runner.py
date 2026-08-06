@@ -7,18 +7,14 @@ import time
 import traceback
 from datetime import datetime
 from io import StringIO
- 
-sys.path.insert(0, "project/parser")
-sys.path.insert(0, "project/solver")
- 
-from client import parse_problem
-from provenance import summarize_semantic_assurance
-from SIMP_MASTER import main_from_spec
+
+from project.parser.client import parse_problem
+from project.parser.provenance import summarize_semantic_assurance
+from project.solver.SIMP_MASTER import main_from_spec
  
 """
 To run:
-"cd /workspaces/llm-topopt-research
-/dolfinx-env/bin/python project/batch_runner.py project/prompts.txt"
+/dolfinx-env/bin/python -m project.batch_runner project/prompts.txt
 """
 # ---------------------------------------------------------------------------
 # Helpers

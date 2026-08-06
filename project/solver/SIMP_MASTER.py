@@ -30,24 +30,27 @@ from pathlib import Path
 import numpy as np
 from dolfinx import fem
 
-from _01_MSH._boundaries import (
+from project.solver._01_MSH._boundaries import (
     build_bcs,
     build_bcs_mbb,
     build_load,
     build_load_mbb,
 )
-from _01_MSH._domain import get_lame_parameters
-from _01_MSH._mesh import build_mesh
-from _02_FEA._functionspaces import build_spaces
-from _02_FEA._solver import solve_fea
-from _03_OPTMZER._filters import (
+from project.solver._01_MSH._domain import get_lame_parameters
+from project.solver._01_MSH._mesh import build_mesh
+from project.solver._02_FEA._functionspaces import build_spaces
+from project.solver._02_FEA._solver import solve_fea
+from project.solver._03_OPTMZER._filters import (
     build_helmholtz_filter_CG1,
     heaviside_projection,
     heaviside_projection_derivative,
 )
-from _03_OPTMZER._MMAupdate import MMAOptimizer
-from _03_OPTMZER._objective import compute_compliance, compute_sensitivities
-from _04_PPRCS.postprocess import (
+from project.solver._03_OPTMZER._MMAupdate import MMAOptimizer
+from project.solver._03_OPTMZER._objective import (
+    compute_compliance,
+    compute_sensitivities,
+)
+from project.solver._04_PPRCS.postprocess import (
     build_cell_perm,
     export_xdmf,
     print_iteration_report,
@@ -56,9 +59,12 @@ from _04_PPRCS.postprocess import (
     save_gif,
     save_summary_slide,
 )
-from agent._critic import criticize
-from agent._physics import validate
-from _verification_manifest import load_hash_bound_artifact, load_manifest_status
+from project.agent._critic import criticize
+from project.agent._physics import validate
+from project.solver._verification_manifest import (
+    load_hash_bound_artifact,
+    load_manifest_status,
+)
 
 
 CASE = "cantilever"
@@ -696,7 +702,7 @@ def _problem_region_masks(spec, nelx: int, nely: int):
 
 def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     """Run one parser-generated specification and return a structured packet."""
-    from _config_bridge import (
+    from project.solver._config_bridge import (
         build_bcs_from_spec,
         build_load_from_spec,
         extract_simp_params,

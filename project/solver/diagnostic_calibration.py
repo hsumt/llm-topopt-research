@@ -8,18 +8,15 @@ calibrate or redesign the metric using professor-approved examples.
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from agent._physics import _checkerboard_index
-from _verification_manifest import source_hashes
+from project.agent._physics import _checkerboard_index
+from project.solver._verification_manifest import source_hashes
 
 
 def _horizontal_member(ny=40, nx=120):

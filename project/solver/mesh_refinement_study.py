@@ -16,28 +16,25 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from _01_MSH._boundaries import (
+from project.solver._01_MSH._boundaries import (
     build_bcs,
     build_bcs_mbb,
     build_load,
     build_load_mbb,
 )
-from _01_MSH._domain import get_lame_parameters
-from _01_MSH._mesh import build_mesh
-from _02_FEA._functionspaces import build_spaces
-from _04_PPRCS.postprocess import build_cell_perm
-from _verification_manifest import source_hashes
-from SIMP_MASTER import CASE_PARAMS, _run_optimization
+from project.solver._01_MSH._domain import get_lame_parameters
+from project.solver._01_MSH._mesh import build_mesh
+from project.solver._02_FEA._functionspaces import build_spaces
+from project.solver._04_PPRCS.postprocess import build_cell_perm
+from project.solver._verification_manifest import source_hashes
+from project.solver.SIMP_MASTER import CASE_PARAMS, _run_optimization
 
 
 DEFAULT_MESHES = {

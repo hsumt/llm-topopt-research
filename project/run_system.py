@@ -2,7 +2,7 @@
 
 Run from the repository root:
 
-    /dolfinx-env/bin/python project/run_system.py
+    /dolfinx-env/bin/python -m project.run_system
 """
 
 from __future__ import annotations
@@ -10,14 +10,11 @@ from __future__ import annotations
 import json
 import math
 import re
-import sys
 
-sys.path.insert(0, "project/parser")
-sys.path.insert(0, "project/solver")
 
-from client import parse_problem
-from provenance import summarize_semantic_assurance
-from SIMP_MASTER import main_from_spec
+from project.parser.client import parse_problem
+from project.parser.provenance import summarize_semantic_assurance
+from project.solver.SIMP_MASTER import main_from_spec
 
 OPT_OUT_PHRASES = {"use defaults", "use default", "skip", "just use defaults"}
 CONFIRM_PHRASES = {"y", "yes", "confirm", "run"}

@@ -9,7 +9,7 @@ import math
 import re
 from typing import Any, Dict, List
 
-from schema import DefaultedField, FieldProvenance, ProblemSpec
+from .schema import DefaultedField, FieldProvenance, ProblemSpec
 
 _PATH_TOKEN = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
 

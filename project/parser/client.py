@@ -9,12 +9,9 @@ from typing import List, Tuple
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-try:
-    from project.parser.prompt import SYSTEM_PROMPT
-except ModuleNotFoundError:
-    from prompt import SYSTEM_PROMPT
-from provenance import validate_field_provenance
-from schema import DefaultedField, FieldProvenance, ParserResult, ProblemSpec
+from .prompt import SYSTEM_PROMPT
+from .provenance import validate_field_provenance
+from .schema import DefaultedField, FieldProvenance, ParserResult, ProblemSpec
 
 load_dotenv()
 

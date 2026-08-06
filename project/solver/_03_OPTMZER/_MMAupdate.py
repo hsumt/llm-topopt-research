@@ -13,7 +13,7 @@ Reference:
 """
 
 import numpy as np
-from _03_OPTMZER._mma import kktcheck, mmasub  # Deetman's canonical implementation
+from project.solver._03_OPTMZER._mma import kktcheck, mmasub
 
 
 class MMAOptimizer:

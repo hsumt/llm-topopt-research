@@ -7,7 +7,7 @@ from dolfinx import fem
 from petsc4py import PETSc
 from dolfinx.fem import petsc as fem_petsc
 
-from _02_FEA._assembly import build_stiffness_form
+from project.solver._02_FEA._assembly import build_stiffness_form
 
 
 def solve_fea(domain, V, bcs, rho_fn, penal, mu, lmbda, F_load, thickness=1.0):

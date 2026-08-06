@@ -1,6 +1,11 @@
-"""Manual parser smoke tests. These call the live Anthropic API."""
+"""Manual parser smoke tests. These call the live Anthropic API.
 
-from client import parse_problem
+
+/dolfinx-env/bin/python -m project.parser.test_parser
+"""
+
+from project.parser.client import parse_problem
+
 
 EXAMPLES = [
     "Cantilever beam, fixed left edge, 1 N downward point force at the midpoint of the right edge, mesh 60x20, volume fraction 0.5",

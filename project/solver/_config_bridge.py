@@ -7,8 +7,10 @@ from dolfinx import fem
 from dolfinx.mesh import locate_entities_boundary
 from petsc4py import PETSc
 
-from _03_OPTMZER._filters import R_MIN_CONVENTION, r_pde_from_r_min
-
+from project.solver._03_OPTMZER._filters import (
+    R_MIN_CONVENTION,
+    r_pde_from_r_min,
+)
 
 EDGE_LOCATIONS = {"left_edge", "right_edge", "bottom_edge", "top_edge"}
 POINT_LOCATIONS = {

@@ -8,8 +8,8 @@ from dolfinx import fem
 from petsc4py import PETSc
 from dolfinx.fem import petsc as fem_petsc
 
-from _01_MSH._domain import E_MIN
-from _02_FEA._assembly import epsilon, sigma
+from project.solver._01_MSH._domain import E_MIN
+from project.solver._02_FEA._assembly import epsilon, sigma
 
 
 def compute_compliance(uh, F_load) -> float:

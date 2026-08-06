@@ -2,7 +2,7 @@
 
 Run inside the project DOLFINx environment from the repository root:
 
-    /dolfinx-env/bin/python project/solver/verification_tests.py
+    /dolfinx-env/bin/python -m project.solver.verification_tests
 
 On success, this writes a hash-bound verification manifest. Result packets only
 recognize the suite when that manifest still matches the current source files.
@@ -16,35 +16,39 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PARSER_ROOT = PROJECT_ROOT / "parser"
-for path in (PROJECT_ROOT, PARSER_ROOT):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
 
 import dolfinx
 import numpy as np
 from dolfinx import fem
 from petsc4py import PETSc
 
-from _01_MSH._boundaries import build_bcs, build_load
-from _01_MSH._domain import get_lame_parameters
-from _01_MSH._mesh import build_mesh
-from _02_FEA._functionspaces import build_spaces
-from _02_FEA._solver import solve_fea
-from _03_OPTMZER._filters import (
+from project.solver._01_MSH._boundaries import build_bcs, build_load
+from project.solver._01_MSH._domain import get_lame_parameters
+from project.solver._01_MSH._mesh import build_mesh
+from project.solver._02_FEA._functionspaces import build_spaces
+from project.solver._02_FEA._solver import solve_fea
+from project.solver._03_OPTMZER._filters import (
     R_MIN_CONVENTION,
     build_helmholtz_filter_CG1,
     heaviside_projection,
     heaviside_projection_derivative,
     r_pde_from_r_min,
 )
-from _03_OPTMZER._objective import compute_sensitivities
-from _verification_manifest import write_manifest
-from agent._physics import validate
-from reference_q4 import structured_q4_cantilever
-from SIMP_MASTER import _termination_status
-from provenance import canonical_field_paths, get_path, validate_field_provenance
-from schema import DefaultedField, FieldProvenance, ProblemSpec
+from project.solver._03_OPTMZER._objective import compute_sensitivities
+from project.solver._verification_manifest import write_manifest
+from project.agent._physics import validate
+from project.solver.reference_q4 import structured_q4_cantilever
+from project.solver.SIMP_MASTER import _termination_status
+from project.parser.provenance import (
+    canonical_field_paths,
+    get_path,
+    validate_field_provenance,
+)
+from project.parser.schema import (
+    DefaultedField,
+    FieldProvenance,
+    ProblemSpec,
+)
 
 
 PASSED_TESTS: list[str] = []
