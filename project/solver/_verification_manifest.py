@@ -12,8 +12,8 @@ from pathlib import Path
 
 
 VERIFIED_RELATIVE_FILES = [
-    "agent/_critic.py",
-    "agent/_physics.py",
+    "llm/critic.py",
+    "verification/gate.py",
     "parser/schema.py",
     "parser/prompt.py",
     "parser/client.py",

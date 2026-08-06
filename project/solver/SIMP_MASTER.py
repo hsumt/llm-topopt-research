@@ -59,8 +59,8 @@ from project.topopt.postprocess.outputs import (
     save_gif,
     save_summary_slide,
 )
-from project.agent._critic import criticize
-from project.agent._physics import validate
+from project.llm.critic import criticize
+from project.verification.gate import validate
 from project.solver._verification_manifest import (
     load_hash_bound_artifact,
     load_manifest_status,

@@ -15,7 +15,7 @@ import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-from project.agent._physics import _checkerboard_index
+from project.verification.gate import _checkerboard_index
 from project.solver._verification_manifest import source_hashes
 
 

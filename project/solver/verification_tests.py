@@ -36,7 +36,7 @@ from project.topopt.optimization.filters import (
 )
 from project.topopt.optimization.objective import compute_sensitivities
 from project.solver._verification_manifest import write_manifest
-from project.agent._physics import validate
+from project.verification.gate import validate
 from project.solver.reference_q4 import structured_q4_cantilever
 from project.solver.SIMP_MASTER import _termination_status
 from project.parser.provenance import (
