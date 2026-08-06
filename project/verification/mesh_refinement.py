@@ -34,7 +34,7 @@ from project.topopt.fem.mesh import build_mesh
 from project.topopt.fem.functionspaces import build_spaces
 from project.topopt.postprocess.outputs import build_cell_perm
 from project.verification.manifest import source_hashes
-from project.solver.SIMP_MASTER import CASE_PARAMS, _run_optimization
+from project.topopt.controller import CASE_PARAMS, _run_optimization
 
 
 DEFAULT_MESHES = {

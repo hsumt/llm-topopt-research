@@ -66,6 +66,9 @@ from project.verification.manifest import (
     load_manifest_status,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LEGACY_OUTPUT_ROOT = PROJECT_ROOT / "solver" / "_05_OUT"
+
 
 CASE = "cantilever"
 
@@ -645,8 +648,7 @@ def _build_hardcoded_case(case: str):
 
 def _run_main(case: str):
     p, domain, V, Q, bcs, F_load = _build_hardcoded_case(case)
-    base = os.path.dirname(os.path.abspath(__file__))
-    out_dir = os.path.join(base, "_05_OUT", case)
+    out_dir = str(LEGACY_OUTPUT_ROOT / case)
     _prepare_output_dir(out_dir, clear=True)
     perm = build_cell_perm(
         domain, Q, p["nelx"], p["nely"], p["Lx"], p["Ly"]
@@ -702,15 +704,14 @@ def _problem_region_masks(spec, nelx: int, nely: int):
 
 def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     """Run one parser-generated specification and return a structured packet."""
-    from project.solver._config_bridge import (
+    from project.topopt.config_bridge import (
         build_bcs_from_spec,
         build_load_from_spec,
         extract_simp_params,
     )
 
-    base = os.path.dirname(os.path.abspath(__file__))
     if out_dir is None:
-        out_dir = os.path.join(base, "_05_OUT", "spec")
+        out_dir = str(LEGACY_OUTPUT_ROOT / "spec")
         clear = True
     else:
         clear = False
@@ -768,7 +769,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         load_cell_mask=load_mask,
     )
 
-    project_root = Path(base).parent
+    project_root = PROJECT_ROOT
     verification_status = load_manifest_status(project_root)
     if run_provenance is None:
         run_provenance = {

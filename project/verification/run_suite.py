@@ -38,7 +38,7 @@ from project.topopt.optimization.objective import compute_sensitivities
 from project.verification.manifest import write_manifest
 from project.verification.gate import validate
 from project.verification.reference_q4 import structured_q4_cantilever
-from project.solver.SIMP_MASTER import _termination_status
+from project.topopt.controller import _termination_status
 from project.parser.provenance import (
     canonical_field_paths,
     get_path,

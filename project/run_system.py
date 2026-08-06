@@ -14,7 +14,7 @@ import re
 
 from project.parser.client import parse_problem
 from project.parser.provenance import summarize_semantic_assurance
-from project.solver.SIMP_MASTER import main_from_spec
+from project.topopt.controller import main_from_spec
 
 OPT_OUT_PHRASES = {"use defaults", "use default", "skip", "just use defaults"}
 CONFIRM_PHRASES = {"y", "yes", "confirm", "run"}
