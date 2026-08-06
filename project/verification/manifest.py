@@ -12,30 +12,50 @@ from project.paths import VERIFICATION_ARTIFACT_ROOT
 from pathlib import Path
 
 
-VERIFIED_RELATIVE_FILES = [
-    "llm/critic.py",
-    "verification/gate.py",
+VERIFIED_RELATIVE_FILES = (
+    # Canonical repository paths
+    "paths.py",
+
+    # Natural-language interface and provenance
     "parser/schema.py",
     "parser/prompt.py",
     "parser/client.py",
     "parser/provenance.py",
     "apps/interactive.py",
     "apps/batch.py",
+
+    # Authoritative deterministic controller
     "topopt/controller.py",
     "topopt/config_bridge.py",
+
+    # Mesh, material, boundary conditions, and finite elements
+    "topopt/fem/mesh.py",
+    "topopt/fem/domain.py",
+    "topopt/fem/boundaries.py",
+    "topopt/fem/functionspaces.py",
     "topopt/fem/assembly.py",
     "topopt/fem/solver.py",
+
+    # Optimization
     "topopt/optimization/filters.py",
     "topopt/optimization/objective.py",
+    "topopt/optimization/mma.py",
     "topopt/optimization/mma_optimizer.py",
+
+    # Spatial ordering and result export
+    "topopt/postprocess/outputs.py",
+
+    # Deterministic validation and V&V
+    "verification/gate.py",
     "verification/manifest.py",
     "verification/reference_q4.py",
     "verification/mesh_refinement.py",
     "verification/diagnostic_calibration.py",
     "verification/run_suite.py",
-    "paths.py",
-]
 
+    # Evidence-limited interpretation
+    "llm/critic.py",
+)
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
