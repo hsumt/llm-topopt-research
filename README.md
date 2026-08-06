@@ -1,5 +1,3 @@
-cat >> README.md <<'EOF'
-
 ## Repository structure
 
 - `project/apps/`: interactive and batch entry points
