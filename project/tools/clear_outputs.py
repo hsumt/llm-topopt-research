@@ -1,24 +1,15 @@
-"""
-clear_topopt_outputs.py
+"""Safely clear generated topology-optimization runtime artifacts.
 
-One-click cleanup for generated topology-optimization runtime artifacts.
+Current output location:
 
-Recommended location:
-    project/clear_topopt_outputs.py
+    project/solver/_05_OUT/
 
-When run, this script:
-- Locates project/solver/_05_OUT
-- Preserves the _05_OUT directory
-- Preserves every immediate child directory, such as:
-      spec/
-      batch/
-      cantilever/
-      mbb/
-- Deletes all files and nested directories inside those child directories
-- Deletes loose generated files directly inside _05_OUT
-- Preserves or creates .gitkeep files so empty case folders can remain in Git
+Run:
 
-It intentionally refuses to operate on a directory whose name is not "_05_OUT".
+    /dolfinx-env/bin/python -m project.tools.clear_outputs
+
+The script preserves the output root, immediate case directories, and
+.gitkeep files. It refuses to clean a directory not named ``_05_OUT``.
 """
 
 from __future__ import annotations
@@ -26,6 +17,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LEGACY_OUTPUT_ROOT = PROJECT_ROOT / "solver" / "_05_OUT"
 
 # Keep these marker/configuration files wherever they appear.
 PRESERVE_FILENAMES = {".gitkeep"}
@@ -35,32 +28,17 @@ CREATE_GITKEEP = True
 
 
 def locate_output_directory() -> Path:
-    """
-    Locate _05_OUT for common placements of this script.
+    """Return the current generated-output root or fail clearly."""
+    output_root = LEGACY_OUTPUT_ROOT.resolve()
 
-    Supported script locations include:
-      project/clear_topopt_outputs.py
-      project/solver/clear_topopt_outputs.py
-      repository_root/clear_topopt_outputs.py
-    """
-    script_dir = Path(__file__).resolve().parent
+    if output_root.is_dir():
+        return output_root
 
-    candidates = [
-        script_dir / "solver" / "_05_OUT",
-        script_dir / "_05_OUT",
-        script_dir / "project" / "solver" / "_05_OUT",
-    ]
-
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate.resolve()
-
-    searched = "\n".join(f"  - {path}" for path in candidates)
     raise FileNotFoundError(
-        "Could not locate the topology-optimization output directory.\n"
-        "Searched:\n"
-        f"{searched}\n\n"
-        "Place this file in the repository root, project/, or project/solver/."
+        "Could not locate the topology-optimization output directory:\n"
+        f"  {output_root}\n\n"
+        "The output directory has not been created, was moved, or the "
+        "repository structure is not the expected one."
     )
 
 

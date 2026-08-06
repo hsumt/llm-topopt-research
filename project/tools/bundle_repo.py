@@ -1,25 +1,18 @@
-"""
-Bundle every .py and .txt file under llm-topopt-research/project into a small
-number of plain-text files for ChatGPT upload.
+"""Bundle project source files into uploadable plain-text snapshots.
 
-Expected location:
-    llm-topopt-research/bundle_project_for_chatgpt.py
+Run from anywhere:
 
-Run from the repository root:
-    python bundle_project_for_chatgpt.py
+    /dolfinx-env/bin/python -m project.tools.bundle_repo
 
 Optional:
-    python bundle_project_for_chatgpt.py --project-dir project --max-chars 750000
 
-Output:
-    _chatgpt_bundle/
-        PROJECT_PART_001.txt
-        PROJECT_PART_002.txt
-        ...
-        MANIFEST.txt
+    /dolfinx-env/bin/python -m project.tools.bundle_repo \
+        --project-dir project \
+        --max-chars 750000
 
-Only files ending in .py or .txt under the selected project directory are
-included. Relative paths and file boundaries are preserved.
+Output defaults to:
+
+    <repository-root>/_chatgpt_bundle/
 """
 
 from __future__ import annotations
@@ -33,6 +26,15 @@ from typing import Iterable
 
 INCLUDED_SUFFIXES = {".py", ".txt"}
 OUTPUT_DIRECTORY_NAME = "_chatgpt_bundle"
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PROJECT_DIRECTORY = REPOSITORY_ROOT / "project"
+DEFAULT_OUTPUT_DIRECTORY = REPOSITORY_ROOT / OUTPUT_DIRECTORY_NAME
+
+EXCLUDED_DIRECTORY_NAMES = {
+    "__pycache__",
+    "_05_OUT",
+}
 
 
 @dataclass(frozen=True)
@@ -51,17 +53,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--project-dir",
         type=Path,
-        default=Path("project"),
-        help=(
-            "Path to the project directory. Default: ./project, assuming the "
-            "script is run from the llm-topopt-research repository root."
-        ),
+        default=DEFAULT_PROJECT_DIRECTORY,
+        help=f"Project directory. Default: {DEFAULT_PROJECT_DIRECTORY}",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path(OUTPUT_DIRECTORY_NAME),
-        help=f"Output directory. Default: ./{OUTPUT_DIRECTORY_NAME}",
+        default=DEFAULT_OUTPUT_DIRECTORY,
+        help=f"Output directory. Default: {DEFAULT_OUTPUT_DIRECTORY}",
     )
     parser.add_argument(
         "--max-chars",
@@ -94,7 +93,13 @@ def collect_source_files(project_dir: Path, output_dir: Path) -> list[SourceFile
 
         if path.suffix.lower() not in INCLUDED_SUFFIXES:
             continue
+        relative_path_obj = path.relative_to(project_dir)
 
+        if any(
+            part in EXCLUDED_DIRECTORY_NAMES
+            for part in relative_path_obj.parts
+        ):
+            continue
         resolved = path.resolve()
 
         # Prevent a bundle placed inside project/ from including itself.
@@ -106,7 +111,7 @@ def collect_source_files(project_dir: Path, output_dir: Path) -> list[SourceFile
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             raise RuntimeError(f"Could not include {path}: {exc}") from exc
 
-        relative_path = path.relative_to(project_dir).as_posix()
+        relative_path = relative_path_obj.as_posix()
         raw_utf8 = text.encode("utf-8")
 
         files.append(
