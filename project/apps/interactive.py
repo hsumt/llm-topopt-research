@@ -2,7 +2,7 @@
     (/dolfinx-env/bin/python -m project.verification.run_suite)
 Run from the repository root:
 
-    /dolfinx-env/bin/python -m project.run_system
+    /dolfinx-env/bin/python -m project.apps.interactive
 """
 
 from __future__ import annotations

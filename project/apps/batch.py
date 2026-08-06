@@ -1,4 +1,4 @@
-
+from pathlib import Path
 import sys
 import os
 import json
@@ -10,11 +10,14 @@ from io import StringIO
 
 from project.parser.client import parse_problem
 from project.parser.provenance import summarize_semantic_assurance
-from project.topopt.controller import main_from_spec
+from project.topopt.controller import LEGACY_OUTPUT_ROOT, main_from_spec
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_PROMPTS_FILE = PROJECT_ROOT / "prompts.txt"
  
 """
 To run:
-/dolfinx-env/bin/python -m project.batch_runner project/prompts.txt
+/dolfinx-env/bin/python -m project.apps.batch project/prompts.txt
 """
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,9 +52,9 @@ def _load_prompts(path: str) -> list[tuple[int, str]]:
 # Main batch loop
 # ---------------------------------------------------------------------------
  
-def run_batch(prompts_file: str = "prompts.txt"):
-    BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-    BATCH_DIR = os.path.join(BASE_DIR, "solver", "_05_OUT", "batch")
+def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
+    prompts_file = os.fspath(prompts_file)
+    BATCH_DIR = str(LEGACY_OUTPUT_ROOT / "batch")
     os.makedirs(BATCH_DIR, exist_ok=True)
     import shutil
     if os.path.exists(BATCH_DIR):
@@ -227,7 +230,11 @@ def run_batch(prompts_file: str = "prompts.txt"):
  
  
 if __name__ == "__main__":
-    prompts_file = sys.argv[1] if len(sys.argv) > 1 else "prompts.txt"
+    prompts_file = (
+        Path(sys.argv[1])
+        if len(sys.argv) > 1
+        else DEFAULT_PROMPTS_FILE
+    )
     if not os.path.exists(prompts_file):
         print(f"ERROR: prompts file '{prompts_file}' not found.")
         print("Create a prompts.txt file with one prompt per line.")
