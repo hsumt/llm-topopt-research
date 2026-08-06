@@ -13,11 +13,14 @@ from project.parser.provenance import summarize_semantic_assurance
 from project.topopt.controller import LEGACY_OUTPUT_ROOT, main_from_spec
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PROMPTS_FILE = PROJECT_ROOT / "prompts.txt"
+DEFAULT_PROMPTS_FILE = (
+    PROJECT_ROOT / "experiments" / "parser_prompts.txt"
+)
  
 """
 To run:
-/dolfinx-env/bin/python -m project.apps.batch project/prompts.txt
+/dolfinx-env/bin/python -m project.apps.batch \
+    project/experiments/parser_prompts.txt
 """
 # ---------------------------------------------------------------------------
 # Helpers
