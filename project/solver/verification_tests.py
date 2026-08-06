@@ -22,19 +22,19 @@ import numpy as np
 from dolfinx import fem
 from petsc4py import PETSc
 
-from project.solver._01_MSH._boundaries import build_bcs, build_load
-from project.solver._01_MSH._domain import get_lame_parameters
-from project.solver._01_MSH._mesh import build_mesh
-from project.solver._02_FEA._functionspaces import build_spaces
-from project.solver._02_FEA._solver import solve_fea
-from project.solver._03_OPTMZER._filters import (
+from project.topopt.fem.boundaries import build_bcs, build_load
+from project.topopt.fem.domain import get_lame_parameters
+from project.topopt.fem.mesh import build_mesh
+from project.topopt.fem.functionspaces import build_spaces
+from project.topopt.fem.solver import solve_fea
+from project.topopt.optimization.filters import (
     R_MIN_CONVENTION,
     build_helmholtz_filter_CG1,
     heaviside_projection,
     heaviside_projection_derivative,
     r_pde_from_r_min,
 )
-from project.solver._03_OPTMZER._objective import compute_sensitivities
+from project.topopt.optimization.objective import compute_sensitivities
 from project.solver._verification_manifest import write_manifest
 from project.agent._physics import validate
 from project.solver.reference_q4 import structured_q4_cantilever

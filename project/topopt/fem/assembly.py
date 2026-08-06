@@ -3,7 +3,7 @@
 import ufl
 from dolfinx import fem
 
-from project.solver._01_MSH._domain import simp_stiffness
+from project.topopt.fem.domain import simp_stiffness
 
 
 def epsilon(u):

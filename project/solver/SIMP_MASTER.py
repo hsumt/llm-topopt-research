@@ -30,27 +30,27 @@ from pathlib import Path
 import numpy as np
 from dolfinx import fem
 
-from project.solver._01_MSH._boundaries import (
+from project.topopt.fem.boundaries import (
     build_bcs,
     build_bcs_mbb,
     build_load,
     build_load_mbb,
 )
-from project.solver._01_MSH._domain import get_lame_parameters
-from project.solver._01_MSH._mesh import build_mesh
-from project.solver._02_FEA._functionspaces import build_spaces
-from project.solver._02_FEA._solver import solve_fea
-from project.solver._03_OPTMZER._filters import (
+from project.topopt.fem.domain import get_lame_parameters
+from project.topopt.fem.mesh import build_mesh
+from project.topopt.fem.functionspaces import build_spaces
+from project.topopt.fem.solver import solve_fea
+from project.topopt.optimization.filters import (
     build_helmholtz_filter_CG1,
     heaviside_projection,
     heaviside_projection_derivative,
 )
-from project.solver._03_OPTMZER._MMAupdate import MMAOptimizer
-from project.solver._03_OPTMZER._objective import (
+from project.topopt.optimization.mma_optimizer import MMAOptimizer
+from project.topopt.optimization.objective import (
     compute_compliance,
     compute_sensitivities,
 )
-from project.solver._04_PPRCS.postprocess import (
+from project.topopt.postprocess.outputs import (
     build_cell_perm,
     export_xdmf,
     print_iteration_report,

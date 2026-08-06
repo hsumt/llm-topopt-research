@@ -23,16 +23,16 @@ import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-from project.solver._01_MSH._boundaries import (
+from project.topopt.fem.boundaries import (
     build_bcs,
     build_bcs_mbb,
     build_load,
     build_load_mbb,
 )
-from project.solver._01_MSH._domain import get_lame_parameters
-from project.solver._01_MSH._mesh import build_mesh
-from project.solver._02_FEA._functionspaces import build_spaces
-from project.solver._04_PPRCS.postprocess import build_cell_perm
+from project.topopt.fem.domain import get_lame_parameters
+from project.topopt.fem.mesh import build_mesh
+from project.topopt.fem.functionspaces import build_spaces
+from project.topopt.postprocess.outputs import build_cell_perm
 from project.solver._verification_manifest import source_hashes
 from project.solver.SIMP_MASTER import CASE_PARAMS, _run_optimization
 

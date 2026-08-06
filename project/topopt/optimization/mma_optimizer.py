@@ -1,10 +1,8 @@
 """
-_MMAupdate.py
-Implemented 5/18/2026 
+MMA optimizer wrapper.
 """
 
 """
-_MMAupdate.py
 Thin wrapper around the canonical Svanberg MMA implementation.
 
 Reference:
@@ -13,7 +11,7 @@ Reference:
 """
 
 import numpy as np
-from project.solver._03_OPTMZER._mma import kktcheck, mmasub
+from project.topopt.optimization.mma import kktcheck, mmasub
 
 
 class MMAOptimizer:

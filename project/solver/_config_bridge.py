@@ -7,7 +7,7 @@ from dolfinx import fem
 from dolfinx.mesh import locate_entities_boundary
 from petsc4py import PETSc
 
-from project.solver._03_OPTMZER._filters import (
+from project.topopt.optimization.filters import (
     R_MIN_CONVENTION,
     r_pde_from_r_min,
 )
