@@ -18,10 +18,9 @@ from pathlib import Path
 
 import numpy as np
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
 from project.verification.gate import _checkerboard_index
 from project.verification.manifest import source_hashes
+from project.paths import PROJECT_ROOT, VV_ARTIFACT_ROOT
 
 def _horizontal_member(ny=40, nx=120):
     grid = np.zeros((ny, nx), dtype=float)
@@ -72,7 +71,7 @@ def main():
         "records": records,
         "source_hashes": source_hashes(PROJECT_ROOT),
     }
-    out = PROJECT_ROOT / "solver" / "_05_OUT" / "vv" / "diagnostic_calibration.json"
+    out = VV_ARTIFACT_ROOT / "diagnostic_calibration.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2) + "\n")
     print(json.dumps(records, indent=2))

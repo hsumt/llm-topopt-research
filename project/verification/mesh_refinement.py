@@ -35,6 +35,7 @@ from project.topopt.fem.functionspaces import build_spaces
 from project.topopt.postprocess.outputs import build_cell_perm
 from project.verification.manifest import source_hashes
 from project.topopt.controller import CASE_PARAMS, _run_optimization
+from project.paths import PROJECT_ROOT, VV_ARTIFACT_ROOT
 
 
 DEFAULT_MESHES = {
@@ -119,13 +120,13 @@ def main():
     )
     parser.add_argument(
         "--output",
-        default=str(PROJECT_ROOT / "solver" / "_05_OUT" / "vv"),
+        default=str(VV_ARTIFACT_ROOT),
     )
     args = parser.parse_args()
 
     meshes = _parse_meshes(args.meshes) if args.meshes else DEFAULT_MESHES[args.case]
     output_root = Path(args.output)
-    study_root = output_root / f"mesh_refinement_{args.case}"
+    study_root = VV_ARTIFACT_ROOT / f"mesh_refinement_{args.case}"
     if study_root.exists():
         shutil.rmtree(study_root)
     study_root.mkdir(parents=True)
@@ -202,7 +203,7 @@ def main():
         "source_hashes": source_hashes(PROJECT_ROOT),
     }
     output_root.mkdir(parents=True, exist_ok=True)
-    manifest_path = output_root / "mesh_refinement_manifest.json"
+    manifest_path = VV_ARTIFACT_ROOT / "mesh_refinement_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"\nMesh-refinement manifest written: {manifest_path}")
 

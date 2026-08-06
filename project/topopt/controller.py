@@ -66,8 +66,7 @@ from project.verification.manifest import (
     load_manifest_status,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-LEGACY_OUTPUT_ROOT = PROJECT_ROOT / "solver" / "_05_OUT"
+from project.paths import PROJECT_ROOT, RUNS_ROOT, VV_ARTIFACT_ROOT
 
 
 CASE = "cantilever"
@@ -648,7 +647,7 @@ def _build_hardcoded_case(case: str):
 
 def _run_main(case: str):
     p, domain, V, Q, bcs, F_load = _build_hardcoded_case(case)
-    out_dir = str(LEGACY_OUTPUT_ROOT / case)
+    out_dir = str(RUNS_ROOT / case)
     _prepare_output_dir(out_dir, clear=True)
     perm = build_cell_perm(
         domain, Q, p["nelx"], p["nely"], p["Lx"], p["Ly"]
@@ -711,7 +710,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     )
 
     if out_dir is None:
-        out_dir = str(LEGACY_OUTPUT_ROOT / "spec")
+        out_dir = str(RUNS_ROOT / "spec")
         clear = True
     else:
         clear = False
@@ -940,11 +939,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
             "current source hashes are not covered by a passing verification manifest"
         )
     mesh_study_path = (
-        project_root
-        / "solver"
-        / "_05_OUT"
-        / "vv"
-        / "mesh_refinement_manifest.json"
+        VV_ARTIFACT_ROOT / "mesh_refinement_manifest.json"
     )
     mesh_refinement_status = load_hash_bound_artifact(
         mesh_study_path,

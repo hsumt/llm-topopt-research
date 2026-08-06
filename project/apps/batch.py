@@ -10,8 +10,11 @@ from io import StringIO
 
 from project.parser.client import parse_problem
 from project.parser.provenance import summarize_semantic_assurance
-from project.topopt.controller import LEGACY_OUTPUT_ROOT, main_from_spec
+from project.paths import RUNS_ROOT
+from project.topopt.controller import main_from_spec
 
+
+BATCH_OUTPUT_ROOT = RUNS_ROOT / "batch"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROMPTS_FILE = (
     PROJECT_ROOT / "experiments" / "parser_prompts.txt"
@@ -57,7 +60,7 @@ def _load_prompts(path: str) -> list[tuple[int, str]]:
  
 def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
     prompts_file = os.fspath(prompts_file)
-    BATCH_DIR = str(LEGACY_OUTPUT_ROOT / "batch")
+    BATCH_DIR = str(BATCH_OUTPUT_ROOT)
     os.makedirs(BATCH_DIR, exist_ok=True)
     import shutil
     if os.path.exists(BATCH_DIR):

@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from project.paths import VERIFICATION_ARTIFACT_ROOT
 from pathlib import Path
 
 
@@ -32,6 +33,7 @@ VERIFIED_RELATIVE_FILES = [
     "verification/mesh_refinement.py",
     "verification/diagnostic_calibration.py",
     "verification/run_suite.py",
+    "paths.py",
 ]
 
 def _sha256(path: Path) -> str:
@@ -53,7 +55,12 @@ def source_hashes(project_root: Path) -> dict[str, str]:
 
 
 def manifest_path(project_root: Path) -> Path:
-    return project_root / "solver" / "_05_OUT" / "verification" / "verification_manifest.json"
+    """Return the hash-bound verification manifest location.
+
+    ``project_root`` remains in the signature because callers also use it as
+    the source-hashing root.
+    """
+    return VERIFICATION_ARTIFACT_ROOT / "verification_manifest.json"
 
 
 def write_manifest(project_root: Path, *, tests: list[str], versions: dict) -> Path:

@@ -2,7 +2,7 @@
 
 Current output location:
 
-    project/solver/_05_OUT/
+    artifacts/
 
 Run:
 
@@ -17,8 +17,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-LEGACY_OUTPUT_ROOT = PROJECT_ROOT / "solver" / "_05_OUT"
+from project.paths import ARTIFACT_ROOT
 
 # Keep these marker/configuration files wherever they appear.
 PRESERVE_FILENAMES = {".gitkeep"}
@@ -28,17 +27,17 @@ CREATE_GITKEEP = True
 
 
 def locate_output_directory() -> Path:
-    """Return the current generated-output root or fail clearly."""
-    output_root = LEGACY_OUTPUT_ROOT.resolve()
+    """Return the generated-artifact root or fail clearly."""
+    output_root = ARTIFACT_ROOT.resolve()
 
     if output_root.is_dir():
         return output_root
 
     raise FileNotFoundError(
-        "Could not locate the topology-optimization output directory:\n"
+        "Could not locate the generated-artifact directory:\n"
         f"  {output_root}\n\n"
-        "The output directory has not been created, was moved, or the "
-        "repository structure is not the expected one."
+        "The directory has not been created or the repository structure "
+        "is not the expected one."
     )
 
 
@@ -88,7 +87,7 @@ def main() -> None:
     output_root = locate_output_directory()
 
     # Hard safety guard: never recursively clean an unexpectedly named path.
-    if output_root.name != "_05_OUT":
+    if output_root.name != "artifacts":
         raise RuntimeError(
             f"Safety check failed: refusing to clean unexpected path {output_root}"
         )

@@ -1,6 +1,5 @@
 """
-postprocess.py
-Finished 5/20/26
+Postprocessing and artifact-export utilities for topology-optimization runs.
 """
 
 import os
@@ -163,7 +162,7 @@ def save_summary_slide(
     print(f"Summary slide saved → {out_path}")
     return out_path
 def export_xdmf(nelx: int, nely: int, rho_history: list, perm: np.ndarray,
-                Lx: float, Ly: float, output_dir: str = "_05_OUT"):
+                Lx: float, Ly: float, output_dir: str):
     """
     Export density history to XDMF + HDF5 for ParaView animation.
 
