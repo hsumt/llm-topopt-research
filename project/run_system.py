@@ -2,7 +2,6 @@
 
 Run from the repository root:
 
-    /dolfinx-env/bin/python project/solver/verification_tests.py
     /dolfinx-env/bin/python project/run_system.py
 """
 

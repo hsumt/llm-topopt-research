@@ -1,7 +1,3 @@
-"""
-Solely written using GPT for verification_test.py
-"""
-
 from __future__ import annotations
 
 import numpy as np
