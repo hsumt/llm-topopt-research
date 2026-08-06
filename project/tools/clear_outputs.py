@@ -9,7 +9,7 @@ Run:
     /dolfinx-env/bin/python -m project.tools.clear_outputs
 
 The script preserves the output root, immediate case directories, and
-.gitkeep files. It refuses to clean a directory not named ``_05_OUT``.
+.gitkeep files. It refuses to clean a directory not named ``artifacts``..
 """
 
 from __future__ import annotations
