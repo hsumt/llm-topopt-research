@@ -1,4 +1,4 @@
-FROM dolfinx/dolfinx:stable
+FROM dolfinx/dolfinx:v0.9.0
 LABEL Author="M. Hsu"
 
 USER root
