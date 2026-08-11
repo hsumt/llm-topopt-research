@@ -22,3 +22,5 @@ artifacts/vv/*
 !artifacts/runs/.gitkeep
 !artifacts/verification/.gitkeep
 !artifacts/vv/.gitkeep
+# Local literature PDFs; large or licensed source files
+knowledge_sources/papers/

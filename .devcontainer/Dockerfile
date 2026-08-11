@@ -23,6 +23,7 @@ ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 RUN python -m pip install --upgrade pip \
  && pip install --no-cache-dir \
+    pypdf \
     ipykernel \
     jsonschema \
     gmsh \
