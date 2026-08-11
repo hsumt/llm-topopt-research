@@ -1,0 +1,41 @@
+{
+  "accepted_claim_count": 11,
+  "batch_count": 1,
+  "coverage": {
+    "mode": "targeted_retrieval",
+    "query": "SIMP density filtering checkerboards compliance sensitivity optimization",
+    "selected_chunk_count": 12,
+    "selected_chunk_ids": [
+      "bendsoe_sigmund_topology_optimization_chunk_0070",
+      "bendsoe_sigmund_topology_optimization_chunk_0089",
+      "bendsoe_sigmund_topology_optimization_chunk_0080",
+      "bendsoe_sigmund_topology_optimization_chunk_0087",
+      "bendsoe_sigmund_topology_optimization_chunk_0082",
+      "bendsoe_sigmund_topology_optimization_chunk_0072",
+      "bendsoe_sigmund_topology_optimization_chunk_0068",
+      "bendsoe_sigmund_topology_optimization_chunk_0079",
+      "bendsoe_sigmund_topology_optimization_chunk_0083",
+      "bendsoe_sigmund_topology_optimization_chunk_0094",
+      "bendsoe_sigmund_topology_optimization_chunk_0122",
+      "bendsoe_sigmund_topology_optimization_chunk_0113"
+    ],
+    "selected_fraction": 0.02097902,
+    "total_chunk_count": 572
+  },
+  "evidence_tier": "B",
+  "model": "claude-sonnet-4-6",
+  "note": "Machine extraction is not ground truth; each retained claim has code-validated Tier-A evidence references.",
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "rejected_claim_count": 2,
+  "rejections": [
+    "batch 0 claim 1: quote is not present in the referenced chunk",
+    "batch 0 claim 7: quote is not present in the referenced chunk"
+  ],
+  "schema_version": "1.0",
+  "temperature": 0,
+  "usage": {
+    "input_tokens": 5560,
+    "output_tokens": 2341,
+    "total_tokens": 7901
+  }
+}

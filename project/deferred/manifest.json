@@ -1,0 +1,17 @@
+{
+  "artifacts": [
+    "metadata.json",
+    "pages.json",
+    "chunks.json",
+    "manifest.json"
+  ],
+  "chunk_count": 572,
+  "chunker": "page_aware_paragraph_greedy_v1",
+  "extracted_page_count": 380,
+  "extractor": "pypdf",
+  "max_chars": 2000,
+  "page_count": 381,
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "schema_version": "1.0",
+  "source_sha256": "3ab1c29c5a19a5e65bbaae3fdb97cf4a9b167fe06a886c1f8332c80b38fc3af4"
+}

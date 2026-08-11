@@ -92,7 +92,9 @@ def ingest_pdf(
     loaded_pdf = load_pdf(pdf_path)
 
     resolved_paper_id = _validate_paper_id(
-        paper_id or _automatic_paper_id(loaded_pdf)
+        _automatic_paper_id(loaded_pdf)
+        if paper_id is None
+        else paper_id
     )
 
     chunks = chunk_pdf(

@@ -1,0 +1,53 @@
+{
+  "author_supported": {
+    "benchmark": [
+      "claim_b6458e1e92d39906"
+    ],
+    "finding": [
+      "claim_1a82e15a3edc9e8e",
+      "claim_546f32b23c2fa6e5",
+      "claim_611fb1f1e6e969e7",
+      "claim_f4210604cddcf461"
+    ],
+    "limitation": [
+      "claim_5269f1f9e69d8dfc"
+    ],
+    "method": [
+      "claim_886c5c0a040c82d3",
+      "claim_8954cbc432ab6fc2",
+      "claim_9523ca2b98d7d840",
+      "claim_d23c0513c64c8917",
+      "claim_e6e0cc45dc90fa88"
+    ]
+  },
+  "authors": [
+    "Martin P. Bendsøe",
+    "Ole Sigmund"
+  ],
+  "coverage": {
+    "mode": "targeted_retrieval",
+    "query": "SIMP density filtering checkerboards compliance sensitivity optimization",
+    "selected_chunk_count": 12,
+    "selected_chunk_ids": [
+      "bendsoe_sigmund_topology_optimization_chunk_0070",
+      "bendsoe_sigmund_topology_optimization_chunk_0089",
+      "bendsoe_sigmund_topology_optimization_chunk_0080",
+      "bendsoe_sigmund_topology_optimization_chunk_0087",
+      "bendsoe_sigmund_topology_optimization_chunk_0082",
+      "bendsoe_sigmund_topology_optimization_chunk_0072",
+      "bendsoe_sigmund_topology_optimization_chunk_0068",
+      "bendsoe_sigmund_topology_optimization_chunk_0079",
+      "bendsoe_sigmund_topology_optimization_chunk_0083",
+      "bendsoe_sigmund_topology_optimization_chunk_0094",
+      "bendsoe_sigmund_topology_optimization_chunk_0122",
+      "bendsoe_sigmund_topology_optimization_chunk_0113"
+    ],
+    "selected_fraction": 0.02097902,
+    "total_chunk_count": 572
+  },
+  "evidence_tier": "B",
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "project_interpretation": [],
+  "schema_version": "1.0",
+  "title": "Topology Optimization: Theory, Methods, and Applications"
+}

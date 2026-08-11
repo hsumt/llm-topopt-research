@@ -1,0 +1,15 @@
+{
+  "authors": [
+    "Martin P. Bendsøe",
+    "Ole Sigmund"
+  ],
+  "extracted_character_count": 834601,
+  "extracted_page_count": 380,
+  "extractor": "pypdf",
+  "page_count": 381,
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "schema_version": "1.0",
+  "source_filename": "BendsoeTOSpringer.pdf",
+  "source_sha256": "3ab1c29c5a19a5e65bbaae3fdb97cf4a9b167fe06a886c1f8332c80b38fc3af4",
+  "title": "Topology Optimization: Theory, Methods, and Applications"
+}

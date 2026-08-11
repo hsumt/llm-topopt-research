@@ -1,0 +1,26 @@
+{
+  "approval_scope": "critic_interpretation_only",
+  "approved_claim_ids": [
+    "claim_1a82e15a3edc9e8e",
+    "claim_5269f1f9e69d8dfc",
+    "claim_546f32b23c2fa6e5",
+    "claim_611fb1f1e6e969e7",
+    "claim_886c5c0a040c82d3",
+    "claim_8954cbc432ab6fc2",
+    "claim_9523ca2b98d7d840",
+    "claim_b6458e1e92d39906",
+    "claim_d23c0513c64c8917",
+    "claim_e6e0cc45dc90fa88",
+    "claim_f4210604cddcf461"
+  ],
+  "chunks_sha256": "514fba4d00e6875144e78156e247474a600ada52e4e96e33e53e1e5ae6500370",
+  "claims_sha256": "783a331a37682d1789890c05d4cd29587c7ca18394b19c999c944fb55c924b4d",
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "review": {
+    "review_date": "2026-08-11",
+    "reviewer": "Rudra Boun",
+    "statement": "The listed Tier-B claims were reviewed for use as interpretive context only. This approval grants no solver, parameter-setting, or validation authority."
+  },
+  "schema_version": "1.0",
+  "source_sha256": "3ab1c29c5a19a5e65bbaae3fdb97cf4a9b167fe06a886c1f8332c80b38fc3af4"
+}

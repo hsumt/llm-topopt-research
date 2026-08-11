@@ -1,0 +1,183 @@
+{
+  "claims": [
+    {
+      "category": "benchmark",
+      "claim_id": "claim_b6458e1e92d39906",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0080",
+          "page_end": 55,
+          "page_start": 55,
+          "quote": "All volume fractions are 50% and the resulting compliances for a variable thickness plate (p = 1 in SIMP) (a) is 2.67; for the checkerboard structure (b) 2.81; and for the non­ checkerboard structure (c) it is 6.16. Even in this finite lay-out the non-physical checkerboard - modelled by Q4 elements - is almost as stiff as the sheet."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "For a square structure under biaxial stress modelled by Q4 elements at 50% volume fraction, the compliance of the checkerboard solution is 2.81 versus 6.16 for the sensitivity-filtered non-checkerboard solution, demonstrating that the non-physical checkerboard is nearly as stiff as the sheet."
+    },
+    {
+      "category": "finding",
+      "claim_id": "claim_1a82e15a3edc9e8e",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0072",
+          "page_end": 50,
+          "page_start": 50,
+          "quote": "experience shows that the filter somehow improves the computational behaviour of the topology design procedures as it delays the tendency of the SIMP scheme to get \"stuck\" in 0-1 designs"
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "The sensitivity filter delays the tendency of the SIMP scheme to get stuck in 0-1 designs and improves the computational behaviour of topology design procedures."
+    },
+    {
+      "category": "finding",
+      "claim_id": "claim_546f32b23c2fa6e5",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0070",
+          "page_end": 49,
+          "page_start": 49,
+          "quote": "Such a filter is purely heuris­ tic but it produces results very similar to for example those obtained by a local gradient constraint"
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "Sensitivity filtering is purely heuristic but produces results very similar to those obtained by a local gradient constraint."
+    },
+    {
+      "category": "finding",
+      "claim_id": "claim_611fb1f1e6e969e7",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0072",
+          "page_end": 50,
+          "page_start": 50,
+          "quote": "the sensitivity (1.27) converges to the original sensitivity when the filter radius r min approaches zero and that all sensitivities will be equal (resulting in an even distribution of material) when rmin approaches infinity."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "The sensitivity filter converges to the original sensitivity when the filter radius approaches zero, and produces an even distribution of material when the filter radius approaches infinity."
+    },
+    {
+      "category": "finding",
+      "claim_id": "claim_f4210604cddcf461",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0070",
+          "page_end": 49,
+          "page_start": 49,
+          "quote": "The smoothing and the fixed scale means that this method gives existence of solutions and convergence with refinement of the FE mesh. Loosely speaking, the reason that the filter removes any fine scale behaviour of the density p is that such variations in the mechanical analysis (via the filtering (p * K)) appears like a grey which is penalized by SIMP."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "Density filtering gives existence of solutions and convergence with refinement of the FE mesh by smoothing stiffness fields and enforcing a fixed length-scale, because fine-scale density variations appear as grey material that is penalized by SIMP."
+    },
+    {
+      "category": "limitation",
+      "claim_id": "claim_5269f1f9e69d8dfc",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0072",
+          "page_end": 50,
+          "page_start": 50,
+          "quote": "Unfortunately, the theoretical basis for the method is not yet understood. Also, it is unclear exactly what problem we are solving."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "The theoretical basis for sensitivity filtering is not yet understood, and it is unclear exactly what optimization problem is being solved when this filter is applied."
+    },
+    {
+      "category": "method",
+      "claim_id": "claim_886c5c0a040c82d3",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0089",
+          "page_end": 60,
+          "page_start": 60,
+          "quote": "This just requires that one adjusts the filter in (1.27) to exactly making the design sensitivity of a specific element depend on a weighted average over the element itself and its eight direct neighbours. This is a is very efficient method for removing checkerboards [9]."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "Checkerboard control by sensitivity filtering can be achieved without imposing a mesh-independent length scale by adjusting the filter so that the design sensitivity of a specific element depends on a weighted average over the element itself and its eight direct neighbours."
+    },
+    {
+      "category": "method",
+      "claim_id": "claim_8954cbc432ab6fc2",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0082",
+          "page_end": 56,
+          "page_start": 56,
+          "quote": "A sensitivity of compliance with respect to one of these densities will then depend on the energies in the four neighboring elements, and the design de­ scription is in nature similar to filtering methods (see sections 1.3.1). It can be shown that for a finite element discretization based on square elements, this idea corresponds to imposing a local gradient constraint as in 1.23, where G is equal to two times the element size."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "A nodal-based density averaging scheme defines element density as the average of nodal values, making the compliance sensitivity with respect to one density depend on energies in four neighbouring elements; for square elements this is equivalent to imposing a local gradient constraint with G equal to twice the element size."
+    },
+    {
+      "category": "method",
+      "claim_id": "claim_9523ca2b98d7d840",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0089",
+          "page_end": 60,
+          "page_start": 60,
+          "quote": "A design defined by a density P that is element wise constant on a mesh of quadrilaterals with N interior nodes will thus be free of checkerboards if it satisfies the constraint N L h(Pk,a, Pk,b, Pk,c, Pk,d) = 0 , k=l (1.32)"
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "A checkerboard-free constraint can be added to the optimization problem by requiring that the sum over all interior nodes of the function h(a,b,c,d) equals zero, where h is a product of monotonicity measures around each node."
+    },
+    {
+      "category": "method",
+      "claim_id": "claim_d23c0513c64c8917",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0070",
+          "page_end": 49,
+          "page_start": 49,
+          "quote": "the element stiffness matrices in the finite element analysis are defined by weighted averages of the stiffnesses of neighbouring elements, and the sensitivity information should be modified to cater for the redefined stiffness tensor (this means that the sensitivity of the compliance with respect to p(x) will involve the mutual energy of a neighborhood of x)"
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "Density filtering in SIMP defines element stiffness matrices as weighted averages of stiffnesses of neighbouring elements, and the sensitivity of compliance with respect to density involves the mutual energy of a neighbourhood."
+    },
+    {
+      "category": "method",
+      "claim_id": "claim_e6e0cc45dc90fa88",
+      "evidence": [
+        {
+          "chunk_id": "bendsoe_sigmund_topology_optimization_chunk_0080",
+          "page_end": 55,
+          "page_start": 55,
+          "quote": "the use of higher order finite elements for the displacement function is a viable method to avoid the checkerboard problem and checkerboards are typically prevented when using 8 or 9-node quadrilaterals for the displacements in combination with an element wise constant discretization of density."
+        }
+      ],
+      "evidence_tier": "B",
+      "paper_id": "bendsoe_sigmund_topology_optimization",
+      "schema_version": "1.0",
+      "statement": "Using higher-order finite elements (8 or 9-node quadrilaterals) for displacements combined with element-wise constant density discretization prevents checkerboard patterns in topology optimization."
+    }
+  ],
+  "evidence_tier": "B",
+  "paper_id": "bendsoe_sigmund_topology_optimization",
+  "schema_version": "1.0"
+}
