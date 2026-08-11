@@ -22,3 +22,8 @@ artifacts/vv/*
 !artifacts/runs/.gitkeep
 !artifacts/verification/.gitkeep
 !artifacts/vv/.gitkeep
+
+CLAUDE.md
+
+.idea/
+_chatgpt_bundle/
