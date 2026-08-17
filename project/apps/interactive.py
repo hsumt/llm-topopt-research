@@ -75,7 +75,7 @@ def _apply_overrides(spec, overrides: dict):
     return type(spec).model_validate(payload)
 
 
-def main():
+def main(run_function=main_from_spec):
     prompt = input("Describe your topology optimization problem:\n> ")
     spec, defaulted_fields, field_provenance, parser_usage = parse_problem(prompt)
 
@@ -227,7 +227,11 @@ def main():
     }
 
     print("\nStarting SIMP optimization...\n")
-    main_from_spec(spec, parser_usage=parser_usage, run_provenance=provenance)
+    run_function(
+        spec,
+        parser_usage=parser_usage,
+        run_provenance=provenance,
+    )
 
 
 if __name__ == "__main__":

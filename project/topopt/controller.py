@@ -467,14 +467,6 @@ def _run_optimization(
             reason = "design_change"
             print(f"\nDesign converged at iteration {iteration}")
             break
-        if status["may_stop"] and status["objective_plateau"]:
-            reason = "objective_plateau_only"
-            print(
-                f"\nStopped at iteration {iteration}: objective plateau, "
-                f"but max design change={change:.6g} exceeds "
-                f"tol={float(p['tol_change']):.6g}."
-            )
-            break
 
     # Exact final re-evaluation: x_design is the last MMA output, whereas the
     # state recorded in the loop was the design that produced that output.
@@ -701,7 +693,14 @@ def _problem_region_masks(spec, nelx: int, nely: int):
     return support, load
 
 
-def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
+def main_from_spec(
+    spec,
+    parser_usage=None,
+    out_dir=None,
+    run_provenance=None,
+    execution_overrides=None,
+    run_critic=True,
+):
     """Run one parser-generated specification and return a structured packet."""
     from project.topopt.config_bridge import (
         build_bcs_from_spec,
@@ -717,6 +716,32 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     _prepare_output_dir(out_dir, clear=clear)
 
     p = extract_simp_params(spec)
+    requested_max_iter = int(p["max_iter"])
+
+    execution_overrides = dict(execution_overrides or {})
+
+    unknown_execution_overrides = (
+        set(execution_overrides) - {"max_iter"}
+    )
+
+    if unknown_execution_overrides:
+        raise ValueError(
+            "Unsupported execution override(s): "
+            f"{sorted(unknown_execution_overrides)}"
+        )
+
+    if "max_iter" in execution_overrides:
+        executed_max_iter = int(
+            execution_overrides["max_iter"]
+        )
+
+        if executed_max_iter < requested_max_iter:
+            raise ValueError(
+                "Refinement execution overrides may not reduce "
+                "the ProblemSpec iteration budget."
+            )
+
+        p["max_iter"] = executed_max_iter
     domain = build_mesh(p["nelx"], p["nely"], p["Lx"], p["Ly"])
     V, Q = build_spaces(domain)
     mu, lmbda = get_lame_parameters(p["E"], p["nu"])
@@ -855,6 +880,9 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
             "beta_schedule_omitted": result.beta_schedule_omitted,
             "beta_final": result.beta_final,
             "steering_enabled": False,
+            "max_iter_requested": requested_max_iter,
+            "max_iter_executed": int(p["max_iter"]),
+            "execution_overrides": execution_overrides,
         },
         "final_result": final,
         "validation": validation,
@@ -888,13 +916,34 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
     for message in validation.get("quality_warnings", []):
         print(f"  QUALITY WARNING: {message}")
 
-    if validation["passed"]:
+    if validation["passed"] and run_critic:
         critic_summary, critic_usage = criticize(critic_input)
+
         print("\n--- Critic Agent Summary ---")
         print(critic_summary)
+
+    elif validation["passed"] and not run_critic:
+        critic_summary = (
+            "Critic Agent deferred because an outer refinement "
+            "controller is still evaluating the run."
+        )
+
+        critic_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        }
+
     else:
-        critic_summary = "Critic Agent not called because hard validation failed."
-        critic_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        critic_summary = (
+            "Critic Agent not called because hard validation failed."
+        )
+
+        critic_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        }
 
     with open(os.path.join(out_dir, "critic_summary.txt"), "w") as handle:
         handle.write(critic_summary)
@@ -981,6 +1030,7 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         "numerical_verification_suite": verification_status,
         "mesh_refinement_study": mesh_refinement_status,
         "publication_readiness": publication_readiness,
+        "execution_overrides": execution_overrides,
         "model_limitations": {
             "point_force": "discrete nodal point force; local stresses at the loaded node are singularity-sensitive",
             "dirichlet_values": "homogeneous displacement constraints only",

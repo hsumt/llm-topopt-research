@@ -1,0 +1,1 @@
+"""Verification-gated outer refinement loop for topology optimization."""
