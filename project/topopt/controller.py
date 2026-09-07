@@ -900,11 +900,30 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         handle.write(critic_summary)
 
     parser_tokens = int(parser_usage["total_tokens"]) if parser_usage else 0
+    formulation_usage = run_provenance.get("formulation_critique", {}).get(
+        "usage", {}
+    )
+    formulation_tokens = int(formulation_usage.get("total_tokens", 0))
+    formulation_critic_tokens = int(
+        formulation_usage.get("critic", {}).get(
+            "total_tokens", formulation_tokens
+        )
+    )
+    formulation_resolver_tokens = int(
+        formulation_usage.get("resolver", {}).get("total_tokens", 0)
+    )
+    postsolve_critic_tokens = int(critic_usage.get("total_tokens", 0))
     compute_cost = {
         "optimization_iterations": result.metrics["iteration"],
         "parser_tokens": parser_tokens if parser_usage else None,
-        "critic_tokens": int(critic_usage.get("total_tokens", 0)),
-        "total_llm_tokens": parser_tokens + int(critic_usage.get("total_tokens", 0)),
+        "formulation_agent_tokens": formulation_tokens,
+        "formulation_critic_tokens": formulation_critic_tokens,
+        "formulation_resolver_tokens": formulation_resolver_tokens,
+        "postsolve_critic_tokens": postsolve_critic_tokens,
+        "critic_tokens": postsolve_critic_tokens,
+        "total_llm_tokens": (
+            parser_tokens + formulation_tokens + postsolve_critic_tokens
+        ),
     }
     derivative_evidence = {
         "direct_simp_sign_derivative": {
@@ -978,6 +997,33 @@ def main_from_spec(spec, parser_usage=None, out_dir=None, run_provenance=None):
         "compute_cost": compute_cost,
         "derivative_evidence": derivative_evidence,
         "interaction_provenance": run_provenance,
+        "formulation_session": run_provenance.get(
+            "formulation_session",
+            {
+                "session_id": None,
+                "session_dir": None,
+                "intent_preview_path": None,
+            },
+        ),
+        "formulation_critique": run_provenance.get(
+            "formulation_critique",
+            {
+                "policy": "not_run",
+                "reviewed_before_run": False,
+                "human_acknowledged": False,
+                "result": {
+                    "status": "not_run",
+                    "review_recommended": None,
+                    "summary": "No pre-solve formulation critique was recorded.",
+                    "issues": [],
+                },
+                "usage": {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                },
+            },
+        ),
         "numerical_verification_suite": verification_status,
         "mesh_refinement_study": mesh_refinement_status,
         "publication_readiness": publication_readiness,

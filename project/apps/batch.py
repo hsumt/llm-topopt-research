@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime
 from io import StringIO
 
+from project.llm.formulation_critic import critique_formulation
 from project.parser.client import parse_problem
 from project.parser.provenance import summarize_semantic_assurance
 from project.paths import RUNS_ROOT
@@ -103,6 +104,8 @@ def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
             "design_converged":  None,
             "objective_plateau": None,
             "semantic_assurance_status": None,
+            "formulation_critique_status": None,
+            "formulation_issue_count": None,
             "clarification_policy": "silent_defaults",
         }
  
@@ -134,6 +137,24 @@ def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
                 )
                 final_field_provenance.append(record)
 
+            formulation_critique, formulation_usage = critique_formulation(
+                original_prompt=prompt,
+                spec=spec,
+                final_field_provenance=final_field_provenance,
+            )
+            run_record["formulation_critique_status"] = formulation_critique.get(
+                "status"
+            )
+            run_record["formulation_issue_count"] = len(
+                formulation_critique.get("issues", [])
+            )
+            if formulation_critique.get("issues"):
+                print(
+                    "         Formulation critic: "
+                    f"{len(formulation_critique['issues'])} issue(s) logged "
+                    "(advisory; batch execution continues)"
+                )
+
             provenance = {
                 "clarification_policy": "silent_defaults",
                 "defaulted_fields": [f.model_dump() for f in defaulted_fields],
@@ -155,6 +176,13 @@ def run_batch(prompts_file: str | os.PathLike = DEFAULT_PROMPTS_FILE):
                     field_provenance,
                     final_preview_confirmed=False,
                 ),
+                "formulation_critique": {
+                    "policy": "advisory_unattended",
+                    "reviewed_before_run": True,
+                    "human_acknowledged": False,
+                    "result": formulation_critique,
+                    "usage": formulation_usage,
+                },
                 "original_prompt": prompt,
             }
             result_packet = main_from_spec(

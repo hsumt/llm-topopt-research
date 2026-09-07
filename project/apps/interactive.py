@@ -1,5 +1,12 @@
 """Interactive natural-language runner for the verified 2-D SIMP pipeline.
-    (/dolfinx-env/bin/python -m project.verification.run_suite)
+
+Pipeline:
+    natural language
+      -> parser + default clarification
+      -> interactive formulation critic/resolver loop
+      -> deterministic intent preview + human confirmation
+      -> deterministic FEniCS/SIMP
+
 Run from the repository root:
 
     /dolfinx-env/bin/python -m project.apps.interactive
@@ -11,13 +18,12 @@ import json
 import math
 import re
 
-
+from project.formulation.dialogue import run_formulation_dialogue
+from project.formulation.patching import build_review_field_provenance
 from project.parser.client import parse_problem
-from project.parser.provenance import summarize_semantic_assurance
 from project.topopt.controller import main_from_spec
 
 OPT_OUT_PHRASES = {"use defaults", "use default", "skip", "just use defaults"}
-CONFIRM_PHRASES = {"y", "yes", "confirm", "run"}
 _PATH_TOKEN = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
 
 
@@ -79,7 +85,7 @@ def main():
     prompt = input("Describe your topology optimization problem:\n> ")
     spec, defaulted_fields, field_provenance, parser_usage = parse_problem(prompt)
 
-    clarification_policy = "ask_all_with_opt_out"
+    clarification_policy = "parser_defaults_then_interactive_formulation_review"
     clarifications_presented = []
     confirmed_defaults = []
     accepted_remaining_defaults = []
@@ -91,6 +97,10 @@ def main():
     overrides = {}
     spec_payload = spec.model_dump()
 
+    # Existing parser/default clarification stage. This remains distinct from
+    # the formulation critic: parser defaults are field-value gaps, while the
+    # formulation critic asks whether the resulting engineering idealization is
+    # actually what the user intended.
     if defaulted_fields:
         print(
             f"\n{len(defaulted_fields)} field(s) were defaulted. Press Enter "
@@ -131,6 +141,7 @@ def main():
                         "field_path": field.field_path,
                         "previous_value": actual_default,
                         "new_value": new_value,
+                        "response": answer,
                     }
                 )
             except (
@@ -165,47 +176,40 @@ def main():
         }
     ]
     if inferred:
-        print("\nFields inferred rather than stated explicitly:")
+        print("\nFields initially inferred rather than stated explicitly:")
         for item in inferred:
             print(
                 f"  {item.field_path} = {item.value!r} "
                 f"[{item.source}; evidence: {item.evidence}]"
             )
 
-    print("\nFinal parsed specification:")
+    print("\nInitial parsed specification:")
     print(spec.model_dump_json(indent=2))
-    confirmation = input("\nRun this exact specification? [y/N]\n> ").strip().lower()
-    final_preview_confirmed = confirmation in CONFIRM_PHRASES
-    if not final_preview_confirmed:
-        print("Run cancelled before deterministic optimization.")
+
+    review_field_provenance = build_review_field_provenance(
+        spec=spec,
+        parser_field_provenance=field_provenance,
+        confirmed_defaults=confirmed_defaults,
+        accepted_remaining_defaults=accepted_remaining_defaults,
+        accepted_after_invalid_input=accepted_after_invalid_input,
+        user_overrides=user_overrides,
+    )
+
+    formulation = run_formulation_dialogue(
+        original_prompt=prompt,
+        spec=spec,
+        final_field_provenance=review_field_provenance,
+    )
+    if formulation.get("cancelled"):
+        print(
+            "Formulation session stopped before deterministic optimization. "
+            f"Session artifacts: {formulation.get('session_dir')}"
+        )
         return
 
-    semantic_assurance = summarize_semantic_assurance(
-        field_provenance,
-        final_preview_confirmed=final_preview_confirmed,
-    )
-    final_payload = spec.model_dump()
-    override_paths = {item["field_path"] for item in user_overrides}
-    final_field_provenance = []
-    for item in field_provenance:
-        record = item.model_dump()
-        record["final_value"] = _get_path(final_payload, item.field_path)
-        if item.field_path in override_paths:
-            record["interaction_status"] = "user_overridden"
-        elif item.field_path in confirmed_defaults:
-            record["interaction_status"] = "individually_confirmed_default"
-        elif item.field_path in accepted_remaining_defaults:
-            record["interaction_status"] = "accepted_after_opt_out"
-        elif item.field_path in accepted_after_invalid_input:
-            record["interaction_status"] = "default_retained_after_invalid_input"
-        elif item.source in {
-            "inferred_from_benchmark_name",
-            "inferred_from_language",
-        }:
-            record["interaction_status"] = "confirmed_in_final_preview"
-        else:
-            record["interaction_status"] = "unchanged"
-        final_field_provenance.append(record)
+    spec = formulation["spec"]
+    final_field_provenance = formulation["final_field_provenance"]
+    semantic_assurance = formulation["semantic_assurance"]
 
     provenance = {
         "clarification_policy": clarification_policy,
@@ -220,13 +224,28 @@ def main():
         "accepted_after_invalid_input": accepted_after_invalid_input,
         "opted_out": opted_out,
         "opted_out_at_field": opted_out_at_field,
-        "final_preview_confirmed": final_preview_confirmed,
-        "confirmation_received": final_preview_confirmed,
+        "final_preview_confirmed": True,
+        "confirmation_received": True,
         "semantic_assurance": semantic_assurance,
+        "formulation_critique": {
+            "policy": "interactive_critic_resolver_human_gate",
+            "reviewed_before_run": True,
+            "human_acknowledged": True,
+            "result": formulation["last_critique"],
+            "usage": formulation["usage"],
+            "critic_calls": formulation["critic_calls"],
+            "resolution_audits": formulation["resolution_audits"],
+            "accepted_as_is": formulation["accepted_as_is"],
+        },
+        "formulation_session": {
+            "session_id": formulation["session_id"],
+            "session_dir": formulation["session_dir"],
+            "intent_preview_path": formulation["preview_path"],
+        },
         "original_prompt": prompt,
     }
 
-    print("\nStarting SIMP optimization...\n")
+    print("\nStarting deterministic SIMP optimization...\n")
     main_from_spec(spec, parser_usage=parser_usage, run_provenance=provenance)
 
 

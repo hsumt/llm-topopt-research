@@ -24,6 +24,16 @@ VERIFIED_RELATIVE_FILES = (
     "apps/interactive.py",
     "apps/batch.py",
 
+    # Interactive formulation-review mechanism
+    "formulation/__init__.py",
+    "formulation/patching.py",
+    "formulation/dialogue.py",
+    "formulation/preview.py",
+    "formulation/session.py",
+    "formulation/verification.py",
+    "llm/formulation_critic.py",
+    "llm/formulation_resolver.py",
+
     # Authoritative deterministic controller
     "topopt/controller.py",
     "topopt/config_bridge.py",
@@ -53,7 +63,7 @@ VERIFIED_RELATIVE_FILES = (
     "verification/diagnostic_calibration.py",
     "verification/run_suite.py",
 
-    # Evidence-limited interpretation
+    # Evidence-limited post-solve interpretation
     "llm/critic.py",
 )
 def _sha256(path: Path) -> str:

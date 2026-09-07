@@ -130,7 +130,25 @@ The Python client recomputes a defaulted simp.r_min deterministically. The
 Helmholtz filter uses r_pde=r_min/(2*sqrt(3)).
 
 Named benchmark conventions:
-1. Cantilever beam benchmark:
+
+IMPORTANT BENCHMARK-NAME DISAMBIGUATION:
+- The plain phrase "cantilever beam" names a structural problem class, NOT a
+  specific benchmark. Do not use source="inferred_from_benchmark_name" merely
+  because the word cantilever appears.
+- Apply the cantilever benchmark convention below only when the prompt actually
+  identifies benchmark intent, for example "cantilever benchmark", "Sigmund
+  cantilever benchmark", "99-line/88-line cantilever benchmark", or equivalent
+  explicit benchmark wording.
+- "MBB beam" is itself the conventional name of the MBB benchmark family, so
+  it may use inferred_from_benchmark_name when the user actually says MBB.
+- For a generic cantilever request, use the general defaults for unstated
+  geometry/mesh/numerical settings. Support/load facts directly implied by the
+  user's wording may use inferred_from_language. If load location, load kind, or
+  load magnitude remains genuinely unspecified, choose a runnable value and
+  mark that field defaulted so the interactive layer can ask about it. Do not
+  relabel that default as benchmark-derived.
+
+1. Cantilever beam benchmark (only under the benchmark-intent rule above):
    - rectangular domain, full clamp on left edge;
    - downward discrete nodal point force at right-center;
    - if geometry/mesh omitted, use 1.6x1.0 and 80x50;
@@ -180,4 +198,19 @@ and BCs as inferred_from_benchmark_name with evidence="MBB beam". Record E,
 nu, penal, vol_frac, r_min, max_iter, and tol_change as defaulted unless the
 benchmark rule above explicitly supplies the value. The interactive runner will
 show all inferred fields in a final preview and require confirmation.
+
+───────────────────────────────────────────────────────────────
+EXAMPLE C — GENERIC CANTILEVER, NOT A NAMED BENCHMARK
+───────────────────────────────────────────────────────────────
+Input:
+"Make me a cantilever beam. Fix the left side and apply a downward load near
+the right side. Use 40% material and make it as stiff as possible."
+
+Do NOT apply the cantilever-benchmark geometry/mesh solely because the request
+says cantilever. "Fix the left side" may support inferred_from_language BCs and
+"downward" may support the y direction. The exact load location, load kind, and
+load magnitude are not stated; choose runnable values and mark those fields
+defaulted. Use general defaults for omitted geometry/mesh/numerical settings.
+This preserves the distinction between a runnable parser output and a later
+formulation-clarification question.
 """

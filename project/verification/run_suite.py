@@ -49,6 +49,7 @@ from project.parser.schema import (
     FieldProvenance,
     ProblemSpec,
 )
+from project.formulation.verification import run_deterministic_formulation_tests
 
 
 PASSED_TESTS: list[str] = []
@@ -405,6 +406,7 @@ def main():
     test_checkerboard_is_diagnostic_only()
     test_termination_semantics()
     test_parser_provenance_gate()
+    run_deterministic_formulation_tests(_pass)
     test_filter_radius_convention()
     test_work_energy()
     test_independent_q4_reference()
@@ -422,7 +424,7 @@ def main():
         tests=PASSED_TESTS,
         versions=versions,
     )
-    print("\nAll numerical verification tests passed.")
+    print("\nAll numerical and deterministic formulation verification tests passed.")
     print(f"Verification manifest written: {path}")
 
 
