@@ -21,7 +21,6 @@ import re
 from project.formulation.dialogue import run_formulation_dialogue
 from project.formulation.patching import build_review_field_provenance
 from project.parser.client import parse_problem
-from project.topopt.controller import main_from_spec
 
 OPT_OUT_PHRASES = {"use defaults", "use default", "skip", "just use defaults"}
 _PATH_TOKEN = re.compile(r"([^.\[\]]+)|\[(\d+)\]")

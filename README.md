@@ -15,3 +15,13 @@ Run numerical verification:
 
 ```bash
 /dolfinx-env/bin/python -m project.verification.run_suite
+
+
+## How to do ParaLeSTO Updates
+- git checkout main
+- git submodule-update --remote external/paralesto
+- git status
+- git diff --submodule
+- git add external/paralesto
+- git commit -m "update ParaLeSTO upstream"
+- git push
