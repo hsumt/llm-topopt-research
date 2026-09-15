@@ -21,4 +21,4 @@ artifacts/vv/*
 
 !artifacts/runs/.gitkeep
 !artifacts/verification/.gitkeep
-!artifacts/vv/.gitkeep
+!artifacts/vv/.gitkeepexternal/paralesto/
