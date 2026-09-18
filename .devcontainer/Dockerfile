@@ -25,6 +25,7 @@ RUN python -m pip install --upgrade pip \
  && pip install --no-cache-dir \
     streamlit \
     ipykernel \
+    pypdf \
     jsonschema \
     gmsh \
     numpy \

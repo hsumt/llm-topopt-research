@@ -1,212 +1,207 @@
-"""Deterministic intent preview generated directly from ``ProblemSpec``.
-
-The preview is not an LLM rendering. It is drawn from the exact structured
-values that will be passed to the deterministic solver so the visualization
-cannot silently disagree with the runnable specification.
-"""
+"""Human-readable mirrors of the evolving engineering formulation."""
 
 from __future__ import annotations
 
-from collections import defaultdict
-from pathlib import Path
+import json
+from typing import Any
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from project.formulation.models import FormulationSession
+from project.formulation.verification import check_readiness
 
 
-_POINT_COORDS = {
-    "bottom_left": (0.0, 0.0),
-    "bottom_right": (1.0, 0.0),
-    "top_left": (0.0, 1.0),
-    "top_right": (1.0, 1.0),
-    "right_tip": (1.0, 0.5),
-    "right_center": (1.0, 0.5),
-    "left_center": (0.0, 0.5),
-    "top_center": (0.5, 1.0),
-    "bottom_center": (0.5, 0.0),
-}
-
-
-def _location_xy(location: str, Lx: float, Ly: float) -> tuple[float, float]:
-    if location in _POINT_COORDS:
-        fx, fy = _POINT_COORDS[location]
-        return fx * Lx, fy * Ly
-    centers = {
-        "left_edge": (0.0, Ly / 2.0),
-        "right_edge": (Lx, Ly / 2.0),
-        "top_edge": (Lx / 2.0, Ly),
-        "bottom_edge": (Lx / 2.0, 0.0),
-    }
-    if location in centers:
-        return centers[location]
-    raise ValueError(f"Unsupported preview location: {location}")
-
-
-def _load_label(load) -> str:
-    component = "F" + load.dof
-    if load.kind == "point_force":
-        return f"point force: {component}={load.value:g}"
-    if load.kind == "edge_resultant":
-        return f"edge resultant: total {component}={load.value:g}"
-    if load.kind == "edge_traction":
-        return f"edge traction: q{load.dof}={load.value:g} per unit length"
-    return f"{load.kind}: {load.dof}={load.value:g}"
-
-
-def _draw_load(ax, load, Lx: float, Ly: float) -> None:
-    scale = 0.16 * max(Lx, Ly)
-    dof = load.dof
-    sign = 1.0 if load.value >= 0 else -1.0
-
-    if load.kind == "point_force":
-        x, y = _location_xy(load.location, Lx, Ly)
-        if dof == "y":
-            dx, dy = 0.0, sign * scale
-        else:
-            dx, dy = sign * scale, 0.0
-        ax.annotate(
-            "",
-            xy=(x, y),
-            xytext=(x - dx, y - dy),
-            arrowprops={"arrowstyle": "->", "linewidth": 2.1},
-        )
-        ax.text(
-            x,
-            y + 0.04 * Ly,
-            _load_label(load),
-            fontsize=8,
-            ha="center",
-            va="bottom",
-        )
-        return
-
-    n_arrows = 6
-    fractions = [(i + 1) / (n_arrows + 1) for i in range(n_arrows)]
-    if load.location in {"left_edge", "right_edge"}:
-        x = 0.0 if load.location == "left_edge" else Lx
-        points = [(x, f * Ly) for f in fractions]
-    elif load.location in {"bottom_edge", "top_edge"}:
-        y = 0.0 if load.location == "bottom_edge" else Ly
-        points = [(f * Lx, y) for f in fractions]
-    else:
-        raise ValueError(
-            f"{load.kind} requires an edge location for deterministic preview"
-        )
-
-    for x, y in points:
-        if dof == "y":
-            dx, dy = 0.0, sign * scale
-        else:
-            dx, dy = sign * scale, 0.0
-        ax.annotate(
-            "",
-            xy=(x, y),
-            xytext=(x - dx, y - dy),
-            arrowprops={"arrowstyle": "->", "linewidth": 1.2},
-        )
-    cx, cy = _location_xy(load.location, Lx, Ly)
-    ax.text(
-        cx,
-        cy + 0.07 * Ly,
-        _load_label(load),
-        fontsize=8,
-        ha="center",
-        va="bottom",
+def spec_json(session: FormulationSession) -> str:
+    return json.dumps(
+        session.parser_result.spec.model_dump(exclude_none=True),
+        indent=2,
     )
 
 
-def format_intent_snapshot(spec) -> str:
-    """Compact terminal summary of the same values rendered in the PNG."""
-    Lx = float(spec.mesh.Lx)
-    Ly = float(spec.mesh.Ly)
-    lines = [
-        f"  Domain: {Lx:g} x {Ly:g} ({Lx / Ly:g}:1 length:height)",
-        f"  Analysis: {spec.analysis.formulation}, {spec.analysis.unit_system}",
-    ]
-
-    grouped: dict[str, list[str]] = defaultdict(list)
-    for bc in spec.bcs:
-        grouped[bc.location].append(f"u{bc.dof}={bc.value:g}")
-    for location, labels in grouped.items():
-        lines.append(f"  Support: {location} -> {', '.join(labels)}")
-
-    for load in spec.loads:
-        lines.append(
-            f"  Load: {load.location} -> {_load_label(load)}"
-        )
-
-    lines.append(
-        f"  Objective: compliance minimization; volume fraction={spec.simp.vol_frac:g}"
+def route_summary(session: FormulationSession) -> str:
+    route = session.route
+    physics = ", ".join(route.physics_families) or "unknown"
+    dimension = f"{route.spatial_dimension}-D" if route.spatial_dimension else "unspecified"
+    method = ", ".join(route.requested_methods) or "none explicitly requested"
+    return (
+        f"Task: {route.task_type}\n"
+        f"Physics: {physics}\n"
+        f"Dimension: {dimension}\n"
+        f"Multiphysics: {route.multiphysics}\n"
+        f"Requested methods: {method}"
     )
+
+
+def issue_summary(session: FormulationSession) -> str:
+    readiness = check_readiness(session)
+    lines = []
+    if readiness.blockers:
+        lines.append("Blocking:")
+        lines.extend(f"- {item}" for item in readiness.blockers)
+    if readiness.warnings:
+        lines.append("Warnings:")
+        lines.extend(f"- {item}" for item in readiness.warnings)
+    if not lines:
+        return "No blocking pre-solve formulation issues."
     return "\n".join(lines)
 
 
-def generate_intent_preview(
-    spec,
-    output_path: str | Path,
-    *,
-    title: str = "Deterministic pre-solve intent preview",
-) -> Path:
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+def _fmt_value(value: Any) -> str:
+    if value is None:
+        return "not stated"
+    if hasattr(value, "value"):
+        raw = getattr(value, "value")
+        unit = getattr(value, "unit", None)
+        return f"{raw}{(' ' + unit) if unit else ''}"
+    return str(value)
 
-    Lx = float(spec.mesh.Lx)
-    Ly = float(spec.mesh.Ly)
 
-    fig, ax = plt.subplots(figsize=(9, 5.6))
-    ax.add_patch(Rectangle((0.0, 0.0), Lx, Ly, fill=False, linewidth=2.0))
+def problem_bullets(session: FormulationSession) -> list[str]:
+    """Bullets describing what the system currently believes the problem is."""
 
-    bcs_by_location: dict[str, list[str]] = defaultdict(list)
-    for bc in spec.bcs:
-        bcs_by_location[bc.location].append(f"u{bc.dof}={bc.value:g}")
+    spec = session.parser_result.spec
+    bullets: list[str] = []
+    bullets.append(f"**Task:** {spec.problem_kind}")
+    if spec.geometry:
+        if spec.geometry.spatial_dimension:
+            bullets.append(f"**Dimension:** {spec.geometry.spatial_dimension}-D")
+        if spec.geometry.description:
+            bullets.append(f"**Geometry:** {spec.geometry.description}")
+        for key, value in spec.geometry.parameters.items():
+            bullets.append(f"**Geometry — {key}:** {_fmt_value(value)}")
+        for region in spec.geometry.regions:
+            role = f" ({region.role})" if region.role else ""
+            bullets.append(f"**Region {region.id}{role}:** {region.description}")
 
-    for location, labels in bcs_by_location.items():
-        x, y = _location_xy(location, Lx, Ly)
-        if location == "left_edge":
-            ax.plot([0.0, 0.0], [0.0, Ly], linewidth=4.0)
-        elif location == "right_edge":
-            ax.plot([Lx, Lx], [0.0, Ly], linewidth=4.0)
-        elif location == "bottom_edge":
-            ax.plot([0.0, Lx], [0.0, 0.0], linewidth=4.0)
-        elif location == "top_edge":
-            ax.plot([0.0, Lx], [Ly, Ly], linewidth=4.0)
-        else:
-            ax.plot([x], [y], marker="s", markersize=7)
+    for physics in spec.physics:
+        text = physics.family
+        if physics.model:
+            text += f" / {physics.model}"
+        if physics.regime:
+            text += f" / {physics.regime}"
+        bullets.append(f"**Physics:** {text}")
 
-        offset_x = -0.04 * Lx if "left" in location else 0.04 * Lx
-        ha = "right" if "left" in location else "left"
-        if location in {"top_edge", "bottom_edge", "top_center", "bottom_center"}:
-            offset_x = 0.0
-            ha = "center"
-        ax.text(
-            x + offset_x,
-            y,
-            f"BC: {location}\n" + ", ".join(labels),
-            fontsize=8,
-            ha=ha,
-            va="center",
+    for material in spec.materials:
+        text = material.model or material.id
+        if material.region:
+            text += f" in {material.region}"
+        bullets.append(f"**Material:** {text}")
+        for key, value in material.properties.items():
+            bullets.append(f"**Material — {key}:** {_fmt_value(value)}")
+
+    for bc in spec.boundary_conditions:
+        bullets.append(
+            f"**Boundary condition:** {bc.location} → {bc.kind} on {bc.field}"
         )
 
-    for load in spec.loads:
-        _draw_load(ax, load, Lx, Ly)
+    for source in spec.sources:
+        where = source.location or "location not stated"
+        value = f", {_fmt_value(source.value)}" if source.value else ""
+        bullets.append(f"**Load/source:** {source.kind} at {where}{value}")
 
-    ax.set_xlim(-0.28 * Lx, 1.28 * Lx)
-    ax.set_ylim(-0.22 * Ly, 1.28 * Ly)
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_title(title)
+    if spec.optimization:
+        for objective in spec.optimization.objectives:
+            bullets.append(
+                f"**Objective:** {objective.sense} {objective.quantity}"
+            )
+        for constraint in spec.optimization.constraints:
+            limit = _fmt_value(constraint.limit) if constraint.limit else "not stated"
+            bullets.append(
+                f"**Constraint:** {constraint.quantity} {constraint.relation} {limit}"
+            )
+        for variable in spec.optimization.design_variables:
+            bullets.append(
+                f"**Design variable:** {variable.kind} → {variable.target}"
+            )
 
-    summary = (
-        f"Domain: {Lx:g} x {Ly:g} | Analysis: {spec.analysis.formulation} | "
-        f"E={spec.material.E:g}, nu={spec.material.nu:g}\n"
-        f"Objective: compliance minimization | Volume fraction: {spec.simp.vol_frac:g} | "
-        f"Unit system: {spec.analysis.unit_system}"
-    )
-    fig.text(0.5, 0.02, summary, ha="center", va="bottom", fontsize=8)
-    fig.tight_layout(rect=(0.02, 0.08, 0.98, 0.98))
-    fig.savefig(output_path, dpi=180)
-    plt.close(fig)
-    return output_path
+    if spec.manufacturing:
+        if spec.manufacturing.process:
+            bullets.append(f"**Manufacturing:** {spec.manufacturing.process}")
+        for requirement in spec.manufacturing.requirements:
+            bullets.append(f"**Manufacturing requirement:** {requirement}")
+
+    for assumption in spec.assumptions:
+        bullets.append(f"**Assumption:** {assumption}")
+    return bullets
+
+
+def context_bullets(session: FormulationSession) -> list[str]:
+    bullets: list[str] = []
+    for item in session.parser_result.context_candidates:
+        state = "incorporated" if item.incorporated_into_spec else "not incorporated"
+        bullets.append(
+            f"**{item.relevance.upper()} — {item.id}:** {item.text} "
+            f"_({state}; {item.reason})_"
+        )
+    if not bullets and session.supplied_context:
+        bullets.append("Context was supplied, but no context candidates were extracted.")
+    return bullets
+
+
+def open_issue_bullets(session: FormulationSession) -> list[str]:
+    bullets: list[str] = []
+    for item in session.parser_result.unresolved_items:
+        marker = "BLOCKING" if item.required_for_execution else "WARNING"
+        bullets.append(f"**{marker} {item.id}:** {item.issue}")
+    for item in session.parser_result.contradictions:
+        bullets.append(f"**CONTRADICTION {item.id}:** {item.description}")
+    for concern in session.critic_result.concerns:
+        if concern.blocking:
+            bullets.append(f"**CRITIC {concern.id}:** {concern.description}")
+    return bullets
+
+
+def problem_graph_dot(session: FormulationSession) -> str:
+    """Graphviz problem map: a visual mirror of the current formulation structure."""
+
+    spec = session.parser_result.spec
+
+    def esc(text: str) -> str:
+        return str(text).replace('"', "'").replace("\n", " ")
+
+    lines = [
+        "digraph formulation {",
+        "rankdir=LR;",
+        'node [shape=box, style="rounded"];',
+        f'problem [label="{esc(spec.name)}\\n{esc(spec.problem_kind)}"];',
+    ]
+
+    if spec.geometry:
+        geom = spec.geometry.description or "geometry"
+        if spec.geometry.spatial_dimension:
+            geom = f"{spec.geometry.spatial_dimension}-D | {geom}"
+        lines.append(f'geometry [label="Geometry\\n{esc(geom)}"];')
+        lines.append("problem -> geometry;")
+
+    for i, physics in enumerate(spec.physics):
+        label = physics.family
+        if physics.model:
+            label += f"\\n{physics.model}"
+        lines.append(f'physics_{i} [label="Physics\\n{esc(label)}"];')
+        lines.append(f"problem -> physics_{i};")
+
+    if spec.boundary_conditions:
+        labels = [f"{bc.location}: {bc.kind}" for bc in spec.boundary_conditions[:4]]
+        lines.append(f'bcs [label="Supports / BCs\\n{esc(" | ".join(labels))}"];')
+        lines.append("problem -> bcs;")
+
+    if spec.sources:
+        labels = [f"{src.location or 'unspecified'}: {src.kind}" for src in spec.sources[:4]]
+        lines.append(f'loads [label="Loads / Sources\\n{esc(" | ".join(labels))}"];')
+        lines.append("problem -> loads;")
+
+    if spec.optimization:
+        if spec.optimization.objectives:
+            labels = [f"{obj.sense} {obj.quantity}" for obj in spec.optimization.objectives[:3]]
+            lines.append(f'objectives [label="Objective\\n{esc(" | ".join(labels))}"];')
+            lines.append("problem -> objectives;")
+        if spec.optimization.constraints:
+            labels = [con.quantity for con in spec.optimization.constraints[:4]]
+            lines.append(f'constraints [label="Constraints\\n{esc(" | ".join(labels))}"];')
+            lines.append("problem -> constraints;")
+
+    if spec.manufacturing:
+        label = spec.manufacturing.process or "manufacturing requirements"
+        lines.append(f'mfg [label="Manufacturing\\n{esc(label)}"];')
+        lines.append("problem -> mfg;")
+
+    lines.append("}")
+    return "\n".join(lines)

@@ -1,1 +1,1 @@
-"""Interactive pre-solve formulation review utilities."""
+"""Pre-solve formulation workflow package."""

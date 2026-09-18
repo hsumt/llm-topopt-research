@@ -1,200 +1,299 @@
-"""Pydantic schemas for the verified natural-language TopOpt interface.
+"""Solver-independent engineering problem representation.
 
-The deterministic solver is deliberately restricted to 2-D, small-strain,
-isotropic linear elasticity in plane stress. Quantities are currently
-nondimensional and the out-of-plane thickness is fixed to one. Making these
-assumptions explicit prevents apparently dimensional prompts from being run
-under an unstated or inconsistent unit convention.
+The pre-solve IR is intentionally *partial-friendly*: missing engineering
+information is represented as missing/None and is handled by the formulation
+critic and clarification workflow, not by making Pydantic reject the entire
+parse. Solver/backend configuration remains downstream.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-Location = Literal[
-    "left_edge", "right_edge", "top_edge", "bottom_edge",
-    "top_left", "top_right", "bottom_left", "bottom_right",
-    "right_tip", "right_center", "top_center", "bottom_center",
-    "left_center",
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class EngineeringValue(StrictModel):
+    """A value attached to the engineering formulation.
+
+    Scalars are accepted as shorthand and deterministically wrapped as
+    ``{"value": scalar}``. This makes the IR tolerant of compact LLM output
+    without weakening the canonical in-memory representation.
+    """
+
+    value: Any
+    unit: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _wrap_scalar(cls, data):
+        if isinstance(data, cls):
+            return data
+        if isinstance(data, dict):
+            return data
+        return {"value": data}
+
+
+class RegionSpec(StrictModel):
+    id: str
+    description: str
+    role: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class GeometrySpec(StrictModel):
+    spatial_dimension: Literal[1, 2, 3] | None = None
+    description: str | None = None
+    # Keep this flexible enough for either a short label ("Cartesian") or an
+    # explicit axis map such as {"x": "normal to plate", "y": "up"}.
+    coordinate_system: str | dict[str, str] | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+    regions: list[RegionSpec] = Field(default_factory=list)
+
+
+PhysicsFamily = Literal[
+    "solid_mechanics",
+    "thermal",
+    "fluid",
+    "electromagnetics",
+    "acoustics",
+    "mass_transport",
+    "other",
+    "unknown",
 ]
-Dof2D = Literal["x", "y"]
-LoadKind = Literal["point_force", "edge_resultant", "edge_traction"]
+
+
+class PhysicsSpec(StrictModel):
+    id: str
+    family: PhysicsFamily
+    model: str | None = None
+    regime: Literal[
+        "steady",
+        "transient",
+        "quasi_static",
+        "frequency_domain",
+        "eigenvalue",
+        "unknown",
+    ] | None = None
+    fields: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class CouplingSpec(StrictModel):
+    id: str
+    physics_ids: list[str]
+    kind: str
+    description: str | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class MaterialSpec(StrictModel):
+    id: str
+    region: str | None = None
+    model: str | None = None
+    properties: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class BoundaryConditionSpec(StrictModel):
+    id: str
+    physics_id: str | None = None
+    location: str | None = None
+    field: str | None = None
+    kind: str | None = None
+    components: list[str] = Field(default_factory=list)
+    value: EngineeringValue | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class InitialConditionSpec(StrictModel):
+    id: str
+    physics_id: str | None = None
+    region: str | None = None
+    field: str | None = None
+    value: EngineeringValue | None = None
+
+
+class SourceSpec(StrictModel):
+    id: str
+    physics_id: str | None = None
+    location: str | None = None
+    field: str | None = None
+    kind: str | None = None
+    value: EngineeringValue | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class LoadCaseSpec(StrictModel):
+    id: str
+    name: str | None = None
+    source_ids: list[str] = Field(default_factory=list)
+    boundary_condition_ids: list[str] = Field(default_factory=list)
+    description: str | None = None
+
+
+class DesignVariableSpec(StrictModel):
+    id: str
+    kind: str | None = None
+    target: str | None = None
+    region: str | None = None
+    lower_bound: EngineeringValue | None = None
+    upper_bound: EngineeringValue | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class ObjectiveSpec(StrictModel):
+    id: str
+    sense: Literal["minimize", "maximize", "target"] | None = None
+    quantity: str | None = None
+    region: str | None = None
+    target: EngineeringValue | None = None
+    weight: float | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class ConstraintSpec(StrictModel):
+    id: str
+    quantity: str | None = None
+    relation: Literal["<=", ">=", "=", "range"] | None = None
+    limit: EngineeringValue | None = None
+    region: str | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class OptimizationSpec(StrictModel):
+    design_variables: list[DesignVariableSpec] = Field(default_factory=list)
+    objectives: list[ObjectiveSpec] = Field(default_factory=list)
+    constraints: list[ConstraintSpec] = Field(default_factory=list)
+
+
+class ManufacturingSpec(StrictModel):
+    """Manufacturing requirements that constrain the engineering problem."""
+
+    process: str | None = None
+    material_form: str | None = None
+    machine: str | None = None
+    stock_material: str | None = None
+    notes: str | None = None
+    requirements: list[str] = Field(default_factory=list)
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class DiscretizationSpec(StrictModel):
+    """Only user-stated discretization requirements."""
+
+    method: str | None = None
+    description: str | None = None
+    parameters: dict[str, EngineeringValue] = Field(default_factory=dict)
+
+
+class ProblemSpec(StrictModel):
+    """Solver-independent statement of the engineering problem."""
+
+    schema_version: str = "1.0"
+    name: str
+    problem_kind: Literal[
+        "simulation",
+        "optimization",
+        "inverse_problem",
+        "unknown",
+    ] = "unknown"
+    unit_system: str | None = None
+
+    geometry: GeometrySpec | None = None
+    physics: list[PhysicsSpec] = Field(default_factory=list)
+    couplings: list[CouplingSpec] = Field(default_factory=list)
+    materials: list[MaterialSpec] = Field(default_factory=list)
+    boundary_conditions: list[BoundaryConditionSpec] = Field(default_factory=list)
+    initial_conditions: list[InitialConditionSpec] = Field(default_factory=list)
+    sources: list[SourceSpec] = Field(default_factory=list)
+    load_cases: list[LoadCaseSpec] = Field(default_factory=list)
+    optimization: OptimizationSpec | None = None
+    manufacturing: ManufacturingSpec | None = None
+    discretization: DiscretizationSpec | None = None
+
+    requested_outputs: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+
+
 ProvenanceSource = Literal[
     "explicit",
-    "inferred_from_benchmark_name",
     "inferred_from_language",
-    "defaulted",
-    "fixed_by_solver_scope",
+    "inferred_from_standard_name",
     "user_confirmed",
     "user_overridden",
-    "contradictory",
+    "user_clarification",
+    "derived_from_spec",
 ]
 
 
-class AnalysisConfig(BaseModel):
-    """Explicit scope and dimensional convention of the current solver."""
-
-    formulation: Literal["plane_stress"] = "plane_stress"
-    unit_system: Literal["nondimensional"] = "nondimensional"
-    thickness: float = 1.0
-    edge_traction_definition: Literal["line_load"] = "line_load"
-
-    @model_validator(mode="after")
-    def validate_analysis(self):
-        if abs(self.thickness - 1.0) > 1.0e-14:
-            raise ValueError(
-                "The verified build currently assumes unit out-of-plane "
-                "thickness. Non-unit thickness is not yet supported."
-            )
-        return self
-
-
-class BoundaryCondition(BaseModel):
-    location: Location
-    dof: Dof2D
-    value: float = 0.0
-
-    @model_validator(mode="after")
-    def validate_homogeneous_bc(self):
-        if abs(self.value) > 1.0e-14:
-            raise ValueError(
-                "The current compliance solver supports homogeneous "
-                "Dirichlet boundary conditions only (value=0)."
-            )
-        return self
-
-
-class Load(BaseModel):
-    location: Location
-    dof: Dof2D
-    value: float
-    kind: LoadKind = Field(
-        default="point_force",
-        description=(
-            "point_force is a discrete nodal resultant; edge_resultant is a "
-            "total edge force; edge_traction is a 2-D line load (force per "
-            "in-plane edge length) under the declared unit-thickness model."
-        ),
-    )
-
-
-class Material(BaseModel):
-    E: float
-    nu: float
-
-    @model_validator(mode="after")
-    def validate_material(self):
-        if self.E <= 0.0:
-            raise ValueError("material.E must be positive")
-        if not (-1.0 < self.nu < 0.5):
-            raise ValueError("material.nu must satisfy -1 < nu < 0.5")
-        return self
-
-
-class MeshConfig(BaseModel):
-    nx: int
-    ny: int
-    nz: Optional[int] = None
-    Lx: Optional[float] = None
-    Ly: Optional[float] = None
-
-    @model_validator(mode="after")
-    def validate_mesh(self):
-        if self.nx <= 0 or self.ny <= 0:
-            raise ValueError("mesh.nx and mesh.ny must be positive")
-        if self.nz is not None:
-            raise ValueError(
-                "The current DOLFINx solver is 2-D only; mesh.nz is unsupported."
-            )
-        if self.Lx is not None and self.Lx <= 0.0:
-            raise ValueError("mesh.Lx must be positive")
-        if self.Ly is not None and self.Ly <= 0.0:
-            raise ValueError("mesh.Ly must be positive")
-        return self
-
-
-class SIMPConfig(BaseModel):
-    penal: float
-    vol_frac: float
-    r_min: float = Field(
-        description=(
-            "Cone-equivalent physical filter radius. The Helmholtz PDE uses "
-            "r_pde = r_min/(2*sqrt(3))."
-        )
-    )
-    max_iter: int
-    tol_change: float
-
-    @model_validator(mode="after")
-    def validate_simp(self):
-        if self.penal < 1.0:
-            raise ValueError("simp.penal must be >= 1")
-        if not (0.0 < self.vol_frac < 1.0):
-            raise ValueError("simp.vol_frac must lie strictly between 0 and 1")
-        if self.r_min <= 0.0:
-            raise ValueError("simp.r_min must be positive")
-        if self.max_iter <= 0:
-            raise ValueError("simp.max_iter must be positive")
-        if self.tol_change <= 0.0:
-            raise ValueError("simp.tol_change must be positive")
-        return self
-
-
-class ProblemSpec(BaseModel):
-    name: str
-    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-    mesh: MeshConfig
-    material: Material
-    loads: List[Load]
-    bcs: List[BoundaryCondition]
-    simp: SIMPConfig
-
-    @model_validator(mode="after")
-    def validate_problem(self):
-        if not self.loads:
-            raise ValueError("At least one load is required")
-        if not self.bcs:
-            raise ValueError("At least one boundary condition is required")
-        return self
-
-
-class DefaultedField(BaseModel):
-    """One scalar field filled by the parser rather than stated by the user."""
-
-    field_path: str
-    default_used: Union[str, float, int, bool]
-    question: str
-
-
-class FieldProvenance(BaseModel):
-    """Field-level audit trail linking model values to prompt evidence."""
+class FieldProvenance(StrictModel):
+    """Compact provenance rule emitted by the parser."""
 
     field_path: str
     source: ProvenanceSource
-    value: Any
-    evidence: Optional[str] = None
+    value: Any | None = None
+    evidence: str
     confidence: float = Field(ge=0.0, le=1.0)
 
-    @model_validator(mode="after")
-    def validate_evidence(self):
-        if self.source in {
-            "explicit",
-            "inferred_from_benchmark_name",
-            "inferred_from_language",
-            "contradictory",
-        } and not (self.evidence and self.evidence.strip()):
-            raise ValueError(
-                f"field provenance source '{self.source}' requires evidence text"
-            )
-        return self
+
+class UnresolvedItem(StrictModel):
+    id: str
+    field_path: str | None = None
+    issue: str
+    evidence: str | None = None
+    question: str
+    required_for_execution: bool = True
 
 
-class ParserResult(BaseModel):
-    """Complete runnable specification plus defaults and semantic provenance."""
+class Contradiction(StrictModel):
+    id: str
+    field_paths: list[str] = Field(default_factory=list)
+    description: str
+    evidence: list[str] = Field(default_factory=list)
 
+
+class ContextCandidate(StrictModel):
+    id: str
+    text: str
+    relevance: Literal["direct", "potential", "background"]
+    related_fields: list[str] = Field(default_factory=list)
+    reason: str
+    incorporated_into_spec: bool = False
+
+
+class ParserResult(StrictModel):
     spec: ProblemSpec
-    defaulted_fields: List[DefaultedField] = Field(default_factory=list)
-    field_provenance: List[FieldProvenance] = Field(default_factory=list)
+    field_provenance: list[FieldProvenance] = Field(default_factory=list)
+    unresolved_items: list[UnresolvedItem] = Field(default_factory=list)
+    contradictions: list[Contradiction] = Field(default_factory=list)
+    context_candidates: list[ContextCandidate] = Field(default_factory=list)
+
+
+class ProblemRoute(StrictModel):
+    """Semantic routing result. This is not a solver selection."""
+
+    task_type: Literal[
+        "simulation",
+        "optimization",
+        "inverse_problem",
+        "unknown",
+    ]
+    physics_families: list[PhysicsFamily] = Field(default_factory=list)
+    spatial_dimension: Literal[1, 2, 3] | None = None
+    optimization_type: Literal[
+        "topology",
+        "shape",
+        "sizing",
+        "parameter",
+        "other",
+        "unknown",
+    ] | None = None
+    multiphysics: bool = False
+    requested_methods: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: list[str] = Field(default_factory=list)
