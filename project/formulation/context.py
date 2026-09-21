@@ -196,3 +196,37 @@ def retrieval_query_from_state(problem: str, parser_result) -> str:
     for item in parser_result.contradictions:
         parts.append(item.description)
     return "\n".join(parts)
+
+
+def render_pdf_pages(
+    attachment: ContextAttachment,
+    *,
+    max_pages: int = 3,
+    dpi: int = 96,
+) -> list[tuple[str, bytes]]:
+    """Render a few PDF pages to PNG for the engineer-facing UI only.
+
+    This is optional and local.  It does not perform OCR or send another model
+    call.  If PyMuPDF is unavailable, callers simply receive an empty list and
+    can fall back to the browser PDF preview.
+    """
+
+    if attachment.media_type.lower() != "application/pdf" and not attachment.name.lower().endswith(".pdf"):
+        return []
+    try:
+        import fitz  # PyMuPDF
+    except Exception:
+        return []
+    try:
+        doc = fitz.open(stream=attachment.data, filetype="pdf")
+        scale = float(dpi) / 72.0
+        matrix = fitz.Matrix(scale, scale)
+        output: list[tuple[str, bytes]] = []
+        for index in range(min(len(doc), max_pages)):
+            page = doc.load_page(index)
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            output.append((f"{attachment.name} — page {index + 1}", pix.tobytes("png")))
+        doc.close()
+        return output
+    except Exception:
+        return []

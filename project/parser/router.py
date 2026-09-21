@@ -9,6 +9,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from .schema import ProblemRoute
+from project.llm.cache import load_cached_response, save_cached_response
 
 load_dotenv()
 
@@ -78,8 +79,28 @@ def route_problem(problem: str, context: str | None = None) -> tuple[ProblemRout
         "schema": ProblemRoute.model_json_schema(),
     }
 
+    model = os.getenv("FORMULATION_MODEL", "claude-sonnet-4-6")
+    cached = load_cached_response(
+        component="router",
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        payload=payload,
+    )
+    if cached is not None:
+        raw_text = cached["response_text"]
+        route = ProblemRoute.model_validate(_extract_json(raw_text))
+        usage = {
+            "component": "router",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cache_hit": True,
+            "cached_original_tokens": int(cached.get("input_tokens", 0)) + int(cached.get("output_tokens", 0)),
+        }
+        return route, usage
+
     response = _client().messages.create(
-        model=os.getenv("FORMULATION_MODEL", "claude-sonnet-4-6"),
+        model=model,
         max_tokens=900,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": json.dumps(payload, indent=2)}],
@@ -88,11 +109,23 @@ def route_problem(problem: str, context: str | None = None) -> tuple[ProblemRout
     if not response.content:
         raise ValueError("Problem router returned no content")
 
-    route = ProblemRoute.model_validate(_extract_json(response.content[0].text))
+    raw_text = response.content[0].text
+    save_cached_response(
+        component="router",
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        payload=payload,
+        response_text=raw_text,
+        input_tokens=int(response.usage.input_tokens),
+        output_tokens=int(response.usage.output_tokens),
+        stop_reason=getattr(response, "stop_reason", None),
+    )
+    route = ProblemRoute.model_validate(_extract_json(raw_text))
     usage = {
         "component": "router",
         "input_tokens": int(response.usage.input_tokens),
         "output_tokens": int(response.usage.output_tokens),
         "total_tokens": int(response.usage.input_tokens + response.usage.output_tokens),
+        "cache_hit": False,
     }
     return route, usage

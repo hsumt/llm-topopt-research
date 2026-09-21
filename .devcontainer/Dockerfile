@@ -26,6 +26,7 @@ RUN python -m pip install --upgrade pip \
     streamlit \
     ipykernel \
     pypdf \
+    pymupdf \
     jsonschema \
     gmsh \
     numpy \
@@ -39,4 +40,5 @@ RUN python -m pip install --upgrade pip \
     meshio \
     imageio \
     openmdao
+
  

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from project.formulation.context import ContextAttachment
 from project.formulation.models import ContextSnippet
 from project.llm.content import build_user_content
+from project.llm.cache import load_cached_response, save_cached_response
 from project.paths import ARTIFACT_ROOT
 
 from .normalize import normalize_parser_payload
@@ -106,6 +107,16 @@ def parse_problem(
     if not problem or not problem.strip():
         raise ValueError("Problem description cannot be empty")
 
+    # parser_last_failure.json intentionally represents only the CURRENT parser
+    # attempt. Clearing it here prevents CLI/non-Streamlit callers from mistaking
+    # a previous run's artifact for a new failure.
+    stale_debug_path = ARTIFACT_ROOT / "debug" / "parser_last_failure.json"
+    try:
+        if stale_debug_path.exists():
+            stale_debug_path.unlink()
+    except OSError:
+        pass
+
     max_tokens = int(os.getenv("PARSER_MAX_TOKENS", "5500"))
     if max_tokens < 3000:
         raise ValueError("PARSER_MAX_TOKENS must be at least 3000")
@@ -130,7 +141,7 @@ def parse_problem(
         if item.media_type.lower().startswith("image/")
     ]
 
-    client = _client()
+    client = None
     total_input = 0
     total_output = 0
     last_error: Exception | None = None
@@ -158,40 +169,69 @@ def parse_problem(
             }
             _report(progress, "Repairing parser JSON after deterministic validation failure...")
 
-        response = client.messages.create(
-            model=os.getenv("FORMULATION_MODEL", "claude-sonnet-4-6"),
-            max_tokens=max_tokens,
-            system=SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": build_user_content(
-                        message_payload,
-                        parser_visuals,
-                        max_visual_assets=2,
-                    ),
-                }
-            ],
+        model = os.getenv("FORMULATION_MODEL", "claude-sonnet-4-6")
+        cached = load_cached_response(
+            component="parser",
+            model=model,
+            system_prompt=SYSTEM_PROMPT,
+            payload=message_payload,
+            attachments=parser_visuals,
         )
+        cache_hit = cached is not None
+        if cache_hit:
+            _report(progress, "Reusing cached parser response for this exact prompt/context (no API call)...")
+            raw_text = str(cached.get("response_text", ""))
+            stop_reason = cached.get("stop_reason")
+            call_input = 0
+            call_output = 0
+        else:
+            if client is None:
+                client = _client()
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=SYSTEM_PROMPT,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": build_user_content(
+                            message_payload,
+                            parser_visuals,
+                            max_visual_assets=2,
+                        ),
+                    }
+                ],
+            )
+            call_input = int(response.usage.input_tokens)
+            call_output = int(response.usage.output_tokens)
+            stop_reason = response.stop_reason
+            raw_text = response.content[0].text if response.content else ""
+            save_cached_response(
+                component="parser",
+                model=model,
+                system_prompt=SYSTEM_PROMPT,
+                payload=message_payload,
+                attachments=parser_visuals,
+                response_text=raw_text,
+                input_tokens=call_input,
+                output_tokens=call_output,
+                stop_reason=stop_reason,
+            )
 
-        call_input = int(response.usage.input_tokens)
-        call_output = int(response.usage.output_tokens)
         total_input += call_input
         total_output += call_output
 
-        if response.stop_reason == "max_tokens":
+        if stop_reason == "max_tokens":
             raise ValueError(
                 "Parser reached its output budget before finishing JSON. "
-                f"This call used {call_output:,} output tokens. No automatic retry was made. "
+                f"This call used {call_output:,} billed output tokens in this run. No automatic retry was made. "
                 "Do not keep raising the budget repeatedly; inspect artifacts/debug/parser_last_failure.json "
                 "if present and reduce the parser output instead."
             )
 
-        if not response.content:
+        if not raw_text:
             last_error = ValueError("Parser returned no content")
             continue
-
-        raw_text = response.content[0].text
         extracted_data: dict | None = None
         normalized_data: dict | None = None
         _report(progress, "Normalizing schema aliases deterministically (no extra LLM call)...")
@@ -262,6 +302,7 @@ def parse_problem(
                 "output_tokens": total_output,
                 "total_tokens": total_input + total_output,
                 "max_tokens_per_call": max_tokens,
+                "cache_hit": cache_hit,
                 "schema_normalization": schema_normalization,
                 "provenance_normalization": provenance_normalization,
             }

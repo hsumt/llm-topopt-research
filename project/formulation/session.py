@@ -17,7 +17,7 @@ from project.formulation.models import (
     FormulationSession,
     RevisionRecord,
 )
-from project.formulation.patching import apply_resolution
+from project.formulation.patching import apply_resolution, normalize_resolution_proposal
 from project.formulation.verification import check_readiness
 from project.llm.formulation_critic import review_formulation
 from project.llm.formulation_resolver import resolve_user_reply
@@ -233,6 +233,10 @@ def continue_session(
     if proposal.action == "apply":
         _report(progress, "Applying the proposed patch deterministically and re-validating the ProblemSpec...")
         try:
+            proposal, patch_normalizations = normalize_resolution_proposal(
+                updated.parser_result.spec, proposal
+            )
+            resolver_usage["patch_normalizations"] = patch_normalizations
             updated.parser_result = apply_resolution(
                 updated.parser_result,
                 proposal,

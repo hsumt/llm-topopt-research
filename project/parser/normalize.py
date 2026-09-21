@@ -12,6 +12,7 @@ quantities or solver settings.
 from __future__ import annotations
 
 from copy import deepcopy
+import re
 from typing import Any
 
 from .schema import ProblemRoute
@@ -505,6 +506,35 @@ def _relevant_evidence(provenance: list[dict[str, Any]], target: str) -> str:
     return " ".join(chunks)
 
 
+def _same_unresolved_topic(existing: dict[str, Any], *, field_path: str, issue: str) -> bool:
+    """Return True when an existing parser issue already covers an auto issue.
+
+    Auto-generated safeguards should not create a second blocker merely because
+    the parser used a nearby JSON Pointer for the same engineering decision.
+    The comparison is intentionally narrow: path overlap alone is not enough;
+    the issue text must also match one of the known semantic topics.
+    """
+
+    existing_path = existing.get("field_path")
+    if not isinstance(existing_path, str):
+        return False
+
+    if not (_scope_covers(existing_path, field_path) or _scope_covers(field_path, existing_path)):
+        return False
+
+    old = str(existing.get("issue") or "").lower()
+    new = str(issue or "").lower()
+
+    load_tokens = ("load case", "simultaneous", "separate", "aggregation", "worst-case")
+    volume_tokens = ("volume fraction", "denominator", "reference domain", "passive region")
+    analysis_tokens = ("analysis representation", "3-d solid", "3d solid", "plane stress", "plane strain", "shell")
+
+    for tokens in (load_tokens, volume_tokens, analysis_tokens):
+        if any(token in old for token in tokens) and any(token in new for token in tokens):
+            return True
+    return False
+
+
 def _append_unresolved_once(
     unresolved: list[dict[str, Any]],
     *,
@@ -514,8 +544,14 @@ def _append_unresolved_once(
     evidence: str | None,
     required_for_execution: bool,
 ) -> None:
-    if any(item.get("field_path") == field_path for item in unresolved if isinstance(item, dict)):
-        return
+    for item in unresolved:
+        if not isinstance(item, dict):
+            continue
+        if item.get("field_path") == field_path:
+            return
+        if _same_unresolved_topic(item, field_path=field_path, issue=issue):
+            return
+
     unresolved.append(
         {
             "id": f"auto_{len(unresolved) + 1}",
@@ -527,6 +563,106 @@ def _append_unresolved_once(
         }
     )
 
+
+
+
+def _scope_is_user_grounded(provenance: list[dict[str, Any]], target: str) -> bool:
+    """Whether a scope is supported by explicit/user-authoritative provenance."""
+    authoritative = {"explicit", "user_confirmed", "user_overridden", "user_clarification"}
+    for rec in provenance:
+        path = rec.get("field_path")
+        source = rec.get("source")
+        if isinstance(path, str) and _scope_covers(path, target) and source in authoritative:
+            return True
+    return False
+
+
+def _sanitize_inferred_assumptions(
+    spec: dict[str, Any],
+    provenance: list[dict[str, Any]],
+    unresolved: list[dict[str, Any]],
+) -> list[str]:
+    """Do not let inferred assumptions silently settle high-impact choices."""
+
+    assumptions = [str(x) for x in _as_list(spec.get("assumptions"))]
+    if not assumptions or _scope_is_user_grounded(provenance, "/assumptions"):
+        return []
+
+    removed: list[str] = []
+    kept: list[str] = []
+
+    # Locate the canonical volume-fraction constraint, if any.
+    volume_path = "/optimization/constraints"
+    optimization = _as_dict(spec.get("optimization"))
+    for i, con in enumerate(_as_list(optimization.get("constraints"))):
+        if isinstance(con, dict) and str(con.get("quantity") or "").lower() == "volume_fraction":
+            volume_path = f"/optimization/constraints/{i}"
+            break
+
+    for text in assumptions:
+        low = text.lower()
+        drop = False
+
+        if "volume fraction" in low and any(
+            token in low for token in ("passive", "design domain", "full plate", "non-design")
+        ):
+            _append_unresolved_once(
+                unresolved,
+                field_path=volume_path,
+                issue="The reference domain used to compute the stated volume fraction is not explicit.",
+                evidence=text,
+                question=(
+                    "Should the volume fraction be measured over the full geometric domain, "
+                    "or only the active design domain excluding passive-solid regions?"
+                ),
+                required_for_execution=True,
+            )
+            drop = True
+
+        elif "load case" in low and any(token in low for token in ("independent", "simultaneous", "combined")):
+            _append_unresolved_once(
+                unresolved,
+                field_path="/optimization/objectives/0/parameters/load_cases",
+                issue="The relationship/aggregation of multiple load cases is not explicitly stated.",
+                evidence=text,
+                question=(
+                    "Should the load cases be evaluated independently, combined simultaneously, "
+                    "or aggregated in the objective with stated weights?"
+                ),
+                required_for_execution=True,
+            )
+            drop = True
+
+        elif "bumper" in low and any(token in low for token in ("passive-void", "passive void", "void constraint")):
+            # Geometry/clearance type should be established by evidence/user, not
+            # by an inferred assumption. Existing bumper unresolved items carry
+            # the actual question if present.
+            drop = True
+
+        elif any(token in low for token in ("3-d solid", "3d solid", "plane stress", "plane strain", "shell model", "shell representation")):
+            _append_unresolved_once(
+                unresolved,
+                field_path="/physics/0/parameters/analysis_representation",
+                issue="Physical geometry is known, but the continuum/analysis representation is not explicitly stated.",
+                evidence=text,
+                question=(
+                    "Should the downstream analysis use a 3-D solid, shell/plate, 2-D plane-stress/plane-strain, "
+                    "or another representation? This may be deferred until solver capability matching."
+                ),
+                required_for_execution=False,
+            )
+            drop = True
+
+        elif "nominal datasheet" in low or ("material properties" in low and "grade" in low):
+            drop = True
+
+        if drop:
+            removed.append(text)
+        else:
+            kept.append(text)
+
+    spec["assumptions"] = kept
+    return removed
 
 def _sanitize_unproven_semantics(
     spec: dict[str, Any],
@@ -544,6 +680,7 @@ def _sanitize_unproven_semantics(
     dropped_material_property_sets: list[str] = []
     relaxed_supports: list[str] = []
     dropped_requested_outputs = False
+    dropped_unconfirmed_assumptions: list[str] = []
 
     # Requested outputs are a presentation preference, not solver-driving
     # formulation. Keep them only when explicitly scoped by provenance.
@@ -608,12 +745,166 @@ def _sanitize_unproven_semantics(
                 required_for_execution=True,
             )
 
+    dropped_unconfirmed_assumptions = _sanitize_inferred_assumptions(
+        spec,
+        provenance,
+        unresolved,
+    )
+
     return {
         "dropped_unproven_requested_outputs": dropped_requested_outputs,
         "dropped_unproven_material_property_sets": dropped_material_property_sets,
         "relaxed_unproven_fixed_supports": relaxed_supports,
+        "dropped_unconfirmed_assumptions": dropped_unconfirmed_assumptions,
     }
 
+
+
+
+def _post_sanitize_issue_state(
+    spec: dict[str, Any],
+    unresolved: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Remove duplicate/non-human-friendly unresolved state.
+
+    The canonical unresolved list should contain engineering decisions the user
+    actually needs to make, not implementation bookkeeping (axis signs that can
+    be expressed as inward normals, duplicate BC kind/components records, etc.).
+    """
+
+    removed_direction_sign_items: list[str] = []
+    merged_support_items: list[str] = []
+    downgraded_material_items: list[str] = []
+    removed_conflicting_assumptions: list[str] = []
+
+    # A load specified semantically as "into/inward normal to this face" does
+    # not require the user to choose an arbitrary global +/- sign.  Preserve
+    # the semantic direction and drop sign-only unresolved items.
+    source_directions: dict[int, str] = {}
+    for index, source in enumerate(_as_list(spec.get("sources"))):
+        if not isinstance(source, dict):
+            continue
+        params = _as_dict(source.get("parameters"))
+        direction = _as_dict(params.get("direction")).get("value")
+        if isinstance(direction, str):
+            source_directions[index] = direction.lower()
+
+    filtered: list[dict[str, Any]] = []
+    for item in unresolved:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("field_path") or "")
+        issue = str(item.get("issue") or "").lower()
+        m = re.match(r"^/sources/(\d+)/parameters/direction", path)
+        if m:
+            direction = source_directions.get(int(m.group(1)), "")
+            if ("sign" in issue or "+" in issue or "direction" in issue) and (
+                "into" in direction or "inward" in direction or "normal" in direction
+            ):
+                removed_direction_sign_items.append(str(item.get("id")))
+                continue
+        filtered.append(item)
+    unresolved[:] = filtered
+
+    # Material constants are required before a numerical solve, but they do not
+    # need to be manually typed by the engineer when a material grade/database
+    # will be selected downstream.  Keep the item visible as a warning, not a
+    # blocker, and never suggest nominal values as defaults.
+    for item in unresolved:
+        path = str(item.get("field_path") or "")
+        issue = str(item.get("issue") or "").lower()
+        if path.startswith("/materials/") and (
+            "propert" in path.lower() or "elastic" in issue or "poisson" in issue
+        ):
+            item["required_for_execution"] = False
+            item["question"] = (
+                "Which material grade/datasheet should govern, or should material "
+                "properties be resolved later from an approved material database?"
+            )
+            downgraded_material_items.append(str(item.get("id")))
+
+    # Rephrase geometry questions so existing CAD/drawings can be the
+    # authoritative geometry source. Engineers should not have to manually
+    # transcribe coordinates that already exist in CAD.
+    for item in unresolved:
+        issue = str(item.get("issue") or "").lower()
+        question = str(item.get("question") or "")
+        if "mounting hole" in issue and any(word in issue for word in ("position", "diameter", "count", "layout")):
+            item["question"] = (
+                "Can you provide or identify the authoritative CAD/dimensioned drawing for the existing "
+                "mounting-hole layout? If no such geometry asset is available, provide the hole count, diameters, and locations."
+            )
+        elif "pivot" in issue and any(word in issue for word in ("position", "coordinate", "diameter", "radius")):
+            item["question"] = (
+                "Can you provide or identify the authoritative CAD/dimensioned drawing for the existing pivot location/keep-solid region? "
+                "If not, provide its location and required solid radius/diameter."
+            )
+        elif "bumper" in issue and any(word in issue for word in ("geometry", "position", "size", "clearance", "shape")):
+            item["question"] = (
+                "Can the bumper clearance be taken from an authoritative CAD/dimensioned drawing? If not, provide the clearance shape, size, "
+                "and location, and clarify whether it is an internal passive-void region or an external envelope."
+            )
+
+    # Merge duplicate support-interface records such as separate "restraint
+    # type" and "constrained components" items into one human decision.
+    by_bc: dict[str, list[dict[str, Any]]] = {}
+    for item in unresolved:
+        path = str(item.get("field_path") or "")
+        m = re.match(r"^(/boundary_conditions/\d+)", path)
+        if not m:
+            continue
+        issue = str(item.get("issue") or "").lower()
+        if any(word in issue for word in ("restraint", "constrained", "support", "fixed", "pinned", "dof")):
+            by_bc.setdefault(m.group(1), []).append(item)
+
+    to_remove: set[int] = set()
+    for parent, items in by_bc.items():
+        if len(items) < 2:
+            continue
+        primary = items[0]
+        primary["field_path"] = parent
+        primary["issue"] = "Mounting/support interface restraint idealization and constrained motion are not stated."
+        primary["question"] = (
+            "How should this mounting interface restrain motion (for example, use the "
+            "actual bolted/CAD interface, fully fixed, pinned/bearing, or another stated idealization)?"
+        )
+        primary["required_for_execution"] = True
+        for extra in items[1:]:
+            to_remove.add(id(extra))
+            merged_support_items.append(str(extra.get("id")))
+    if to_remove:
+        unresolved[:] = [item for item in unresolved if id(item) not in to_remove]
+
+    # If an assumption asserts one side of an explicitly unresolved choice, it
+    # must not remain in the formal spec as though it were settled.
+    unresolved_text = " ".join(
+        f"{item.get('issue','')} {item.get('question','')}".lower()
+        for item in unresolved
+        if isinstance(item, dict)
+    )
+    kept_assumptions: list[str] = []
+    for assumption in _as_list(spec.get("assumptions")):
+        text = str(assumption)
+        low = text.lower()
+        conflict = False
+        if ("load case" in low and ("independent" in low or "simultaneous" in low)) and (
+            "simultaneous" in unresolved_text or "independent" in unresolved_text
+        ):
+            conflict = True
+        if "bumper" in low and ("passive" in low or "void" in low) and "bumper" in unresolved_text:
+            conflict = True
+        if conflict:
+            removed_conflicting_assumptions.append(text)
+        else:
+            kept_assumptions.append(text)
+    spec["assumptions"] = kept_assumptions
+
+    return {
+        "removed_direction_sign_items": removed_direction_sign_items,
+        "merged_support_items": merged_support_items,
+        "downgraded_material_items": downgraded_material_items,
+        "removed_conflicting_assumptions": removed_conflicting_assumptions,
+    }
 
 def normalize_parser_payload(data: dict[str, Any], route: ProblemRoute) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return canonical-ish ParserResult JSON plus normalization diagnostics."""
@@ -685,6 +976,10 @@ def normalize_parser_payload(data: dict[str, Any], route: ProblemRoute) -> tuple
         provenance,
         out["unresolved_items"],
     )
+    issue_sanitization = _post_sanitize_issue_state(
+        spec,
+        out["unresolved_items"],
+    )
     out["spec"] = spec
     out["field_provenance"] = provenance
 
@@ -694,5 +989,6 @@ def normalize_parser_payload(data: dict[str, Any], route: ProblemRoute) -> tuple
         "source_count": len(spec["sources"]),
         "load_case_count": len(spec["load_cases"]),
         "semantic_sanitization": semantic_sanitization,
+        "issue_sanitization": issue_sanitization,
     }
     return out, diagnostics

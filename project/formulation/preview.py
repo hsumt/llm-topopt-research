@@ -88,8 +88,10 @@ def problem_bullets(session: FormulationSession) -> list[str]:
             bullets.append(f"**Material — {key}:** {_fmt_value(value)}")
 
     for bc in spec.boundary_conditions:
+        kind = bc.kind or "restraint unresolved"
+        field = bc.field or "field unresolved"
         bullets.append(
-            f"**Boundary condition:** {bc.location} → {bc.kind} on {bc.field}"
+            f"**Boundary condition:** {bc.location} → {kind} on {field}"
         )
 
     for source in spec.sources:
@@ -118,8 +120,10 @@ def problem_bullets(session: FormulationSession) -> list[str]:
         for requirement in spec.manufacturing.requirements:
             bullets.append(f"**Manufacturing requirement:** {requirement}")
 
+    # Assumptions are deliberately shown as assumptions rather than facts. A
+    # user should be able to spot and challenge them before approval.
     for assumption in spec.assumptions:
-        bullets.append(f"**Assumption:** {assumption}")
+        bullets.append(f"**Assumption (verify before approval):** {assumption}")
     return bullets
 
 
@@ -137,15 +141,14 @@ def context_bullets(session: FormulationSession) -> list[str]:
 
 
 def open_issue_bullets(session: FormulationSession) -> list[str]:
+    """Canonical issue list with parser/critic duplicates removed."""
+
+    readiness = check_readiness(session)
     bullets: list[str] = []
-    for item in session.parser_result.unresolved_items:
-        marker = "BLOCKING" if item.required_for_execution else "WARNING"
-        bullets.append(f"**{marker} {item.id}:** {item.issue}")
-    for item in session.parser_result.contradictions:
-        bullets.append(f"**CONTRADICTION {item.id}:** {item.description}")
-    for concern in session.critic_result.concerns:
-        if concern.blocking:
-            bullets.append(f"**CRITIC {concern.id}:** {concern.description}")
+    for item in readiness.blockers:
+        bullets.append(f"**BLOCKING:** {item}")
+    for item in readiness.warnings:
+        bullets.append(f"**WARNING:** {item}")
     return bullets
 
 
@@ -179,7 +182,7 @@ def problem_graph_dot(session: FormulationSession) -> str:
         lines.append(f"problem -> physics_{i};")
 
     if spec.boundary_conditions:
-        labels = [f"{bc.location}: {bc.kind}" for bc in spec.boundary_conditions[:4]]
+        labels = [f"{bc.location}: {bc.kind or 'restraint unresolved'}" for bc in spec.boundary_conditions[:4]]
         lines.append(f'bcs [label="Supports / BCs\\n{esc(" | ".join(labels))}"];')
         lines.append("problem -> bcs;")
 
