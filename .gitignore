@@ -10,20 +10,25 @@ solver/_05_OUT/
 *.gif
 *.xdmf
 *.h5
-artifacts/*
-!artifacts/runs/
-!artifacts/verification/
-!artifacts/vv/
+Archive/artifacts/*
+!Archive/artifacts/runs/
+!Archive/artifacts/verification/
+!Archive/artifacts/vv/
 
-artifacts/runs/*
-artifacts/verification/*
-artifacts/vv/*
+Archive/artifacts/runs/*
+Archive/artifacts/verification/*
+Archive/artifacts/vv/*
 
-!artifacts/runs/.gitkeep
-!artifacts/verification/.gitkeep
-!artifacts/vv/.gitkeep
+!Archive/artifacts/runs/.gitkeep
+!Archive/artifacts/verification/.gitkeep
+!Archive/artifacts/vv/.gitkeep
 
 CLAUDE.md
 
 .idea/
 _chatgpt_bundle/
+# generated run outputs
+artifacts/
+
+# transient image previews written by tooling
+_view_*.png
