@@ -1,0 +1,9 @@
+{
+  "name": "cantilever",
+  "analysis": {"formulation": "plane_stress", "unit_system": "nondimensional", "thickness": 1.0, "edge_traction_definition": "line_load"},
+  "mesh": {"nx": 80, "ny": 50, "Lx": 1.6, "Ly": 1.0},
+  "material": {"E": 1.0, "nu": 0.3},
+  "loads": [{"location": "right_center", "dof": "y", "value": -1.0, "kind": "point_force"}],
+  "bcs": [{"location": "left_edge", "dof": "x", "value": 0.0}, {"location": "left_edge", "dof": "y", "value": 0.0}],
+  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 0.05, "max_iter": 250, "tol_change": 0.01}
+}

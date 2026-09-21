@@ -1,0 +1,21 @@
+{
+  "required_load_axes": [
+    "y",
+    "z"
+  ],
+  "axis_rationale": {
+    "y": "the stated service load: 1500 N downward at the arm tip, in the plane of the bracket",
+    "z": "the bracket is bolted to a panel and is hand-loaded during assembly and maintenance; a person leaning on the free arm applies an out-of-plane load normal to the bracket face. This has always been understood as a service condition and was never written into the optimisation problem."
+  },
+  "fixed_geometry": [
+    "arm_fraction",
+    "L"
+  ],
+  "mutable_geometry": [
+    "thickness"
+  ],
+  "stress_allowable_is_firm": true,
+  "mass_budget_is_firm": true,
+  "notes": "Overall envelope L and the 2L/5 arm proportions are fixed by the mating panel. Plate thickness is a free choice: stock is available from 1 mm to 20 mm and selecting a gauge is the designer's call. The 350 MPa allowable is the material yield and is not negotiable. The 30 percent mass budget comes from a system-level weight allocation and is not negotiable at this level. [Agent note: the 1-20 mm stock range, the fixed envelope, and both firmness flags are plausible for a bracket of this kind but are assumptions, not requirements gathered from anyone.]",
+  "provenance": "DRAFTED BY THE AGENT as a stand-in, not supplied by the engineer. Every clause below is an assumption about intent and none has been confirmed. This matters more than it looks: the authority stage adopts intent-altering edits on the strength of this document, so an unconfirmed clause here is an unconfirmed authorisation. Replace with the engineer's own statement before any result from this file is reported as a diagnosis."
+}

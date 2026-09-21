@@ -1,0 +1,9 @@
+{
+  "name": "mbb",
+  "analysis": {"formulation": "plane_stress", "unit_system": "nondimensional", "thickness": 1.0, "edge_traction_definition": "line_load"},
+  "mesh": {"nx": 120, "ny": 40, "Lx": 3.0, "Ly": 1.0},
+  "material": {"E": 1.0, "nu": 0.3},
+  "loads": [{"location": "top_left", "dof": "y", "value": -1.0, "kind": "point_force"}],
+  "bcs": [{"location": "left_edge", "dof": "x", "value": 0.0}, {"location": "bottom_right", "dof": "y", "value": 0.0}],
+  "simp": {"penal": 3.0, "vol_frac": 0.4, "r_min": 0.06, "max_iter": 400, "tol_change": 0.01}
+}
