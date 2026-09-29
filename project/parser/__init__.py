@@ -1,1 +1,0 @@
-"""Solver-independent engineering problem parser package."""

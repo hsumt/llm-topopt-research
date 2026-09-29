@@ -25,3 +25,10 @@ Run numerical verification:
 - git add external/paralesto
 - git commit -m "update ParaLeSTO upstream"
 - git push
+
+
+
+
+set -a
+source .env
+set +a

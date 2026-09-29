@@ -6,9 +6,9 @@ import json
 import sys
 from pathlib import Path
 
-from project.formulation.patching import apply_operations_to_spec
-from project.llm.formulation_resolver import decode_resolution_response
-from project.parser.schema import ProblemSpec
+from artifacts.formulation.patching import apply_operations_to_spec
+from artifacts.llm.formulation_resolver import decode_resolution_response
+from artifacts.parser.schema import ProblemSpec
 
 
 def _restore_dumped_none_engineering_values(value):

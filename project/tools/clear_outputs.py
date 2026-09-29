@@ -17,7 +17,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from project.paths import ARTIFACT_ROOT
+from artifacts.v1.paths import ARTIFACT_ROOT
 
 # Keep these marker/configuration files wherever they appear.
 PRESERVE_FILENAMES = {".gitkeep"}

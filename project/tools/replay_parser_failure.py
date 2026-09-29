@@ -15,9 +15,9 @@ import argparse
 import json
 from pathlib import Path
 
-from project.parser.normalize import normalize_parser_payload
-from project.parser.provenance import normalize_field_provenance, validate_field_provenance
-from project.parser.schema import ParserResult, ProblemRoute
+from artifacts.parser.normalize import normalize_parser_payload
+from artifacts.parser.provenance import normalize_field_provenance, validate_field_provenance
+from artifacts.parser.schema import ParserResult, ProblemRoute
 
 
 def main() -> int:

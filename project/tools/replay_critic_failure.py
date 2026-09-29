@@ -10,8 +10,8 @@ import json
 import sys
 from pathlib import Path
 
-from project.formulation.models import CriticResult
-from project.llm.formulation_critic import _extract_json, _normalize_critic_data
+from artifacts.formulation.models import CriticResult
+from artifacts.llm.formulation_critic import _extract_json, _normalize_critic_data
 
 
 def main() -> None:
