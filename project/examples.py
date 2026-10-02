@@ -1,7 +1,26 @@
 EXAMPLES = {
-    "3D L-bracket: start with questions": {
-        "request": "I want to optimize a 3D L-bracket. Help me specify the bracket, its loading and supports before running it.",
-        "context": "Ask about unresolved physical decisions. Do not fill in benchmark dimensions, material properties, loads or constraints for me.",
+    "3D L-bracket: preliminary design brief": {
+        "request": (
+            "Set up a minimum-compliance topology optimization study for a titanium "
+            "L-bracket with a 100 by 100 mm envelope, 12 mm thickness, and a 60 by "
+            "60 mm upper-right cut through the thickness. Use a uniform isotropic "
+            "material model with E = 120 GPa and nu = 0.36, under static small-strain "
+            "linear elasticity.\n\n"
+            "The vertical arm is mounted to a rigid frame at its upper end. The "
+            "horizontal-arm tip carries a total force of [0, -5000, 0] N. Retain "
+            "no more than 75% material.\n\n"
+            "Initialize the design with five through-holes of radius 10 mm, centered "
+            "at (20,20), (20,50), (20,80), (50,20), and (80,20) mm. These are "
+            "optimization seeds and may move, merge, or close. Include the calibrated "
+            "volume-averaged p = 6 stress-norm constraint over the L domain, with an "
+            "upper limit of 116 MPa. No manufacturing constraints apply."
+        ),
+        "context": (
+            "Coordinates: x right, y up, z through thickness, with the origin at "
+            "the lower-left corner. Hole centers are given in the x-y plane. The "
+            "116 MPa value is a calibrated stress-norm limit, not a material yield "
+            "value or a local peak-stress bound."
+        ),
     },
     "3D L-bracket: explicit five-hole benchmark": {
         "request": (
