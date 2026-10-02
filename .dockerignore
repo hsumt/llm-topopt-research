@@ -1,0 +1,20 @@
+# An allowlist keeps secrets, local chat history and run data out of the build.
+**
+!Dockerfile
+!requirements.txt
+!docker/
+!docker/conda-linux-64.lock
+!_external/
+!_external/**
+!project/
+!project/**
+!tests/
+!tests/**
+**/.env
+**/*.env
+**/.env.*
+**/__pycache__
+**/*.pyc
+**/*.so
+**/build
+**/*.egg-info

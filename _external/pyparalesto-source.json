@@ -1,0 +1,285 @@
+{
+  "origin": "https://gitlab.com/m2dO1/paralesto",
+  "copied_from": "mfrto/_external/pyparalesto",
+  "snapshot_date": "2026-10-02",
+  "license": "Apache-2.0",
+  "scope": "Python extension build sources only; no binary/build output or upstream FEA examples",
+  "files": [
+    {
+      "path": "setup.py",
+      "sha256": "b172f3a8e209fed1ce0ba36ed69a146c42c4a8e476f639f767506db05cb2cc34"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "31ea1addf74e92d42613ba026dd1bffd4a1ed2d52188a138beeb50b5caff9712"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "README.md",
+      "sha256": "b348271db3d09d10a7fc3d5d850105138581aa66f2426e0b5681c4d4f37ff605"
+    },
+    {
+      "path": "lsm/include/optimizer_wrapper.h",
+      "sha256": "87d1cd42b2b034a8da37ca8615d985c9239a2f2e401829794a626389746638ec"
+    },
+    {
+      "path": "lsm/include/lsm_3d.h",
+      "sha256": "d25e6fb0afdec135b31d8c4a210cff974819cb2fd145af6b4b4db7f255ed9d6b"
+    },
+    {
+      "path": "lsm/include/sensitivity.h",
+      "sha256": "ce665187d5bbb1ac53e5597a2e9ff400e4378f5ce041e47e773b7ffe337c9db6"
+    },
+    {
+      "path": "lsm/include/optimize.h",
+      "sha256": "48d25e4961453404d4eb81ecd056e425685c94d7acc7104f1fd4ee6767e6b7e9"
+    },
+    {
+      "path": "lsm/include/mc_table.h",
+      "sha256": "58b20acd82fa75fa3702c5cce25d504152cc68c6c44394fca6df36edb54d7cc6"
+    },
+    {
+      "path": "lsm/include/para_lsm.h",
+      "sha256": "26262ac397684a82e429a19d78e016cdbdfded5347537aada80b67878a3ee0af"
+    },
+    {
+      "path": "lsm/include/grid_math.h",
+      "sha256": "93701150668dd42492e3147fc25319343dbf1b24214949c96aee03c5b7c25fdd"
+    },
+    {
+      "path": "lsm/include/initialize_lsm.h",
+      "sha256": "b45cc219110fb498ea1adfb69caa55e21ab17bc205cfb37420d1ec0f530665cc"
+    },
+    {
+      "path": "lsm/include/boundary.h",
+      "sha256": "ec7e777f8975332a9495fab426c18820a70276e98072072cd9216e9ae8651811"
+    },
+    {
+      "path": "lsm/include/level_set_wrapper.h",
+      "sha256": "3da84705ff77b54ef84ea0f34431a7dc639ab64ff9fafc9edd63b4897f4b6c0b"
+    },
+    {
+      "path": "lsm/include/moment_includes/MomentPolygon.h",
+      "sha256": "d7b3aa21e1ec63a8ebbb1e4f9a1d1b8338d48b41cc5a64deb7204e737d174f1e"
+    },
+    {
+      "path": "lsm/include/moment_includes/MomentQuadrature.h",
+      "sha256": "62cbe05e9d25dc24ad28f04eb2bfaa3e0bd63b8b2bc7772f1494096a5a6d2e65"
+    },
+    {
+      "path": "lsm/include/moment_includes/MomentLineSeg3D.h",
+      "sha256": "aa7bda68221b3e4a05f5a47f5f5277783836ab802eeb24226bf346c009c42022"
+    },
+    {
+      "path": "lsm/src/lsm_3d.cpp",
+      "sha256": "de3854024de7722cbcf81059ce2867d59995027da2f10cb08a239ed31c706a93"
+    },
+    {
+      "path": "lsm/src/sensitivity.cpp",
+      "sha256": "4e7456c5053ad6cdb2bf1ee00d62c94f1bd624b76426b71f231077150bc5dc26"
+    },
+    {
+      "path": "lsm/src/level_set_wrapper.cpp",
+      "sha256": "6bcf1488013b4ffc50b41205f1407d865b7976e6d61f2c764a98e5e1500619c2"
+    },
+    {
+      "path": "lsm/src/boundary.cpp",
+      "sha256": "a8de94c343b52f856d3237f1336cd01286494475534914de2990132a8adc44fb"
+    },
+    {
+      "path": "lsm/src/optimizer_wrapper.cpp",
+      "sha256": "bc5fc5b0b61a23ec3f66b972bcc03098cd097a093659f74d02db9a51ee769ed4"
+    },
+    {
+      "path": "lsm/src/optimize_ipopt.cpp",
+      "sha256": "5870167aea5137ed558debc645e50b2cc16b2cd743ecb53c6ac24f9fd1ce0401"
+    },
+    {
+      "path": "lsm/src/optimize.cpp",
+      "sha256": "cd8c9b939a80bcc4463b40668d9db27ae1f234d9d550526021204c1c1b49c13d"
+    },
+    {
+      "path": "lsm/src/grid_math.cpp",
+      "sha256": "87e194054fd33307e5e02c5ed42117819897667b43c7bb78e5bc1a89c884e0d5"
+    },
+    {
+      "path": "lsm_2d/include/level_set.h",
+      "sha256": "4421b0dbcc02d494703a86a4c795d3a8ab98a097c10a07971610f360b4c2ccdb"
+    },
+    {
+      "path": "lsm_2d/include/input_output.h",
+      "sha256": "a7322e516cbcac6f9c5e08e477936759b6cb03177cec144ad589467fd8e53c59"
+    },
+    {
+      "path": "lsm_2d/include/heap.h",
+      "sha256": "b0635868a501f94851d35b5c453b73bfbcf0c01ee5f6e68f19691c30cf511cfd"
+    },
+    {
+      "path": "lsm_2d/include/M2DO_LSM.h",
+      "sha256": "3366ea7426f92d0edf6cd079d7080e214ee2203bc57ee50d16f17a7f4a42fc98"
+    },
+    {
+      "path": "lsm_2d/include/mersenne_twister.h",
+      "sha256": "bfb2bff85ec5f84f299925e140b8e14fe2da6ae672f91085052af65b2c6553b4"
+    },
+    {
+      "path": "lsm_2d/include/mesh.h",
+      "sha256": "699e56ba5318c91b2f96a44c21362b3143f71366f2b41db06e893c7348e152cd"
+    },
+    {
+      "path": "lsm_2d/include/common.h",
+      "sha256": "a953e9c7c46d04bfa9a538199c7dcc448140e43089893f8d24ee171abdef1fde"
+    },
+    {
+      "path": "lsm_2d/include/hole.h",
+      "sha256": "9f25ae69b46d7285b19090c90ebe5d874435ffbdb4f3411bf538b90b7e80b8f6"
+    },
+    {
+      "path": "lsm_2d/include/initialize_lsm.h",
+      "sha256": "8522e7cc08fd629c3b51f4d6c8406a8bfb3fcebe262f18a2afffd265ab9e57ba"
+    },
+    {
+      "path": "lsm_2d/include/boundary.h",
+      "sha256": "b6e0271812bdbeb9d00fd1d90a73a00c879038aa60de106843194fee8c6b2cd0"
+    },
+    {
+      "path": "lsm_2d/include/debug.h",
+      "sha256": "9ea9f5f7258a9b2ba75e9e5e2241c5febf4cb293b660378cd2bb598424a0af38"
+    },
+    {
+      "path": "lsm_2d/include/min_unit.h",
+      "sha256": "870fb1a39e5221591173b9d06d9d07edf5b596c5f123f67655e60852b125e395"
+    },
+    {
+      "path": "lsm_2d/include/level_set_wrapper.h",
+      "sha256": "468a1d4de489bc21825a3b6074b13762ba5ba1c91515f57b57b62ba93d5feb25"
+    },
+    {
+      "path": "lsm_2d/include/fast_marching_method.h",
+      "sha256": "a31356a657de79bdd96e7d5fd4b2cdf6c3484ea92f0ce91bff47672f1b758e50"
+    },
+    {
+      "path": "lsm_2d/src/input_output.cpp",
+      "sha256": "1e9c9932a59377d662d07f31bd3070e87eae3607b7c64439677b3d952a07c825"
+    },
+    {
+      "path": "lsm_2d/src/level_set_wrapper.cpp",
+      "sha256": "86dd70583575f538d713062bc063e49bd13d84c1769c55f890e47755115b8b3b"
+    },
+    {
+      "path": "lsm_2d/src/boundary.cpp",
+      "sha256": "1417a60f373a201e9a530bf603f66066f3f525f98214064d41f2b2f60a01041f"
+    },
+    {
+      "path": "lsm_2d/src/fast_marching_method.cpp",
+      "sha256": "d43fecb43de2667b1928e104d31f092fc4ba5554043304f40ee6a92005bf9e45"
+    },
+    {
+      "path": "lsm_2d/src/hole.cpp",
+      "sha256": "7e9d38c9fe0c12d2f594b3853760f25f8c0b36947e5fd4ad97c51814f501e6bd"
+    },
+    {
+      "path": "lsm_2d/src/level_set.cpp",
+      "sha256": "2708f37e7b279f360b72269fb2565d66ca2148c77c9fd6b18920bf2e194f16e9"
+    },
+    {
+      "path": "lsm_2d/src/mesh.cpp",
+      "sha256": "8b15689400763dc9cccc17e2b87d480cfa404eb372a141518a672f89a2f73f46"
+    },
+    {
+      "path": "lsm_2d/src/heap.cpp",
+      "sha256": "d99b1c482f3a0d6c14668841976ccacf81db10f6284a94e04794480ec942c53e"
+    },
+    {
+      "path": "pyparalesto/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyparalesto/py_lsm_2d/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyparalesto/py_lsm_2d/py_lsm_2d_lib.pxd",
+      "sha256": "7c8f575fb6bc6f9811a8d4227ec5c6cd22532a319dcf1d9dabf30703fe088cc1"
+    },
+    {
+      "path": "pyparalesto/py_lsm_2d/initialize_lsm.cpp",
+      "sha256": "87e93d910f48929fbcc5dbc14f2444b3e6a53c16b6122df0753aad2f47640ab8"
+    },
+    {
+      "path": "pyparalesto/py_lsm_2d/py_lsm_2d_cy.pyx",
+      "sha256": "77f51499cc0541fa14fe66af46fd02a1a6c57f8bb69843e961933636a981cdb4"
+    },
+    {
+      "path": "pyparalesto/py_lsm_2d/py_lsm_2d_cy.cpp",
+      "sha256": "d2b9688723afc271582d8fd8db0de237fd46ca01672e1ed34af02706575c8b00"
+    },
+    {
+      "path": "pyparalesto/py_opt/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyparalesto/py_opt/py_opt_cy.cpp",
+      "sha256": "81b19794177343e2d69e958fd268307de91b9a5a14da03c9abfe189b4275f0c3"
+    },
+    {
+      "path": "pyparalesto/py_opt/py_opt_cy.pyx",
+      "sha256": "a787aec6aa9c1b95261221de7f58391905e3c84f0adc780ebe1a3a59e074d5eb"
+    },
+    {
+      "path": "pyparalesto/py_opt/py_opt_lib.pxd",
+      "sha256": "b65043138f06f89c1615657c6cca861220b178d8a928e0a77ace9d4af7e5c647"
+    },
+    {
+      "path": "pyparalesto/pyfea/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyparalesto/pyfea/solver.py",
+      "sha256": "7b0b335c94020db9e2f470634c27cb9519949626b1059cb1d90b64b06d54943a"
+    },
+    {
+      "path": "pyparalesto/pyfea/fea_mdao_group.py",
+      "sha256": "8193527a8d6155cb9c0286fb1373662b28710940a753bc051b3a10b1ec40cb43"
+    },
+    {
+      "path": "pyparalesto/pyfea/initialize.cpp",
+      "sha256": "c699d39b59979f5cf45bf66ae5a348e4acba27c3c0c90f154cac3135862d1b4f"
+    },
+    {
+      "path": "pyparalesto/pyfea/py_fea_lib.pxd",
+      "sha256": "36e25ab83fb160a87acff6c7486e44a2f2f702f5eb098e6851c4e30cdac89dd9"
+    },
+    {
+      "path": "pyparalesto/pyfea/py_fea_cy.pyx",
+      "sha256": "0c519aa57ac4425444e01dd3af211285fab4102ae45c1b89b4c89c29cf71ed8e"
+    },
+    {
+      "path": "pyparalesto/pyfea/py_fea_cy.cpp",
+      "sha256": "b12957be9868d514dcbee88a1ff0cd9e05f7575fd32be4027a2588fc739d3166"
+    },
+    {
+      "path": "pyparalesto/py_lsm/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyparalesto/py_lsm/initialize_lsm.cpp",
+      "sha256": "9e6a37f42233fd7e7214e286241c6653f571bf3608372c5313b4b228b4bf1d14"
+    },
+    {
+      "path": "pyparalesto/py_lsm/py_lsm_cy.pyx",
+      "sha256": "edce36e50e56c8002f04717607a3d4732a7169a410c2aadab36706d1b16fa8c3"
+    },
+    {
+      "path": "pyparalesto/py_lsm/py_lsm_lib.pxd",
+      "sha256": "70ba151082b41bd4ab9808155ffd744c950023e9b7af2487d3ac0100ea89c4b7"
+    },
+    {
+      "path": "pyparalesto/py_lsm/py_lsm_cy.cpp",
+      "sha256": "33922b11cbab673a6e7ff604d46e83e038a3d3410868e7305b5565868a49e491"
+    }
+  ]
+}

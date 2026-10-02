@@ -1,0 +1,6 @@
+# App dependencies. The numerical stack is locked in docker/conda-linux-64.lock.
+pydantic==2.13.5
+streamlit==1.64.0
+anthropic==1.8.0
+matplotlib==3.10.9
+python-dotenv==1.2.2

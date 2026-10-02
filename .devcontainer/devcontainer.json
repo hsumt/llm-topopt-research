@@ -2,7 +2,7 @@
   "name": "llm-topopt-research",
 
   "build": {
-    "dockerfile": "Dockerfile",
+    "dockerfile": "../Dockerfile",
     "context": ".."
   },
 
@@ -19,7 +19,7 @@
   "runArgs": [
     "--init"
   ],
-  "forwardPorts": [8888],
+  "forwardPorts": [8501],
 
   "remoteUser": "root"
 }

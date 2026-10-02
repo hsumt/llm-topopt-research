@@ -1,0 +1,32 @@
+name: lbracket-clean
+services:
+  lbracket:
+    platform: linux/amd64
+    image: llm-topopt-lbracket:local
+    build: .
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /app
+    init: true
+    shm_size: 1gb
+    ports:
+      - "127.0.0.1:${LBRACKET_PORT:-8502}:8501"
+    volumes:
+      - ./artifacts:/app/artifacts
+      - lbracket-home:/home/lbracket
+    environment:
+      # Pass credentials only at runtime from the invoking process environment.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      FORMULATION_MODEL: ${FORMULATION_MODEL:-claude-sonnet-4-6}
+      HOME: /home/lbracket
+      XDG_CACHE_HOME: /home/lbracket/.cache
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)"]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+
+volumes:
+  lbracket-home:
