@@ -34,8 +34,10 @@ def _client():
     if not api_key:
         raise ModelCallError(
             "missing_api_key", "No Anthropic API key was supplied to the app runtime.",
-            "Set ANTHROPIC_API_KEY in the environment used to start Docker, recreate the "
-            "app container, then retry. Do not enter a key in the design brief.",
+            "If ANTHROPIC_API_KEY is already in the repository's .env, run "
+            "./docker/compose up -d --force-recreate to load it, then retry. "
+            "The wrapper also accepts an exported shell variable, which takes precedence. "
+            "Do not enter a key in the design brief.",
             "not_sent",
         )
     try:

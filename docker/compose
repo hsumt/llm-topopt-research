@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Never auto-load a repository .env; credentials come from the process environment.
+# Compose loads local runtime configuration; it never enters the build context.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 mkdir -p artifacts
 export COMPOSE_DISABLE_ENV_FILE=1
 export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
-exec docker compose --env-file /dev/null -f docker-compose.yml "$@"
+compose_env_file=/dev/null
+if [[ -f .env ]]; then
+    compose_env_file=.env
+fi
+exec docker compose --env-file "$compose_env_file" -f docker-compose.yml "$@"

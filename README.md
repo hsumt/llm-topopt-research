@@ -18,7 +18,9 @@ a sibling repository, or a compiled library from the host.
 ```
 
 Open [the application](http://localhost:8502). The wrapper creates the output
-folder under your user ID and disables implicit `.env` loading. Port 8502 avoids
+folder under your user ID and explicitly passes the repository's `.env` to
+Docker Compose when that file exists. Otherwise it uses an empty environment
+file, so credential-free benchmarks still start normally. Port 8502 avoids
 conflicting with the earlier demo; override it with `LBRACKET_PORT` if needed.
 To open a shell in the environment:
 
@@ -26,14 +28,24 @@ To open a shell in the environment:
 ./docker/compose exec lbracket bash
 ```
 
-Natural-language parsing and clarification use `ANTHROPIC_API_KEY` already set in
-the invoking shell's environment. Set it through your normal credential manager,
-then recreate the service with `./docker/compose up -d --force-recreate`. No
-credential belongs in the image, repository, command arguments, or run receipts.
+Natural-language parsing and clarification use `ANTHROPIC_API_KEY` supplied from
+the repository's gitignored `.env` or the invoking shell's environment. An
+exported shell variable takes precedence over the `.env` entry. If your key is
+already in `.env`, no additional key entry is needed; recreate the service to
+pass it into the running app:
+
+```bash
+./docker/compose up -d --force-recreate
+```
+
+Keep credentials out of committed source, the image, command arguments, and run
+receipts. The `.env` stays gitignored and excluded from the Docker build context.
 `FORMULATION_MODEL` optionally changes the configured model. The **Load complete
 3D benchmark** button and command-line benchmarks require no model credential.
 
-For an interactive terminal setup, enter the key at a hidden prompt:
+Alternatively, supply the key through your usual credential manager or enter it
+at a hidden terminal prompt. This exported value overrides `.env` for commands
+run from that terminal:
 
 ```bash
 read -r -s -p "Anthropic API key: " ANTHROPIC_API_KEY

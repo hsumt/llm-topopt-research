@@ -71,9 +71,10 @@ def show_model_failure(failure):
     st.write(failure.next_step)
     if failure.code in {"missing_api_key", "authentication_failed"}:
         with st.expander("Docker setup example", expanded=failure.code == "missing_api_key"):
-            st.write("In a terminal at the repository root, enter your key at the hidden prompt and recreate the app container:")
-            st.code('read -r -s -p "Anthropic API key: " ANTHROPIC_API_KEY\nexport ANTHROPIC_API_KEY\n./docker/compose up -d --force-recreate', language="bash")
-            st.caption("Enter your own key in the terminal, not in the engineering brief. Recreating the container closes this browser session; resume the saved formulation from the sidebar and retry the failed step.")
+            st.write("The Docker wrapper automatically uses the repository's .env when it exists. If ANTHROPIC_API_KEY is already there, recreate the app container from a terminal at the repository root:")
+            st.code('./docker/compose up -d --force-recreate', language="bash")
+            st.write("An exported ANTHROPIC_API_KEY in that terminal takes precedence over the .env value. If authentication still fails, check which source you intend Docker to use.")
+            st.caption("Do not enter a key in the engineering brief. Recreating the container closes this browser session; resume the saved formulation from the sidebar and retry the failed step.")
 
 if "request_draft" not in st.session_state:
     st.session_state.request_draft = ""
