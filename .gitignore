@@ -1,24 +1,39 @@
+# Secrets
 .env
+.env.*
 *.env
+.streamlit/secrets.toml
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 venv/
 env/
+.ipynb_checkpoints/
+
+# Generated output
+artifacts/
+_chatgpt_bundle/
 solver/_05_OUT/
+
+# Images, archives and solver data anywhere (force-add one with: git add -f <path>)
+*.png
+*.jpg
+*.jpeg
 *.gif
+*.zip
+*.npz
+*.npy
 *.xdmf
 *.h5
-artifacts/*
-!artifacts/runs/
-!artifacts/verification/
-!artifacts/vv/
+*.vtk
+*.vtu
+*.pvd
+*.log
 
-artifacts/runs/*
-artifacts/verification/*
-artifacts/vv/*
-
-!artifacts/runs/.gitkeep
-!artifacts/verification/.gitkeep
-!artifacts/vv/.gitkeepexternal/paralesto/
+# Local only
+CLAUDE.md
+.idea/
+Archive/
