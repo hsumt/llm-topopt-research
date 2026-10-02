@@ -81,8 +81,8 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
 
     parameters = spec.geometry.parameters
 
-    length = _number(parameters, "length", "width_z", "width")
-    height = _number(parameters, "height", "height_y")
+    length = _number(parameters, "length")
+    height = _number(parameters, "height", "height_y", "width_z", "width")
     thickness = _number(parameters, "thickness", "thickness_x")
 
     if length is None or height is None:

@@ -32,8 +32,8 @@ if "context_draft" not in st.session_state:
 
 st.title("Engineering Problem Formulation")
 st.caption(
-    "Turn an incomplete engineering request into a reviewable problem "
-    "before attempting a solver."
+    "Front-end demonstration of LLMTO/ATO turning an incomplete engineering request into a reviewable problem "
+    "before attempting a solve."
 )
 
 with st.sidebar:
