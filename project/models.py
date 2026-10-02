@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
 class Model(BaseModel): # throws errors if extra comes in
     model_config = ConfigDict(extra="forbid")
@@ -12,6 +12,9 @@ class Region(Model): # regions of the model
     description: str
     role: str | None = None
 class Geometry(Model): 
+    template: str | None = None
+    hole_role: str | None = None
+    authoritative_source: str | None = None
     physical_dimension: Literal[1, 2, 3] | None = None
     description: str | None = None
     parameters: dict[str,Value] = Field(default_factory=dict)
@@ -20,6 +23,7 @@ class Geometry(Model):
 class Material(Model):
     name: str | None = None
     region: str | None = None
+    data_source: str | None = None
     properties: dict[str, Value] = Field(default_factory=dict)
 
 class BoundaryCondition(Model):
@@ -49,6 +53,7 @@ class Constraint(Model):
 
 
 class Optimization(Model):
+    stress_requirement: Literal["volume_only", "pnorm_limit"] | None = None
     design_variable: str | None = None
     objectives: list[Objective] = Field(default_factory=list)
     constraints: list[Constraint] = Field(default_factory=list)
@@ -66,7 +71,8 @@ class Physics(Model):
         "electromagnetics",
         "other",
         "quantum",
-    ] = "multiphysics"
+        "unknown",
+    ] = "unknown"
 
     representation: str | None = None
     regime: str | None = None
@@ -96,6 +102,7 @@ class Issue(Model): #issue in the parsing
     field: str | None = None
     description: str
     blocking: bool = True
+    kind: Literal["decision", "data", "unsupported"] = "decision"
 
 
 class Question(Model): # clarifying question
@@ -112,7 +119,7 @@ class Review(Model): #part of the reviews. Lists issues and questions
     questions: list[Question] = Field(default_factory=list)
 
 class Update(Model): # updates the fields with answers
-    path: list[str | int]
+    path: list[StrictStr | StrictInt]
     value: Any
 
 
@@ -130,6 +137,7 @@ class Usage(Model): # usage for tokens we can get tokens by cost = n_input x p_i
 
 
 class Revision(Model): # what was asked -> what the human said -> how the AI interpreted that answer -> what changed in the spec
+    questions: list[Question] = Field(default_factory=list)
     answers: dict[str, str] = Field(default_factory=dict)
     resolution: Resolution
 
@@ -141,3 +149,4 @@ class Session(Model): # combines the original request + specification + review (
     review: Review
     revisions: list[Revision] = Field(default_factory=list)
     usage: list[Usage] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)

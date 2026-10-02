@@ -4,13 +4,13 @@ import os
 from pathlib import Path
 from typing import TypeVar
 
-from anthropic import Anthropic
 from pydantic import BaseModel
 
 from project.models import (
     ProblemSpec,
     Resolution,
     Review,
+    Revision,
     Usage,
 )
 from project.prompts import (
@@ -27,7 +27,8 @@ CACHE_DIR = Path("artifacts/cache/simple_presolve")
 
 # _ Underscores mean that these functions are internal helpers for others. Its a naming convention, please follow.
 
-def _client() -> Anthropic:
+def _client():
+    from anthropic import Anthropic
     api_key = os.getenv("ANTHROPIC_API_KEY")
 
     if not api_key:
@@ -143,15 +144,14 @@ def _call_model(
     try:
         data = _extract_json(response_text)
         result = output_type.model_validate(data)
-    except Exception as error:
+    except Exception:
         debug_dir = Path("artifacts/debug")
         debug_dir.mkdir(parents=True, exist_ok=True)
 
         debug_data = {
             "step": step,
             "model": MODEL,
-            "response_text": response_text,
-            "error": str(error),
+            "error": "The provider response did not match the expected JSON schema.",
         }
 
         (debug_dir / "simple_presolve_last_failure.json").write_text(
@@ -159,7 +159,7 @@ def _call_model(
             encoding="utf-8",
         )
 
-        raise
+        raise ValueError("The provider response did not match the expected JSON schema.") from None
 
     input_tokens = int(response.usage.input_tokens)
     output_tokens = int(response.usage.output_tokens)
@@ -199,9 +199,16 @@ def parse_problem(
 
 def review_problem(
     spec: ProblemSpec,
+    *,
+    original_request: str | None = None,
+    context: str | None = None,
+    revisions: list[Revision] | None = None,
 ) -> tuple[Review, Usage]:
     payload = {
         "spec": spec.model_dump(exclude_none=True),
+        "original_request": original_request,
+        "context": context,
+        "prior_rounds": [revision.model_dump() for revision in (revisions or [])],
         "output_schema": Review.model_json_schema(),
     }
 
@@ -217,6 +224,10 @@ def resolve_answers(
     spec: ProblemSpec,
     review: Review,
     answers: dict[str, str],
+    *,
+    original_request: str | None = None,
+    context: str | None = None,
+    revisions: list[Revision] | None = None,
 ) -> tuple[Resolution, Usage]:
     payload = {
         "spec": spec.model_dump(exclude_none=True),
@@ -230,6 +241,9 @@ def resolve_answers(
             for question in review.questions
         ],
         "answers": answers,
+        "original_request": original_request,
+        "context": context,
+        "prior_rounds": [revision.model_dump() for revision in (revisions or [])],
         "output_schema": Resolution.model_json_schema(),
         "output_spec_schema": ProblemSpec.model_json_schema(),
     }
@@ -239,5 +253,5 @@ def resolve_answers(
         prompt=RESOLVE_PROMPT,
         payload=payload,
         output_type=Resolution,
-        max_tokens=1000,
+        max_tokens=3000,
     )

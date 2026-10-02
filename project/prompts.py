@@ -115,3 +115,78 @@ Rules:
 
 Your output is only a proposed change. Python will apply and validate it.
 """
+
+# A narrow machine-readable vocabulary bridges supported physical decisions to
+# the solver. It does not supply values or grant permission to alter intent.
+LBRACKET_CONTRACT = """
+The currently connected solver supports one specific 3D L-bracket family. When
+the user's words support these meanings, encode them using the following names.
+Unsupported requests must retain their actual meaning; never translate a
+different requirement into the nearest supported one just to enable a run.
+
+- geometry.template = "lbracket3d_five_holes" only for an equal-arm L with an
+  upper-right square cut and five through-thickness initial holes. Its coordinate
+  convention is x right, y up, z through thickness, from the lower-left corner.
+- geometry.hole_role = "initial_void" only when the five holes may move, merge
+  or close. For preserved mounting holes use "preserved_void"; that is unsupported.
+- geometry.parameters uses unit-bearing Values with these keys: lx, ly,
+  thickness, cut_length, load_patch, hole_radius, hole_centers. hole_centers is
+  five [x,y] pairs with one length unit. load_patch is the height of the band at
+  the upper end of the horizontal-arm tip face, through the full thickness.
+  Do not infer physical dimensions, hole coordinates or a radius from a name.
+  If the engineer identifies a governing CAD/drawing that is not supplied,
+  preserve that identification in geometry.authoritative_source. Its missing
+  dimensions then remain a data blocker without repeating the same question.
+- physics.family = "solid_mechanics". physics.regime = "linear_static" only
+  when static small-strain linear elasticity is stated/confirmed. An explicitly
+  requested 3D solid representation is "3d_solid"; otherwise leave it missing
+  for the adapter to choose. Do not ask users to choose finite elements.
+- A uniform material uses region="domain", properties E (with stress units)
+  and nu (dimensionless). Material identity alone does not supply E or nu.
+  Missing constants for a known material are downstream DATA requirements, not
+  questions asking the engineer to invent nominal constants.
+  Preserve a named datasheet or other authoritative material source in
+  materials[i].data_source, even when its numerical properties are not supplied.
+- An explicit whole-top-face clamp uses location="top_arm", kind="clamped",
+  components=["x","y","z"]. Partial restraints, pins and other mounts must
+  retain their actual meanings.
+- One total force distributed uniformly over that tip band uses
+  location="tip_band", kind="total_force", magnitude={"value":[Fx,Fy,Fz],
+  "unit":"N"}. A scalar with direction="-y" etc is also allowed. A pressure
+  or point force must not be relabeled as this total distributed force.
+- Minimum compliance uses sense="minimize", quantity="compliance".
+  Material distribution uses design_variable="material_distribution".
+- A volume fraction constraint uses quantity="volume_fraction", relation="<=",
+  region="l_domain" only if its reference is the full L domain excluding the cut.
+- optimization.stress_requirement="volume_only" only if explicitly no stress
+  constraint is required. Use "pnorm_limit" only if the user selects the
+  calibrated volume-averaged p=6 norm, with a constraint quantity="stress_p_norm",
+  relation="<=", region="l_domain", limit with stress units. Yield or peak
+  stress is NOT this aggregate and must remain a separate unsupported quantity.
+- Do not add numerical settings to the engineering specification. The solver
+  configuration and run preview disclose those separately.
+- Names and prose describe the decision; the canonical fields encode it.
+  Preserve other requirements as constraints/regions/manufacturing fields or
+  assumptions so the deterministic adapter can report what it cannot implement.
+"""
+
+PARSE_PROMPT += LBRACKET_CONTRACT
+REVIEW_PROMPT += LBRACKET_CONTRACT + """
+Review the original_request and context as well as the current spec. Use
+prior_rounds (questions, answers, and updates) to avoid asking resolved questions
+again and to detect requirements that the parser or resolver dropped. Classify
+issues as kind="decision" for unresolved engineering intent, "data" for a known
+but missing source/value/asset, or "unsupported" for an explicit requirement the
+connected solver cannot implement. Ask questions only for unresolved decisions.
+Python separately assesses representability and missing solver data; you cannot
+override its issues by saying the specification is ready.
+"""
+RESOLVE_PROMPT += LBRACKET_CONTRACT + """
+Use original_request, context, and prior_rounds to preserve intent and prior
+answers. New geometry.parameters keys and materials[i].properties keys are
+allowed because these schema fields are dictionaries of unit-bearing Values.
+Use a complete Value object when creating such a key. To add a material, load,
+constraint or region, replace the entire corresponding list while preserving
+unchanged entries. Never use negative or out-of-range list indices. If a parent
+object is null, replace that parent with a complete schema-valid object.
+"""
