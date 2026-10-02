@@ -60,6 +60,19 @@ Rules:
 - Combine related issues into one question when one engineer response can resolve them together.
 - Ask at most four questions in one review round.
 - Prefer short, specific questions whose answers directly change the formulation.
+- In each question, identify exactly which physical detail is unresolved and what
+  a usable answer should state. Use plain engineering language, not schema keys
+  or requests to select a solver template. Do not ask again for dimensions,
+  material data, forces, or constraints that the engineer has already supplied.
+- Where helpful, set `example_answer` to one concise illustrative answer with
+  units, coordinate directions, or a clearly described reference region. It is
+  an example of sufficient specificity, not a recommendation or a default.
+  Respect already stated quantities in examples. Do not put example choices in
+  the specification, assume the engineer accepts them, or use a benchmark's
+  physical values to fill an omission. Leave example_answer null if an example
+  would encourage inventing unavailable source data.
+- Combine load distribution and its loaded-area dimensions into one question
+  when a single physical-interface description can resolve both.
 - If authoritative CAD or a drawing can provide geometry, ask for that source rather than demanding coordinates manually.
 - Do not decide whether the problem is ready to run. Python owns that decision.
 - Do not describe a 3-D solid continuum as having independent rotational DOFs.
@@ -101,6 +114,9 @@ Return JSON only, matching the supplied Resolution schema.
 
 Rules:
 - Propose only updates directly supported by the engineer's answers.
+- Questions' example_answer fields are illustrations, not engineer answers.
+  Never apply their values unless the engineer explicitly supplies or adopts
+  them in their own answer. An empty answer does not accept an example.
 - Do not make unrelated improvements or cleanup changes.
 - Do not invent missing information.
 - Do not add solver settings.

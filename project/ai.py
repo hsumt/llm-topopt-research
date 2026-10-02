@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 from typing import TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+from project.ai_errors import ModelCallError, classify_provider_error
 
 from project.models import (
     ProblemSpec,
@@ -28,13 +30,32 @@ CACHE_DIR = Path("artifacts/cache/simple_presolve")
 # _ Underscores mean that these functions are internal helpers for others. Its a naming convention, please follow.
 
 def _client():
-    from anthropic import Anthropic
     api_key = os.getenv("ANTHROPIC_API_KEY")
-
     if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not set")
-
-    return Anthropic(api_key=api_key)
+        raise ModelCallError(
+            "missing_api_key", "No Anthropic API key was supplied to the app runtime.",
+            "Set ANTHROPIC_API_KEY in the environment used to start Docker, recreate the "
+            "app container, then retry. Do not enter a key in the design brief.",
+            "not_sent",
+        )
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        raise ModelCallError(
+            "sdk_unavailable", "The Anthropic client dependency is unavailable in this runtime.",
+            "Rebuild the Docker image with the project's pinned requirements, then retry.",
+            "not_sent",
+        ) from None
+    try:
+        # Explicitly bounded waits; retry is a visible user action, not a hidden
+        # sequence of paid calls that can hold the UI for minutes.
+        return Anthropic(api_key=api_key, timeout=45.0, max_retries=0)
+    except Exception:
+        raise ModelCallError(
+            "client_configuration_failed", "The Anthropic client could not be initialized.",
+            "Check the container's API and network configuration, then retry.",
+            "not_sent",
+        ) from None
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
@@ -72,11 +93,13 @@ def _cache_path(key: str) -> Path:
 
 def _read_cache(key: str) -> dict | None:
     path = _cache_path(key)
-
-    if not path.exists():
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeError):
         return None
-
-    return json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("response_text"), str):
+        return None
+    return data
 
 
 def _write_cache(
@@ -98,6 +121,26 @@ def _write_cache(
         encoding="utf-8",
     )
 
+
+def _validate_response(response_text: str, output_type: type[T]) -> T:
+    try:
+        data = _extract_json(response_text)
+    except (ValueError, TypeError):
+        raise ModelCallError(
+            "invalid_json", "Claude responded, but its answer was not usable JSON.",
+            "Retry the AI step. Your existing request and specification have been kept.",
+            "response_received", True,
+        ) from None
+    try:
+        return output_type.model_validate(data)
+    except ValidationError:
+        raise ModelCallError(
+            "invalid_schema", "Claude responded, but its answer did not match the required specification format.",
+            "Retry the AI step. If this persists, check model and schema compatibility; "
+            "your existing request and specification have been kept.",
+            "response_received", True,
+        ) from None
+
 def _call_model(
     *,
     step: str,
@@ -105,71 +148,63 @@ def _call_model(
     payload: dict,
     output_type: type[T],
     max_tokens: int,
+    bypass_cache: bool = False,
 ) -> tuple[T, Usage]:
     key = _cache_key(step, prompt, payload)
-    cached = _read_cache(key) if USE_CACHE else None
+    cached = _read_cache(key) if USE_CACHE and not bypass_cache else None
 
     if cached is not None:
-        response_text = cached["response_text"]
+        try:
+            result = _validate_response(cached["response_text"], output_type)
+        except ModelCallError:
+            # A damaged or obsolete cache is not evidence that the live API failed.
+            pass
+        else:
+            return result, Usage(step=step, model=MODEL, cache_hit=True)
 
-        data = _extract_json(response_text)
-        result = output_type.model_validate(data)
-
-        return result, Usage(
-            step=step,
-            model=MODEL,
-            cache_hit=True,
-        )
-
-    response = _client().messages.create(
-        model=MODEL,
-        max_tokens=max_tokens,
-        system=prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": json.dumps(
-                    payload,
-                    separators=(",", ":"),
-                ),
-            }
-        ],
-    )
-
-    if not response.content:
-        raise ValueError("AI returned an empty response")
-
-    response_text = response.content[0].text
-
+    client = _client()
     try:
-        data = _extract_json(response_text)
-        result = output_type.model_validate(data)
-    except Exception:
-        debug_dir = Path("artifacts/debug")
-        debug_dir.mkdir(parents=True, exist_ok=True)
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=prompt,
+            messages=[
+                {"role": "user", "content": json.dumps(payload, separators=(",", ":"))}
+            ],
+        )
+    except Exception as error:
+        raise classify_provider_error(error) from None
 
-        debug_data = {
-            "step": step,
-            "model": MODEL,
-            "error": "The provider response did not match the expected JSON schema.",
-        }
-
-        (debug_dir / "simple_presolve_last_failure.json").write_text(
-            json.dumps(debug_data, indent=2),
-            encoding="utf-8",
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        raise ModelCallError(
+            "truncated_response", "Claude's response reached its output limit before it finished.",
+            "Retry the AI step. If it repeats, increase this stage's output allowance "
+            "or shorten the request while retaining the engineering requirements.",
+            "response_received", True,
         )
 
-        raise ValueError("The provider response did not match the expected JSON schema.") from None
+    response_text = "".join(
+        block.text for block in (getattr(response, "content", None) or [])
+        if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
+    )
+    if not response_text.strip():
+        raise ModelCallError(
+            "empty_response", "Claude returned no text that could be read as a specification.",
+            "Retry the AI step. Your existing request and specification have been kept.",
+            "response_received", True,
+        )
+
+    result = _validate_response(response_text, output_type)
 
     input_tokens = int(response.usage.input_tokens)
     output_tokens = int(response.usage.output_tokens)
 
-    _write_cache(
-        key,
-        response_text,
-        input_tokens,
-        output_tokens,
-    )
+    if USE_CACHE:
+        try:
+            _write_cache(key, response_text, input_tokens, output_tokens)
+        except OSError:
+            # The optional cache must never discard a valid, paid-for response.
+            pass
 
     return result, Usage(
         step=step,
@@ -228,7 +263,13 @@ def resolve_answers(
     original_request: str | None = None,
     context: str | None = None,
     revisions: list[Revision] | None = None,
+    bypass_cache: bool = False,
 ) -> tuple[Resolution, Usage]:
+    """Interpret answers; bypass a rejected cached patch when explicitly retrying.
+
+    A refreshed, schema-valid result replaces the prior cache entry. Applying
+    its edits is separately checked by the workflow before accepting the spec.
+    """
     payload = {
         "spec": spec.model_dump(exclude_none=True),
         "issues": [
@@ -254,4 +295,5 @@ def resolve_answers(
         payload=payload,
         output_type=Resolution,
         max_tokens=3000,
+        bypass_cache=bypass_cache,
     )

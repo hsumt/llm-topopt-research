@@ -1,13 +1,14 @@
 from project.examples import EXAMPLES
 import streamlit as st
 import json
-import os
 import uuid
 from pathlib import Path
 
 from project.execution import ARTIFACTS, launch_run, run_plan, run_status
 from project.lbracket import assess_spec, reference_spec
 from project.models import Review, Session
+from project.ai import MODEL
+from project.ai_errors import classify_error
 
 from project.drawing import (
     geometry_preview,
@@ -17,7 +18,8 @@ from project.workflow import (
     answer_questions,
     deterministic_blockers,
     ready_to_try,
-    retry_review,
+    parse_succeeded,
+    retry_failure,
     start_session,
 )
 
@@ -47,10 +49,31 @@ def save_session(session):
 
 
 def model_error(error):
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        st.error("Natural-language clarification needs ANTHROPIC_API_KEY in the container environment. The complete benchmark runs without a model key.")
-    else:
-        st.error(f"Formulation update failed ({type(error).__name__}). Your previous specification is retained.")
+    failure = classify_error(error)
+    st.error(failure.message)
+    st.write(failure.next_step)
+
+
+def show_model_failure(failure):
+    if failure is None:
+        st.error("The previous parsing attempt failed. That saved session does not contain a specific error diagnosis.")
+        st.write("Retry parsing below to obtain a specific diagnosis. Your original brief is preserved.")
+        return
+    stage = {"parse": "Parsing", "review": "Critic review", "resolve": "Answer interpretation"}[failure.stage]
+    st.error(f"{stage} could not finish: {failure.message}")
+    contact = {
+        "not_sent": "No request was sent to Anthropic.",
+        "attempted": "An Anthropic request was attempted, but no usable response was received.",
+        "response_received": "Anthropic returned a response, but this step did not complete successfully.",
+        "unknown": "The app could not establish whether this attempt reached Anthropic.",
+    }
+    st.caption(contact[failure.request_state])
+    st.write(failure.next_step)
+    if failure.code in {"missing_api_key", "authentication_failed"}:
+        with st.expander("Docker setup example", expanded=failure.code == "missing_api_key"):
+            st.write("In a terminal at the repository root, enter your key at the hidden prompt and recreate the app container:")
+            st.code('read -r -s -p "Anthropic API key: " ANTHROPIC_API_KEY\nexport ANTHROPIC_API_KEY\n./docker/compose up -d --force-recreate', language="bash")
+            st.caption("Enter your own key in the terminal, not in the engineering brief. Recreating the container closes this browser session; resume the saved formulation from the sidebar and retry the failed step.")
 
 if "request_draft" not in st.session_state:
     st.session_state.request_draft = ""
@@ -119,6 +142,7 @@ session = st.session_state.session
 
 
 if session is None:
+    st.caption(f"Build formulation uses Anthropic {MODEL} to parse your brief, then review it. Previously saved model responses may be reused from the cache.")
     request = st.text_area(
         "Describe the engineering problem",
         key="request_draft",
@@ -150,6 +174,43 @@ if session is None:
 
 else:
     session = st.session_state.session
+
+    if not parse_succeeded(session):
+        st.subheader("Your brief has not been parsed yet")
+        show_model_failure(session.failure)
+        st.info("This is a model-service or parsing problem. The app has not established that your engineering specification is incomplete.")
+        request = st.text_area("Your engineering brief", value=session.original_request,
+                               key="failed_parse_request_" + (st.session_state.session_id or "unsaved"), height=210)
+        context = st.text_area("Your additional context", value=session.context or "",
+                               key="failed_parse_context_" + (st.session_state.session_id or "unsaved"), height=120)
+        if st.button("Retry parsing", type="primary"):
+            if request.strip():
+                candidate = session.model_copy(update={"original_request": request, "context": context.strip() or None})
+                with st.spinner("Retrying the original parsing step..."):
+                    save_session(retry_failure(candidate))
+                st.rerun()
+            else:
+                st.error("Enter an engineering brief before parsing.")
+        st.download_button("Download saved brief", session.model_dump_json(indent=2), "formulation.json", "application/json")
+        if st.button("Return to new problem"):
+            st.session_state.request_draft = session.original_request
+            st.session_state.context_draft = session.context or ""
+            st.session_state.session = None
+            st.session_state.session_id = None
+            st.rerun()
+        st.stop()
+
+    if session.failure is not None:
+        show_model_failure(session.failure)
+        retry_label = {"parse": "Retry parsing", "review": "Retry critic review", "resolve": "Retry answer interpretation"}[session.failure.stage]
+        if st.button(retry_label, type="primary"):
+            with st.spinner("Retrying the failed step..."):
+                save_session(retry_failure(session))
+            st.rerun()
+    elif session.usage:
+        last = session.usage[-1]
+        mode = "a cached model response" if last.cache_hit else "a live Anthropic response"
+        st.caption(f"Latest completed AI step: {last.step}, using {mode} ({last.model}).")
 
     top_left, top_right = st.columns([1, 1])
 
@@ -230,12 +291,6 @@ else:
 
 
     python_blockers = deterministic_blockers(session)
-    if any(issue.key == "formulation_error" for issue in session.review.issues):
-        if st.button("Retry formulation review"):
-            with st.spinner("Retrying the review..."):
-                save_session(retry_review(session))
-            st.rerun()
-
     assessment = assess_spec(session.spec)
     if ready_to_try(session) and assessment.ready:
         st.success(
@@ -260,14 +315,17 @@ else:
                 st.error(str(error))
 
     else:
-        st.warning(
-            "More engineering information is needed before trying the solver."
-        )
+        if session.failure is not None:
+            st.warning("The AI step must complete before a solver run can be approved. Your last valid specification is retained.")
+        elif session.review.questions:
+            st.warning("The formulation needs clarification. Answer the specific questions below.")
+        else:
+            st.warning("The formulation has unresolved data or solver-capability requirements. See the items below.")
 
         for blocker in python_blockers:
             st.write(f"- {blocker}")
         for issue in session.review.issues:
-            if issue.blocking and issue.description not in python_blockers:
+            if issue.blocking and issue.key != "formulation_error" and issue.description not in python_blockers:
                 st.write(f"- {issue.description}")
 
 
@@ -283,6 +341,8 @@ else:
                 answer_key = f"round_{len(session.revisions)}_{question.key}"
                 st.markdown(f"**{question.prompt}**")
                 st.caption(question.why)
+                if question.example_answer:
+                    st.info(f"Example answer — use only if it matches your design: {question.example_answer}")
 
                 if (
                     question.answer_type == "single_choice"
@@ -316,6 +376,7 @@ else:
                     answers[question.key] = st.text_input(
                         "Your answer",
                         key=answer_key,
+                        placeholder="Describe your actual requirement; the example is not applied automatically.",
                     )
 
             submitted = st.form_submit_button(

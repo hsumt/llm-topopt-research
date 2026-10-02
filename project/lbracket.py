@@ -17,6 +17,56 @@ _LENGTH = {"m": 1., "mm": .001, "cm": .01, "in": .0254, "inch": .0254, "inches":
 _STRESS = {"pa": 1., "kpa": 1e3, "mpa": 1e6, "gpa": 1e9, "psi": 6894.757293168}
 _FORCE = {"n": 1., "kn": 1e3, "lbf": 4.4482216152605}
 
+# These illustrate an answer's wording; they never enter config_values or the
+# specification. The interface displays them separately from the answer input.
+_SUPPORT_EXAMPLE = (
+    "The entire top face of the vertical arm is bonded to a rigid frame. "
+    "Set displacement to zero in x, y and z over that whole face."
+)
+_GEOMETRY_EXAMPLES = {
+    "lx": "outer x length = 100 mm",
+    "ly": "outer y length = 100 mm",
+    "thickness": "thickness = 12 mm",
+    "cut_length": "upper-right square cut = 60 by 60 mm, through thickness",
+    "load_patch": "tip band = 4 mm high at the upper end of the horizontal-arm tip face, through the full thickness",
+    "hole_radius": "initial through-hole radius = 10 mm",
+    "hole_centers": "five initial hole centers = (20,20), (20,50), (20,80), (50,20), (80,20) mm in the x-y plane, measured from the lower-left corner",
+}
+
+
+def _tip_patch_example(spec: ProblemSpec) -> str:
+    """Use a stated thickness when available; the sample patch height is illustrative."""
+    thickness = "full thickness"
+    height = "4 mm"
+    if spec.geometry and "thickness" in spec.geometry.parameters:
+        value = spec.geometry.parameters["thickness"]
+        try:
+            thickness = f"full {_scalar(value, _LENGTH) * 1000:g} mm thickness"
+        except ValueError:
+            pass
+    if spec.geometry and "load_patch" in spec.geometry.parameters:
+        try:
+            height = f"{_scalar(spec.geometry.parameters['load_patch'], _LENGTH) * 1000:g} mm"
+        except ValueError:
+            pass
+    return (
+        f"Distribute the stated total force uniformly over a {height} high band at the "
+        f"upper end of the horizontal-arm tip face, through the {thickness}."
+    )
+
+
+def _volume_example(limit: Value | None) -> str:
+    percentage = "75%"
+    if limit is not None:
+        try:
+            percentage = f"{100 * _fraction(limit):g}%"
+        except ValueError:
+            pass
+    return (
+        f"The material limit is {percentage} of the full L-shaped domain, excluding "
+        "the permanent square cut but before subtracting the five initial holes."
+    )
+
 
 @dataclass
 class SpecAssessment:
@@ -63,24 +113,26 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
     questions: list[Question] = []
     config_values: dict = {}
 
-    def add(key, field, description, *, kind="decision", question=None):
+    def add(key, field, description, *, kind="decision", question=None, example=None):
         key = "solver_" + key
         issues.append(Issue(key=key, field=field, description=description, kind=kind))
         if question:
             questions.append(Question(key=key, issue_keys=[key], prompt=question,
-                                      why=description))
+                                      why=description, example_answer=example))
 
     if spec.problem_kind != "optimization":
         add("problem", "problem_kind", "This solver performs topology optimization only.",
             kind="decision" if spec.problem_kind == "unknown" else "unsupported",
-            question="What should be optimized, and what should the objective and constraints be?" if spec.problem_kind == "unknown" else None)
+            question="What should be optimized, and what should the objective and constraints be?" if spec.problem_kind == "unknown" else None,
+            example="Minimize compliance, with material volume limited to 75% of the full L-shaped domain excluding the corner cut. State any additional stress requirement separately.")
 
     geometry = spec.geometry
     if geometry is None or geometry.template is None:
-        add("template", "geometry.template", "A solver-representable geometry has not been selected.",
-            question="Is the geometry an equal-arm L with an upper-right square cut and five movable initial through-holes, or do any holes need to remain fixed?")
+        add("template", "geometry.template", "The bracket shape and the role of its holes need clarification.",
+            question="Does the bracket have equal arms, an upper-right square cut through its thickness, and five initial through-holes? Are those holes free to change during optimization or must any be preserved?",
+            example="Use an equal-arm L with an upper-right square cut and five through-holes. The holes are optimization seeds and may move, merge or close.")
     elif geometry.template != TEMPLATE:
-        add("template", "geometry.template", "Only the lbracket3d_five_holes geometry template is supported.", kind="unsupported")
+        add("template", "geometry.template", "The connected solver supports an equal-arm L with an upper-right square cut and five initial through-holes. The requested shape needs a different geometry implementation.", kind="unsupported")
     if geometry is not None:
         if geometry.physical_dimension is None:
             add("dimension", "geometry.physical_dimension", "The physical geometry dimension is missing.",
@@ -105,9 +157,13 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                       "hole_radius": "initial hole radius", "hole_centers": "five initial hole x/y centers"}
             missing_text = ", ".join(labels[name] for name in missing)
             source_note = (" The governing source is identified; CAD/drawing import is not implemented. Supply extracted, validated dimensional data from that source." if geometry.authoritative_source else "")
+            dimensions_question = "What are the governing " + missing_text + ", with units? If a drawing governs them, identify that data source."
+            if missing == ["load_patch"]:
+                dimensions_question = "What area receives the tip force? Specify the loaded face, the band's height with units, and whether it spans the full thickness."
             add("dimensions", "geometry.parameters", "Missing physical geometry inputs: " + missing_text + "." + source_note,
                 kind="data" if geometry.authoritative_source else "decision",
-                question=None if geometry.authoritative_source else "What are the governing " + missing_text + ", with units? If a drawing governs them, identify that data source.")
+                question=None if geometry.authoritative_source else dimensions_question,
+                example=_tip_patch_example(spec) if missing == ["load_patch"] else "; ".join(_GEOMETRY_EXAMPLES[name] for name in missing) + ".")
         for name in GEOMETRY_FIELDS & geometry.parameters.keys():
             value = geometry.parameters[name]
             try:
@@ -174,16 +230,18 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
 
     if not spec.boundary_conditions:
         add("support", "boundary_conditions", "The mounting behavior has not been specified.",
-            question="How is the top end of the vertical arm attached? This solver can restrain all three translations across that entire top face.")
+            question="How does the top of the vertical arm attach to the frame? Identify the restrained area and which translations it prevents (x, y and/or z); describe any motion it permits.",
+            example=_SUPPORT_EXAMPLE)
     elif len(spec.boundary_conditions) != 1:
         add("support", "boundary_conditions", "Only one full top-arm clamp is supported.", kind="unsupported")
     else:
         bc = spec.boundary_conditions[0]
         if not bc.kind or not bc.location or not bc.components:
             add("support", "boundary_conditions", "The support location or translational restraint behavior is missing.",
-                question="Should the entire top face of the vertical arm be clamped in x, y, and z, or does the real interface behave differently?")
+                question="What motion does the mounting interface prevent? Specify whether the whole top face is held at zero displacement in x, y and z, or describe the actual restraint and any permitted motion.",
+                example=_SUPPORT_EXAMPLE)
         elif bc.location != "top_arm" or _token(bc.kind) not in {"clamped", "fixed"} or sorted(bc.components) != ["x", "y", "z"]:
-            add("support", "boundary_conditions", "Only a top_arm clamp restraining x, y and z is supported.", kind="unsupported")
+            add("support", "boundary_conditions", "The connected solver supports only a clamp holding the entire top face of the vertical arm at zero displacement in x, y and z. The requested mounting behavior needs a different support implementation.", kind="unsupported")
         if bc.value is not None:
             try:
                 if _scalar(bc.value, _LENGTH) != 0:
@@ -193,19 +251,22 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
 
     if not spec.loads:
         add("load", "loads", "The load is missing.",
-            question="What total force (magnitude and direction or x/y/z components, with units) acts on the horizontal-arm tip band?")
+            question="What total force (magnitude and direction or x/y/z components, with units) acts on the horizontal-arm tip band?",
+            example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
     elif len(spec.loads) != 1:
         add("loads", "loads", "This backend supports exactly one load vector and one load case; multiple loads cannot be silently combined.", kind="unsupported")
     else:
         load = spec.loads[0]
         if load.location is None or load.kind is None:
             add("load_model", "loads", "The force distribution and location are unresolved.",
-                question="Is this a total force uniformly distributed over the horizontal-arm tip band through the full thickness?")
+                question="Where and how is the stated force transferred to the bracket? Specify the loaded face and whether the total force is uniformly distributed over it.",
+                example=_tip_patch_example(spec))
         elif load.location != "tip_band" or _token(load.kind) != "total_force":
-            add("load_model", "loads", "Only a total_force distributed over tip_band is supported; point loads, pressures and other locations are different specifications.", kind="unsupported")
+            add("load_model", "loads", "The connected solver supports a total force distributed uniformly over a band at the upper end of the horizontal-arm tip face, through the full thickness. The requested load type or location needs a different implementation.", kind="unsupported")
         if load.magnitude is None:
             add("force", "loads.0.magnitude", "The applied force has no magnitude.",
-                question="Provide the total force and its x/y/z direction with units.")
+                question="Provide the total force and its x/y/z direction with units.",
+                example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
         else:
             try:
                 factor = _factor(load.magnitude, _FORCE)
@@ -227,7 +288,19 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                 config_values["force_n"] = force
             except ValueError as error:
                 add("force", "loads.0", "Force " + str(error),
-                    question="Provide the applied force as [Fx, Fy, Fz] and its force units.")
+                    question="Provide the applied force as [Fx, Fy, Fz] and its force units.",
+                    example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
+
+    # Patch extent and force distribution are one physical decision. A concise
+    # answer should resolve both without asking for the same interface twice.
+    if geometry and not geometry.authoritative_source and GEOMETRY_FIELDS - geometry.parameters.keys() == {"load_patch"}:
+        patch_question = next((q for q in questions if q.key == "solver_dimensions"), None)
+        model_question = next((q for q in questions if q.key == "solver_load_model"), None)
+        if patch_question and model_question:
+            patch_question.issue_keys.extend(model_question.issue_keys)
+            patch_question.prompt = "Where and how is the tip force transferred? Specify the loaded face, the band's height with units, whether it spans the full thickness, and whether the stated total force is uniformly distributed."
+            patch_question.why = "The load's area and distribution are unresolved; both affect the local stress field."
+            questions.remove(model_question)
 
     optimization = spec.optimization
     if optimization is None:
@@ -251,11 +324,13 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                 if constraint.region != "l_domain":
                     add("volume_reference", "optimization.constraints", "The volume fraction must refer explicitly to the L domain, excluding the permanent cut.",
                         kind="decision" if constraint.region is None else "unsupported",
-                        question="Is the material fraction measured relative to the full L-shaped domain (excluding the square cut), or a different reference volume?" if constraint.region is None else None)
+                        question="What volume does the stated material percentage refer to: the full L-shaped domain excluding the corner cut, the initial perforated shape, or another reference?" if constraint.region is None else None,
+                        example=_volume_example(constraint.limit))
                 if constraint.relation != "<=":
                     add("volume_relation", "optimization.constraints", "Only an upper bound on volume fraction is supported.", kind="unsupported")
                 if constraint.limit is None:
-                    add("volume_limit", "optimization.constraints", "The material fraction is missing.", question="What maximum fraction of the full L domain may contain material?")
+                    add("volume_limit", "optimization.constraints", "The material fraction is missing.", question="What maximum fraction of the full L domain may contain material?",
+                        example="At most 75% of the full L-shaped domain may contain material.")
                 else:
                     try:
                         config_values["volume_fraction"] = _fraction(constraint.limit)
@@ -276,7 +351,8 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                 add("constraint", "optimization.constraints", "Unsupported or duplicate constraint: " + str(constraint.quantity) + ". Peak/yield stress, displacement, buckling and manufacturing limits are not implemented.", kind="unsupported")
         if not volume_seen:
             add("volume", "optimization.constraints", "A volume fraction upper bound and its reference domain are required.",
-                question="What maximum material fraction is permitted, and is it measured relative to the full L domain excluding the square cut?")
+                question="What maximum material fraction is permitted, and is it measured relative to the full L domain excluding the square cut?",
+                example="Retain at most 75% of the full L-shaped domain, excluding the permanent square cut but before subtracting the five initial holes.")
         if optimization.stress_requirement is None:
             add("stress_choice", "optimization.stress_requirement", "The engineer has not specified whether the problem is volume-only or includes a calibrated stress p-norm constraint.",
                 question="Is this minimum compliance with only a volume limit, or do you also require a stress constraint? State any physical stress requirement as intended; this solver currently supports only a calibrated p=6 norm, not a peak/yield bound.")

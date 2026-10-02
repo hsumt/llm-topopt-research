@@ -112,6 +112,7 @@ class Question(Model): # clarifying question
     why: str
     answer_type: Literal["text", "single_choice"] = "text"
     options: list[str] = Field(default_factory=list)
+    example_answer: str | None = None
 
 
 class Review(Model): #part of the reviews. Lists issues and questions
@@ -142,6 +143,15 @@ class Revision(Model): # what was asked -> what the human said -> how the AI int
     resolution: Resolution
 
 
+class ModelFailure(Model):
+    stage: Literal["parse", "review", "resolve"]
+    code: str
+    message: str
+    next_step: str
+    request_state: Literal["not_sent", "attempted", "response_received", "unknown"]
+    retryable: bool
+
+
 class Session(Model): # combines the original request + specification + review (questions/issues) + revisions + AI usage
     original_request: str
     context: str | None = None
@@ -150,3 +160,6 @@ class Session(Model): # combines the original request + specification + review (
     revisions: list[Revision] = Field(default_factory=list)
     usage: list[Usage] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    parse_completed: bool | None = None
+    failure: ModelFailure | None = None
+    pending_answers: dict[str, str] = Field(default_factory=dict)

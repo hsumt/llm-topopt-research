@@ -33,6 +33,22 @@ credential belongs in the image, repository, command arguments, or run receipts.
 `FORMULATION_MODEL` optionally changes the configured model. The **Load complete
 3D benchmark** button and command-line benchmarks require no model credential.
 
+For an interactive terminal setup, enter the key at a hidden prompt:
+
+```bash
+read -r -s -p "Anthropic API key: " ANTHROPIC_API_KEY
+export ANTHROPIC_API_KEY
+./docker/compose up -d --force-recreate
+```
+
+**Build formulation** parses the brief, then runs the critic. If either model step
+fails, the app reports the failed stage, whether a request was sent or a response
+received, and a recovery action. A failed parse preserves the brief and does not
+present invented missing-specification questions. Resume the saved formulation
+after recreating the container and retry the failed step. A successful parse
+produces specific engineering questions with illustrative answers; examples are
+never applied as defaults.
+
 Application code is baked into the image. Rebuild after code changes. Generated
 runs and saved formulations persist under `artifacts/`; the named home volume
 holds JIT caches. Stop with `./docker/compose down`; this preserves both.
@@ -137,9 +153,9 @@ and has not been resurrected. This branch does not run the old post-solve cascad
 
 ## Integration checks recorded on 2026-10-02
 
-The clean image built successfully from the vendored source. All **32** unit tests
-passed inside it. Streamlit's application test exercised the approval gate and
-launched the second run below through the actual Run button.
+The clean image built successfully from the vendored source. The initial **32**
+unit tests passed inside it. Streamlit's application test exercised the approval
+gate and launched the second run below through the actual Run button.
 
 | Bounded Docker run | Last evaluated volume fraction | Compliance Fᵀu, J | p6 stress, MPa |
 |---|---:|---:|---:|
@@ -152,3 +168,9 @@ the last evaluated design. The second still exceeded its volume bound; it had no
 stress constraint. These are short execution checks, not converged optimization
 results. New gradient verification, paper validation, and live model-provider
 calls are **not assessed** by these checks.
+
+The subsequent failure-handling and clarification update passed **67 tests** in
+the rebuilt Docker image, including Streamlit checks for a failed Build action,
+retrying the parser, resuming an older failed session, and displaying unanswered
+engineering questions with examples. Provider responses in these regression
+tests are mocked; they do not establish live Anthropic connectivity.
