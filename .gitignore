@@ -34,8 +34,6 @@ solver/_05_OUT/
 *.log
 
 # Local only
-AGENTS.md
-CLAUDE.md
 .agents/
 .codex/
 .idea/
