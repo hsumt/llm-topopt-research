@@ -36,5 +36,7 @@ solver/_05_OUT/
 # Local only
 AGENTS.md
 CLAUDE.md
+.agents/
+.codex/
 .idea/
 Archive/
