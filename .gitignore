@@ -15,7 +15,6 @@ env/
 
 # Generated output
 artifacts/
-_chatgpt_bundle/
 solver/_05_OUT/
 
 # Images, archives and solver data anywhere (force-add one with: git add -f <path>)
