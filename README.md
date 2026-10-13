@@ -41,14 +41,17 @@ return as that work lands.
 
 ## Quick start
 
-Docker Engine with Compose is the only host dependency.
+Docker (Engine with Compose, or Docker Desktop) is the only host dependency. It runs
+on Linux, on Windows through WSL2, and on macOS; Apple Silicon Macs run it under x86
+emulation, which is slower.
 
 ```bash
 ./docker/compose up --build -d
 ```
 
-Open http://localhost:8502. The model features need `ANTHROPIC_API_KEY`, either
-exported in your shell or set in the repository's gitignored `.env`. Never commit it.
+Open http://localhost:8501 (set `ATO_PORT` to use another port). The model features
+need `ANTHROPIC_API_KEY`, either exported in your shell or set in the gitignored
+`.env` file at the repository root. Never commit it.
 
 ```bash
 ./docker/compose down

@@ -1,4 +1,4 @@
-# linux-64 package lock from the validated pnorm-ref environment.
+# linux-64 package lock.
 # Public conda-forge packages only. Core: DOLFINx 0.7.0, PETSc 3.19.6.
 @EXPLICIT
 https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda#a9f577daf3de00bca7c3c76c0ecbd1de

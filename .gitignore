@@ -10,12 +10,9 @@ __pycache__/
 *.pyo
 .venv/
 venv/
-env/
-.ipynb_checkpoints/
 
 # Generated output
 artifacts/
-solver/_05_OUT/
 
 # Images, archives and solver data anywhere (force-add one with: git add -f <path>)
 *.png
@@ -36,4 +33,6 @@ solver/_05_OUT/
 .agents/
 .codex/
 .idea/
-Archive/
+.vscode/
+.claude/settings.local.json
+CLAUDE.local.md

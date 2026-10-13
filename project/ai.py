@@ -23,7 +23,7 @@ from project.prompts import (
 
 
 T = TypeVar("T", bound=BaseModel)
-MODEL = os.getenv("FORMULATION_MODEL", "claude-sonnet-4-6")
+MODEL = os.getenv("FORMULATION_MODEL") or "claude-sonnet-4-6"
 USE_CACHE = os.getenv("PRESOLVE_CACHE", "1") == "1"
 CACHE_DIR = Path("artifacts/cache/simple_presolve")
 
