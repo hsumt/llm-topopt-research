@@ -98,8 +98,8 @@ code .
 nano .env
 ```
 
-Add this line with your key, then save and close. The file is gitignored; never
-commit it.
+Add this line with your key. To save and exit nano, press Ctrl+O, then Enter, then
+Ctrl+X. The file is gitignored; never commit it.
 
 ```text
 ANTHROPIC_API_KEY=your-key-here
@@ -198,8 +198,8 @@ code .
 nano .env
 ```
 
-Add this line with your key, then save and close. The file is gitignored; never
-commit it.
+Add this line with your key. To save and exit nano, press Control+O, then Enter, then
+Control+X. The file is gitignored; never commit it.
 
 ```text
 ANTHROPIC_API_KEY=your-key-here
@@ -312,8 +312,8 @@ code .
 nano .env
 ```
 
-Add this line with your key, then save and close. The file is gitignored; never
-commit it.
+Add this line with your key. To save and exit nano, press Ctrl+O, then Enter, then
+Ctrl+X. The file is gitignored; never commit it.
 
 ```text
 ANTHROPIC_API_KEY=your-key-here
