@@ -150,8 +150,27 @@ docker compose version
 https://code.visualstudio.com/
 ```
 
-Then open its Command Palette (Cmd+Shift+P) and run "Shell Command: Install 'code'
-command in PATH", so the `code` command works in the terminal.
+Move VS Code into your Applications folder, then add its `code` command to the
+terminal.
+
+```bash
+cat << EOF >> ~/.zprofile
+# Add Visual Studio Code (code)
+export PATH="\$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+EOF
+```
+
+Load the change into the current terminal.
+
+```bash
+source ~/.zprofile
+```
+
+Check that the `code` command works.
+
+```bash
+code --version
+```
 
 4. Get the code. Run this in the folder where you want the project; it creates an
    `llm-topopt-research` folder there.
