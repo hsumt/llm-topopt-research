@@ -5,11 +5,13 @@ the whole topology-optimization workflow. That runs from forming the problem
 specification, to configuring and running the solver that implements it, to
 diagnosing the result afterwards.
 
-## How it works
+## Design
+
+This is the design ATO is being built toward; the repository implements part of it.
 
 The work is divided like this:
-- **The agent makes the decisions.** It interprets the brief, fills the specification,
-  and chooses how the codebase should realize it.
+- **The agent makes the decisions.** It interprets the engineer's brief, fills the
+  specification, and chooses how the codebase should realize it.
 - **The codebase provides the means.** It offers modular, configurable building blocks
   for geometry, loads, supports, materials, objectives, constraints and discretization.
   It validates every request and runs it deterministically.
@@ -41,17 +43,22 @@ return as that work lands.
 
 ## Quick start
 
-Docker (Engine with Compose, or Docker Desktop) is the only host dependency. It runs
-on Linux, on Windows through WSL2, and on macOS; Apple Silicon Macs run it under x86
-emulation, which is slower.
+Docker (Engine with the Compose plugin, or Docker Desktop) is the only host dependency.
+The image is x86-64 only. It runs natively on x86-64 Linux, on Windows through WSL2 and
+on Intel Macs. Apple Silicon Macs run it under x86 emulation, which is slower; ARM
+Linux hosts also need QEMU binfmt emulation registered first. On Windows, clone and
+run inside the WSL2 filesystem, not under `/mnt/c`.
 
 ```bash
 ./docker/compose up --build -d
 ```
 
-Open http://localhost:8501 (set `ATO_PORT` to use another port). The model features
-need `ANTHROPIC_API_KEY`, either exported in your shell or set in the gitignored
-`.env` file at the repository root. Never commit it.
+The first build downloads and compiles the solver stack (an image of several GB), so
+it takes a while. Then open the app at http://localhost:8501 (set `ATO_PORT` to use
+another port). The model features need `ANTHROPIC_API_KEY`, either exported in your
+shell or set in the gitignored `.env` file at the repository root. Never commit it.
+To choose a different Anthropic model, set `FORMULATION_MODEL` the same way; when it
+is unset, the app uses the default in `project/ai.py`.
 
 ```bash
 ./docker/compose down

@@ -4,12 +4,16 @@
 
 Agentic Topology Optimization puts language-model agents alongside an engineer across
 the whole topology-optimization workflow. That runs from forming the problem
-specification to configuring the solver that implements it.
+specification, to configuring and running the solver that implements it, to
+diagnosing the result afterwards.
+
+This file describes the design ATO is being built toward. The repository implements
+part of it; check the code before assuming a capability exists.
 
 The division of labour:
-- **The agent makes the decisions.** It interprets the brief, fills the specification,
-  and chooses how the codebase should realize it. For example, it may decide to add a
-  load case, a support, a material region, or a constraint.
+- **The agent makes the decisions.** It interprets the engineer's brief, fills the
+  specification, and chooses how the codebase should realize it. For example, it may
+  decide to add a load case, a support, a material region, or a constraint.
 - **The codebase provides the means.** It offers modular, configurable building blocks
   for each part of a problem: geometry, loads, supports, materials, objectives,
   constraints and discretization. It validates every request and runs it
@@ -65,3 +69,5 @@ describe, not one benchmark.
 - Never read, print, or parse `.env` or any `*.env` file. The API key reaches the app
   only as an environment variable.
 - Never write a credential into code, logs, artifacts, or commits.
+- Do not edit `_external/pyparalesto/`. It is an unmodified vendored copy of upstream
+  ParaLeSTO (Apache-2.0); keep it byte-identical.
