@@ -226,62 +226,86 @@ http://localhost:8501
 
 ### Windows
 
-1. Install WSL from PowerShell run as Administrator, then restart when asked. This
-   installs Ubuntu by default.
+1. Install WSL from PowerShell run as Administrator, then restart.
 
 ```powershell
-wsl --install
+wsl --install --web-download
 ```
 
-2. Install Docker Desktop and start it. In Settings → Resources → WSL integration,
-   turn on your Ubuntu distribution.
+2. Install Ubuntu from PowerShell, and create a Linux username and password when asked.
+
+```powershell
+wsl --install -d Ubuntu --web-download
+```
+
+3. Make Ubuntu the default. Run this in the Ubuntu terminal that step 2 left open;
+   the list should show `*` next to Ubuntu.
+
+```bash
+wsl.exe --set-default Ubuntu
+wsl.exe -l -v
+```
+
+4. Install Docker Desktop and start it, then turn on Ubuntu: Settings → Resources →
+   WSL integration → Ubuntu toggle → Apply.
 
 ```text
 https://docs.docker.com/desktop/setup/install/windows-install/
 ```
 
-3. Install VS Code on Windows.
+5. Install VS Code.
 
 ```text
 https://code.visualstudio.com/
 ```
 
-4. Open the Ubuntu terminal. Run every remaining command there, not in PowerShell.
+6. Install Microsoft's **WSL** extension in VS Code: Extensions → search `WSL` →
+   Install, or run this in PowerShell.
 
-5. Check that Docker works.
+```powershell
+code --install-extension ms-vscode-remote.remote-wsl
+```
+
+7. Open VS Code and an Ubuntu terminal. Run every remaining command there.
+
+```text
+Terminal → New Terminal → + → Ubuntu (WSL)
+```
+
+8. Check that Docker works.
 
 ```bash
 docker compose version
 ```
 
-6. Go to your WSL home folder, so the code lives in the WSL filesystem rather than
-   under `/mnt/c`.
+9. Go to your Linux home folder; cloning under `/mnt/c` is slow and can break file
+   permissions.
 
 ```bash
 cd ~
 ```
 
-7. Get the code. Run this in the folder where you want the project, anywhere under
-   your WSL home; it creates an `llm-topopt-research` folder there.
+10. Clone the `develop` branch into your Linux home; this creates an
+   `llm-topopt-research` folder.
 
 ```bash
 git clone -b develop https://github.com/hsumt/llm-topopt-research.git
 ```
 
-8. Go into the repository folder.
+11. Go into the repository folder.
 
 ```bash
 cd llm-topopt-research
 ```
 
-9. Open the folder in VS Code. The first time, VS Code installs its WSL extension;
-   it then opens the folder inside WSL, and its terminal is the Ubuntu shell.
+12. Open the folder in VS Code from the Ubuntu terminal. The bottom-left corner should
+   show **WSL: Ubuntu**.
 
 ```bash
 code .
 ```
 
-10. Add the Anthropic API key you were given, which the app requires. Create a file
+13. Add the Anthropic API key you were given, which the app requires. Create a file
    named `.env` in the repository folder.
 
 ```bash
@@ -295,20 +319,20 @@ commit it.
 ANTHROPIC_API_KEY=your-key-here
 ```
 
-11. Build and start the app. The first build downloads and compiles the solver
+14. Build and start the app. The first build downloads and compiles the solver
    stack, so it takes a while.
 
 ```bash
 ./docker/compose up --build -d
 ```
 
-12. Open the app in your Windows browser.
+15. Open the app in your Windows browser.
 
 ```text
 http://localhost:8501
 ```
 
-13. Stop the app when you are done.
+16. Stop the app when you are done.
 
 ```bash
 ./docker/compose down
