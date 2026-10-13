@@ -43,26 +43,269 @@ return as that work lands.
 
 ## Quick start
 
-Docker (Engine with the Compose plugin, or Docker Desktop) is the only host dependency.
-The image is x86-64 only. It runs natively on x86-64 Linux, on Windows through WSL2 and
-on Intel Macs. Apple Silicon Macs run it under x86 emulation, which is slower; ARM
-Linux hosts also need QEMU binfmt emulation registered first. On Windows, clone and
-run inside the WSL2 filesystem, not under `/mnt/c`.
+Pick your platform. Each section is a complete setup from scratch.
+
+### Linux
+
+1. Install Docker Engine and the Docker Compose plugin, following the guide for your
+   distribution.
+
+```text
+https://docs.docker.com/engine/install/
+```
+
+2. Let your user run Docker without `sudo`, then log out and back in.
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+3. Check that Docker works.
+
+```bash
+docker compose version
+```
+
+4. Install VS Code.
+
+```text
+https://code.visualstudio.com/
+```
+
+5. Get the code. Run this in the folder where you want the project; it creates an
+   `llm-topopt-research` folder there.
+
+```bash
+git clone -b develop https://github.com/hsumt/llm-topopt-research.git
+```
+
+6. Go into the repository folder.
+
+```bash
+cd llm-topopt-research
+```
+
+7. Open the folder in VS Code.
+
+```bash
+code .
+```
+
+8. Add the Anthropic API key you were given, which the app requires. Create a file
+   named `.env` in the repository folder.
+
+```bash
+nano .env
+```
+
+Add this line with your key, then save and close. The file is gitignored; never
+commit it.
+
+```text
+ANTHROPIC_API_KEY=your-key-here
+```
+
+9. Build and start the app. The first build downloads and compiles the solver
+   stack, so it takes a while.
 
 ```bash
 ./docker/compose up --build -d
 ```
 
-The first build downloads and compiles the solver stack (an image of several GB), so
-it takes a while. Then open the app at http://localhost:8501 (set `ATO_PORT` to use
-another port). The model features need `ANTHROPIC_API_KEY`, either exported in your
-shell or set in the gitignored `.env` file at the repository root. Never commit it.
-To choose a different Anthropic model, set `FORMULATION_MODEL` the same way; when it
-is unset, the app uses the default in `project/ai.py`.
+10. Open the app in your browser.
+
+```text
+http://localhost:8501
+```
+
+11. Stop the app when you are done.
 
 ```bash
 ./docker/compose down
 ```
+
+The image is x86-64 only. On an ARM64 machine, register x86-64 emulation first; see
+https://docs.docker.com/build/building/multi-platform/.
+
+### macOS
+
+1. Install Docker Desktop and start it. On Apple Silicon, also open Settings →
+   General and turn on "Use Rosetta for x86_64/amd64 emulation on Apple Silicon".
+   The image is x86-64 only, so on Apple Silicon it runs under emulation and is
+   slower.
+
+```text
+https://docs.docker.com/desktop/setup/install/mac-install/
+```
+
+2. Check that Docker works.
+
+```bash
+docker compose version
+```
+
+3. Install VS Code.
+
+```text
+https://code.visualstudio.com/
+```
+
+Then open its Command Palette (Cmd+Shift+P) and run "Shell Command: Install 'code'
+command in PATH", so the `code` command works in the terminal.
+
+4. Get the code. Run this in the folder where you want the project; it creates an
+   `llm-topopt-research` folder there.
+
+```bash
+git clone -b develop https://github.com/hsumt/llm-topopt-research.git
+```
+
+5. Go into the repository folder.
+
+```bash
+cd llm-topopt-research
+```
+
+6. Open the folder in VS Code.
+
+```bash
+code .
+```
+
+7. Add the Anthropic API key you were given, which the app requires. Create a file
+   named `.env` in the repository folder.
+
+```bash
+nano .env
+```
+
+Add this line with your key, then save and close. The file is gitignored; never
+commit it.
+
+```text
+ANTHROPIC_API_KEY=your-key-here
+```
+
+8. Build and start the app. The first build downloads and compiles the solver
+   stack, so it takes a while.
+
+```bash
+./docker/compose up --build -d
+```
+
+9. Open the app in your browser.
+
+```text
+http://localhost:8501
+```
+
+10. Stop the app when you are done.
+
+```bash
+./docker/compose down
+```
+
+### Windows
+
+1. Install WSL from PowerShell run as Administrator, then restart when asked. This
+   installs Ubuntu by default.
+
+```powershell
+wsl --install
+```
+
+2. Install Docker Desktop and start it. In Settings → Resources → WSL integration,
+   turn on your Ubuntu distribution.
+
+```text
+https://docs.docker.com/desktop/setup/install/windows-install/
+```
+
+3. Install VS Code on Windows.
+
+```text
+https://code.visualstudio.com/
+```
+
+4. Open the Ubuntu terminal. Run every remaining command there, not in PowerShell.
+
+5. Check that Docker works.
+
+```bash
+docker compose version
+```
+
+6. Go to your WSL home folder, so the code lives in the WSL filesystem rather than
+   under `/mnt/c`.
+
+```bash
+cd ~
+```
+
+7. Get the code. Run this in the folder where you want the project, anywhere under
+   your WSL home; it creates an `llm-topopt-research` folder there.
+
+```bash
+git clone -b develop https://github.com/hsumt/llm-topopt-research.git
+```
+
+8. Go into the repository folder.
+
+```bash
+cd llm-topopt-research
+```
+
+9. Open the folder in VS Code. The first time, VS Code installs its WSL extension;
+   it then opens the folder inside WSL, and its terminal is the Ubuntu shell.
+
+```bash
+code .
+```
+
+10. Add the Anthropic API key you were given, which the app requires. Create a file
+   named `.env` in the repository folder.
+
+```bash
+nano .env
+```
+
+Add this line with your key, then save and close. The file is gitignored; never
+commit it.
+
+```text
+ANTHROPIC_API_KEY=your-key-here
+```
+
+11. Build and start the app. The first build downloads and compiles the solver
+   stack, so it takes a while.
+
+```bash
+./docker/compose up --build -d
+```
+
+12. Open the app in your Windows browser.
+
+```text
+http://localhost:8501
+```
+
+13. Stop the app when you are done.
+
+```bash
+./docker/compose down
+```
+
+## Working on the code
+
+The image holds its own copy of the code, so rebuild after you change it. Only the
+code layers rebuild, so this is quick.
+
+```bash
+./docker/compose up --build -d
+```
+
+The solver packages (DOLFINx, PETSc, ParaLeSTO) exist only inside the image, so VS Code
+marks those imports as unresolved. This is expected.
 
 ## License
 
