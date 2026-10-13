@@ -7,7 +7,6 @@
 # Python
 __pycache__/
 *.pyc
-*.pyo
 .venv/
 venv/
 
@@ -28,6 +27,7 @@ artifacts/
 *.vtu
 *.pvd
 *.log
+*.stl
 
 # Local only
 .agents/

@@ -1,15 +1,11 @@
-# An allowlist keeps secrets, local chat history and run data out of the build.
+# Allowlist: only the files the Dockerfile copies enter the build context.
+# Secrets, bytecode and build output stay out even inside those paths.
 **
-!Dockerfile
 !requirements.txt
-!docker/
 !docker/conda-linux-64.lock
 !_external/
-!_external/**
 !project/
-!project/**
 !tests/
-!tests/**
 **/.env
 **/*.env
 **/.env.*

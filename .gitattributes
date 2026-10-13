@@ -1,0 +1,2 @@
+# The launcher is a bash script; keep LF line endings on Windows clones.
+docker/compose text eol=lf
