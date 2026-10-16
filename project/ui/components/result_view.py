@@ -37,7 +37,7 @@ export default function (component) {
   const ny = grid.length, nx = ny ? grid[0].length : 0;
   const depth = 1;  // one element deep
   const quads = [];
-  // Every element ParaLeSTO gives any material is drawn as a cube: no threshold, no smoothing.
+  // Every element with density above 0.001 is drawn as a cube (no 0.5 cut-off, no smoothing).
   const solid = (i, j) => i >= 0 && j >= 0 && i < ny && j < nx && grid[i][j] > 0.001;
   for (let i = 0; i < ny; i++) for (let j = 0; j < nx; j++) {
     if (!solid(i, j)) continue;

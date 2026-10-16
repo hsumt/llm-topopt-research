@@ -64,13 +64,12 @@ class Manufacturing(Model):
     requirements: list[str] = Field(default_factory=list)
 
 class Physics(Model):
-    family: Literal[ # honestly, names have been written out of braindumping.
+    family: Literal[
         "solid_mechanics",
         "thermal",
         "fluid",
         "electromagnetics",
         "other",
-        "quantum",
         "unknown",
     ] = "unknown"
 
@@ -97,7 +96,7 @@ class ProblemSpec(Model):
 
     assumptions: list[str] = Field(default_factory=list)
 
-class Issue(Model): #issue in the parsing
+class Issue(Model): # a spec problem found by the code check (lbracket.assess_spec) or the reviewer
     key: str
     field: str | None = None
     description: str
@@ -129,8 +128,8 @@ class Resolution(Model):
     resolved_issue_keys: list[str] = Field(default_factory=list)
 
 
-class Usage(Model): # usage for tokens we can get tokens by cost = n_input x p_input + n_output x p_output
-    step: Literal["parse", "review", "resolve", "vision"]
+class Usage(Model): # one model call: step, model, token counts, and whether the reply came from the cache
+    step: Literal["parse", "review", "resolve"]
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -152,14 +151,13 @@ class ModelFailure(Model):
     retryable: bool
 
 
-class Session(Model): # combines the original request + specification + review (questions/issues) + revisions + AI usage
+class Session(Model): # original request + context + specification + review + revisions + AI usage + parse/failure state + answers kept for retry
     original_request: str
     context: str | None = None
     spec: ProblemSpec
     review: Review
     revisions: list[Revision] = Field(default_factory=list)
     usage: list[Usage] = Field(default_factory=list)
-    errors: list[str] = Field(default_factory=list)
     parse_completed: bool | None = None
     failure: ModelFailure | None = None
     pending_answers: dict[str, str] = Field(default_factory=dict)

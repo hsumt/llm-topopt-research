@@ -12,13 +12,13 @@ import os
 import sys
 
 from paraview.simple import (CellCenters, ColorBy, GetActiveViewOrCreate, GetColorTransferFunction,
-                             GetScalarBar, Glyph, Outline, ResetSession, Render, SaveScreenshot, Show,
+                             GetScalarBar, Glyph, Outline, Render, SaveScreenshot, Show,
                              Threshold, UpdatePipeline, Xdmf3ReaderS)
 
 solver_dir, out_dir = sys.argv[1], sys.argv[2]
 summary = json.load(open(os.path.join(solver_dir, "summary.json")))
 config = summary["input"]
-nelx, nely = summary["mesh_shape"]
+nelx = summary["mesh_shape"][0]
 h = config["lx_m"] / nelx
 last = summary["completed_iterations"] - 1
 wanted = [int(i) for i in sys.argv[3].split(",")] if len(sys.argv) > 3 else sorted({0, *range(50, last, 50), last})

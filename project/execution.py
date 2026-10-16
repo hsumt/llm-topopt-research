@@ -17,6 +17,7 @@ import uuid
 from project.models import Session
 
 ARTIFACTS = Path(__file__).resolve().parents[1] / "artifacts"
+PVBATCH = Path("/opt/paraview/bin/pvbatch")
 STARTUP_GRACE_SECONDS = 30
 
 
@@ -179,9 +180,6 @@ def run_status(run_dir: Path) -> dict:
         return status
 
 
-PVBATCH = Path(os.environ.get("ATO_PVBATCH", "/opt/paraview/bin/pvbatch"))
-
-
 def _render_paraview(run_dir: Path) -> dict:
     """Render the finished run's element densities with ParaView (pvbatch), as part of the run.
 
@@ -243,32 +241,10 @@ def _worker(run_dir: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the reviewed 2D L-bracket in the supplied Docker environment.")
-    parser.add_argument("--reference", action="store_true", help="Explicitly select every physical input in the recorded five-hole benchmark.")
-    parser.add_argument("--session", type=Path, help="Validated saved formulation Session JSON.")
-    parser.add_argument("--max-iterations", type=int, default=2)
-    parser.add_argument("--ranks", type=int, default=1)
-    parser.add_argument("--worker", type=Path, help=argparse.SUPPRESS)
+    parser = argparse.ArgumentParser(description="Solver worker for one approved run; launch_run starts it.")
+    parser.add_argument("--worker", type=Path, required=True, help="Run directory prepared by launch_run.")
     args = parser.parse_args()
-    if args.worker:
-        return _worker(args.worker.resolve())
-    if bool(args.reference) == bool(args.session):
-        parser.error("Choose exactly one of --reference or --session.")
-    if args.reference:
-        from project.lbracket import reference_spec
-        from project.models import Review
-        session = Session(original_request="Run the documented simplified_2D_holes benchmark.", spec=reference_spec(), review=Review())
-    else:
-        session = Session.model_validate_json(args.session.read_text())
-    plan = run_plan(session, args.max_iterations, args.ranks)
-    run_dir = launch_run(session, approved_hash=plan["approval_hash"], max_iterations=args.max_iterations,
-                         ranks=args.ranks, approver="explicit CLI invocation")
-    print(f"Run directory: {run_dir}", flush=True)
-    import time
-    while (status := run_status(run_dir))["state"] in {"starting", "running"}:
-        time.sleep(0.5)
-    print(json.dumps(status, indent=2))
-    return 0 if status["state"] == "completed" else 1
+    return _worker(args.worker.resolve())
 
 
 if __name__ == "__main__":

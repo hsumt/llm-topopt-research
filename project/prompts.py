@@ -1,9 +1,11 @@
 """System prompts for the three model steps, built from named parts.
 
 Each step's prompt is its parts joined in order (PARTS); the UI shows them part by part.
-The solver contract is generated from lbracket.py, so the names the model is told and the
-names the code checks cannot drift apart. It goes to parse and resolve only: the reviewer
-works on engineering intent, and only the code decides what the solver cannot implement.
+In the solver contract, the template, hole count, geometry keys, region names, units and p
+are generated from lbracket.py and LBracket2DConfig; the other names mirror
+lbracket.assess_spec and must be kept in step by hand. The contract goes to parse and
+resolve only: the reviewer works on engineering intent, and only the code decides what the
+solver cannot implement.
 """
 from dataclasses import fields
 

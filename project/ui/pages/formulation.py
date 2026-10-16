@@ -42,7 +42,8 @@ def _watch(fid: str, updated_at: str) -> None:
         st.rerun()
 
 
-def _geometry(spec, session=None) -> None:
+def _geometry(fid: str, session) -> None:
+    spec = session.spec
     st.subheader("Geometry preview")
     preview = api.element_preview(session)
     if preview is not None:
@@ -76,7 +77,7 @@ def _precheck(formulation, check) -> None:
         if state == "ready" and st.button("Review and approve", type="primary", icon=":material/task_alt:"):
             st.switch_page(routes.APPROVAL, query_params={"fids": fid})
         return
-    issues_view.render({**check.blockers, "unsupported": []})
+    issues_view.render(check.blockers)
     gap_report.render(check.blockers.get("unsupported") or [])
     issues = any(check.blockers.values())
     if not issues and not check.questions:
@@ -144,9 +145,6 @@ def _run(fid: str, record) -> None:
                 else:
                     st.rerun()
             _approve_again(fid, "Change the budget (approve again)")
-    elif actions["legacy_approval"]:
-        st.warning("This approval was recorded when running was not connected, so it does not authorize a run.")
-        _approve_again(fid, "Approve again to run")
     if info is None:
         return
     st.page_link(routes.FLOW, label="Follow this run in the process flow", icon=":material/account_tree:",
@@ -197,10 +195,6 @@ def _run_result(fid: str, info: dict) -> None:
         cols[2].metric("Stress p-norm", f"{last['stress_pnorm_pa'] / 1e6:.1f} MPa",
                        help=f"Limit {limit / 1e6:.0f} MPa" if limit else None)
     frames = info.get("frames") or []
-    if not frames and info.get("density"):
-        # Runs from before per-iteration snapshots keep only the final densities.
-        frames = [{"iteration": len(rows) - 1, "density": info["density"],
-                   "boundary_points": ((info.get("summary") or {}).get("level_set") or {}).get("final_boundary_points", "?")}]
     if frames:
         nx = len(frames[0]["density"][0])
         cut = round(nx * info["config"].get("cut_length_m", 0) / info["config"].get("lx_m", 1))
@@ -288,10 +282,7 @@ def _history(formulation) -> None:
 
 def _usage(session) -> None:
     with st.expander("Model usage"):
-        if session.usage:
-            usage_view.render(session.usage)
-        else:
-            st.caption("No model calls were made for this formulation.")
+        usage_view.render(session.usage)
 
 
 def _abandon(fid: str) -> None:
@@ -357,7 +348,7 @@ if session is not None and session.parse_completed is not False:
         st.subheader("Specification")
         spec_view.render(session.spec)
     with right:
-        _geometry(session.spec, session)
+        _geometry(fid, session)
     if state == "failed":
         st.caption("The pre-solve check runs again after a successful retry.")
     elif check is not None:

@@ -88,4 +88,4 @@ for approval in approvals:
                        query_params={"aid": approval.approval_id})
         right.caption(f"{kind} · approved by {_plain(approval.approver)} · {_when(approval.approved_at)}")
 if approvals:
-    st.caption("Each approved plan starts at most one run, from its formulation's page.")
+    st.caption("Each approved plan starts at most one solver run.")

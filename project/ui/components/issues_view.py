@@ -6,7 +6,6 @@ from project.ui.components.spec_view import md
 GROUPS = (
     ("decision", "Decisions needed"),
     ("data", "Missing data"),
-    ("unsupported", "Not supported by the connected solver"),
 )
 ORIGINS = {
     "code": ":gray-badge[:material/code: checked by code]",

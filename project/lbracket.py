@@ -29,7 +29,7 @@ LENGTH_UNITS, STRESS_UNITS, FORCE_UNITS = (("m", "mm", "cm", "in"), ("Pa", "kPa"
 # These illustrate an answer's wording; they never enter config_values or the
 # specification. The interface displays them separately from the answer input.
 _SUPPORT_EXAMPLE = (
-    "The entire top face of the vertical arm is bonded to a rigid frame. "
+    "The entire top edge of the vertical arm is bonded to a rigid frame. "
     "Set displacement to zero in x and y over that whole edge."
 )
 _GEOMETRY_EXAMPLES = {
@@ -44,7 +44,7 @@ _GEOMETRY_EXAMPLES = {
 
 
 def _tip_patch_example(spec: ProblemSpec) -> str:
-    """Use a stated thickness when available; the sample patch height is illustrative."""
+    """Use the stated thickness and band height when available; otherwise placeholders."""
     thickness = "full thickness"
     height = "<height> mm"
     if spec.geometry and "thickness" in spec.geometry.parameters:
@@ -212,7 +212,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                 question="Can the loading be treated as static and the material response as small-strain linear elasticity?")
         elif _token(physics.regime) not in {"linear_static", "static_linear_elasticity", "static_linear_elastic"}:
             add("regime", "physics.regime", "Only static small-strain linear elasticity is implemented.", kind="unsupported")
-        # The adapter chooses the solid discretization, unless the engineer asks for another model.
+        # Plane stress is assumed unless the engineer requests another representation.
         if physics.representation is not None and _token(physics.representation) not in {"2d_plane_stress", "plane_stress", "two_dimensional_plane_stress"}:
             add("representation", "physics.representation", "The requested analysis representation is not supported by the 2D plane-stress solver.", kind="unsupported")
 
@@ -248,7 +248,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
 
     if not spec.boundary_conditions:
         add("support", "boundary_conditions", "The mounting behavior has not been specified.",
-            question="How does the top of the vertical arm attach to the frame? Identify the restrained area and which translations it prevents (x, y and/or z); describe any motion it permits.",
+            question="How does the top of the vertical arm attach to the frame? Identify the restrained area and which translations it prevents (x and/or y); describe any motion it permits.",
             example=_SUPPORT_EXAMPLE)
     elif len(spec.boundary_conditions) != 1:
         add("support", "boundary_conditions", "Only one full top-arm clamp is supported.", kind="unsupported")
@@ -256,10 +256,10 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         bc = spec.boundary_conditions[0]
         if not bc.kind or not bc.location or not bc.components:
             add("support", "boundary_conditions", "The support location or translational restraint behavior is missing.",
-                question="What motion does the mounting interface prevent? Specify whether the whole top face is held at zero displacement in x and y and z, or describe the actual restraint and any permitted motion.",
+                question="What motion does the mounting interface prevent? Specify whether the whole top edge is held at zero displacement in x and y, or describe the actual restraint and any permitted motion.",
                 example=_SUPPORT_EXAMPLE)
         elif bc.location != "top_arm" or _token(bc.kind) not in {"clamped", "fixed"} or sorted(bc.components) != ["x", "y"]:
-            add("support", "boundary_conditions", "The connected solver supports only a clamp holding the entire top face of the vertical arm at zero displacement in x, y and z. The requested mounting behavior needs a different support implementation.", kind="unsupported")
+            add("support", "boundary_conditions", "The connected solver supports only a clamp holding the entire top edge of the vertical arm at zero displacement in x and y. The requested mounting behavior needs a different support implementation.", kind="unsupported")
         if bc.value is not None:
             try:
                 if _scalar(bc.value, _LENGTH) != 0:
@@ -269,7 +269,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
 
     if not spec.loads:
         add("load", "loads", "The load is missing.",
-            question="What total force (magnitude and direction or x/y/z components, with units) acts on the horizontal-arm tip band?",
+            question="What total force (magnitude and direction or x/y components, with units) acts on the horizontal-arm tip band?",
             example="The total force is [<Fx>, <Fy>] N in the stated x/y coordinates.")
     elif len(spec.loads) != 1:
         add("loads", "loads", "This backend supports exactly one load vector and one load case; multiple loads cannot be silently combined.", kind="unsupported")
@@ -283,7 +283,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
             add("load_model", "loads", "The connected solver supports a total force distributed uniformly over a band at the upper end of the horizontal-arm tip face, through the full thickness. The requested load type or location needs a different implementation.", kind="unsupported")
         if load.magnitude is None:
             add("force", "loads.0.magnitude", "The applied force has no magnitude.",
-                question="Provide the total force and its x/y/z direction with units.",
+                question="Provide the total force and its x/y direction with units.",
                 example="The total force is [<Fx>, <Fy>] N in the stated x/y coordinates.")
         else:
             try:
@@ -465,9 +465,3 @@ def reference_spec() -> ProblemSpec:
                          "constraints": [{"quantity": "volume_fraction", "relation": "<=", "region": "l_domain", "limit": {"value": c.volume_fraction}},
                                          {"quantity": "stress_p_norm", "relation": "<=", "region": "l_domain", "limit": {"value": c.stress_limit_pa, "unit": "Pa"}}]},
     })
-
-
-def starter_spec() -> ProblemSpec:
-    return ProblemSpec.model_validate({"name": "My 2D L-bracket", "problem_kind": "optimization",
-                                      "geometry": {"physical_dimension": 2, "description": "L-bracket plate"},
-                                      "physics": {"family": "solid_mechanics"}})

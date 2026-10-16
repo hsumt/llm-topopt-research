@@ -1,12 +1,12 @@
 """Model calls and tokens spent on a formulation."""
 import streamlit as st
 
-STEPS = {"parse": "Parsing", "review": "Reviewer check", "resolve": "Applying answers", "vision": "Reading images"}
+STEPS = {"parse": "Parsing", "review": "Reviewer check", "resolve": "Applying answers"}
 
 
 def render(usage: list) -> None:
     if not usage:
-        st.caption("No model calls were made.")
+        st.caption("No model calls were made for this formulation.")
         return
     cached = sum(1 for u in usage if u.cache_hit)
     columns = st.columns(4)

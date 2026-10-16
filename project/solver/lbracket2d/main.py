@@ -1,27 +1,13 @@
-'''
-    
-    lbracket/simplified_2D_holes
-    parent: lbracket/simplified_3D_holes
-    change: 2D plane stress version of the parent 3D holes simplified. Must use pyparalesto 2D level set. Stress limit recalibrated.
-    physics: linear elasticity (FEniCSx)
-    modified by: N. Jurado
+"""2-D plane-stress L-bracket: level-set minimum compliance with a volume constraint and an
+optional p-norm stress constraint (DOLFINx + PyParaLeSTO; FEA over MPI, level set on rank 0).
 
-    ########################### ORIGINAL ###########################
+Entry points: run(config, output, max_iterations), and
+    python -m project.solver.lbracket2d.main --config <json> --output <dir> --max-iterations <n>
 
-    Large-scale thermo-mechanical battery pack level-set topology optimization  
-                                AIAA Journal 2024
-    
-    physics: weakly coupled heat conduction and linear elasticity (FEniCSx)
-    optimization: level-set topology optimization (PyParaLeSTO)
-    parallelization: FEA using distributed memory parallelization (MPI) and TO on rank 0
-    units: SI units (m, N, kg, K, Pa, W...)
-    
-    contributors: A. Guibert, M. Pozzi, M. Bookwala
-    
-'''
+Ported from mfrto/p_norm_stress_constraint/lbracket/simplified_2D_holes (see PROVENANCE.md).
 
-# Ported 2026-10-15 from mfrto lbracket/simplified_2D_holes: inputs from a validated SI
-# configuration, an isolated output folder, a bounded iteration budget and a run summary.
+Original example contributors: A. Guibert, M. Pozzi, M. Bookwala.
+"""
 from pathlib import Path
 import argparse
 import json
@@ -69,7 +55,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
     cut_length = config.cut_length_m  # [m] side length of the square removed from the top right corner of the original square domain
     arm = lx - cut_length  # [m] width of each arm
     patch_length = config.load_patch_m  # [m] side of the loaded square at the tip of the horizontal arm
-    hole_radius = config.hole_radius_m  # [m] radius of the initial holes (Drawn from Fig. 5 hole diameter taking up about half of the vertical arm width.)
+    hole_radius = config.hole_radius_m  # [m] radius of the initial holes
     hole_centers = [tuple(c) for c in config.hole_centers_m]  # [m] hole axes
     nelx = int(config.nelx)  # [number of elements]
     nely = int(round(nelx*ly/lx))  # Keep the same scaled element count for the y direction (2D: no elements through the thickness)
@@ -87,10 +73,10 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
         print("Number of dofs: %d" % (((nelx+1) * (nely+1))*2), flush=True)
 
     ########################################################################################################################
-    # Material properties (titanium, Kambampati, Gray & Kim 2020, Sec. 3.1)
+    # Material properties (isotropic, from the configuration)
     ########################################################################################################################
 
-    # Mechanical properties titanium
+    # Mechanical properties
     E_ti, nu_ti = config.youngs_modulus_pa, config.poisson_ratio
 
     # Lamé parameters
@@ -202,9 +188,9 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
 
     # Measures
     ds = ufl.Measure("ds", domain=domain, subdomain_data=mt_traction, metadata=None)
-    dx = ufl.Measure("dx", domain=domain, metadata={"quadrature_degree": 8})  # (2D: pinned on the measure so every form and its derivatives use degree 8, the degree dolfinx estimates for the p-norm; src must pin the same)
+    dx = ufl.Measure("dx", domain=domain, metadata={"quadrature_degree": 8})  # (2D: pinned on the measure so every form and its derivatives use degree 8, the degree dolfinx estimates for the p-norm)
     applied_load = comm.allreduce(fem.assemble_scalar(fem.form(lz * ufl.sqrt(ufl.inner(T, T)) * ds(1))), op=MPI.SUM)  # (lbracket: integrates the traction over the tagged facets, so every run logs the force actually applied)
-    if rank == 0: print("Applied load: %.6f N (target %.1f N)" % (applied_load, float(np.linalg.norm(force))), flush=True)  # (lbracket: the boom's markers once applied 900 N for a nominal 1 kN; this makes such a gap visible)
+    if rank == 0: print("Applied load: %.6f N (target %.1f N)" % (applied_load, float(np.linalg.norm(force))), flush=True)  # (lbracket: logs the force actually applied, to catch facet-tagging errors)
 
     # P-norm
     p_val = float(config.p_norm)
@@ -246,7 +232,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
 
 
         pyinit.add_nondesign_void_rectangle(nelx, nely, cut_elems, cut_elems)  # (2D: the binding shrinks the half-widths by 0.1, so only nodes strictly inside the cut are fixed as void)
-        pyinit.create_level_set_boundary(arm_elems, nely, 1e-10, cut_elems)  # (2D: zero level set along the cut's vertical inner edge, so that edge is boundary as in 3D)
+        pyinit.create_level_set_boundary(arm_elems, nely, 1e-10, cut_elems)  # (2D: zero level set along the cut's vertical inner edge, so that edge is boundary)
         pyinit.create_level_set_boundary(nelx, arm_elems, cut_elems, 1e-10)  # (2D: the same along the cut's horizontal inner edge)
 
         # Define non-design domains for the boundary where traction is applied
@@ -259,9 +245,6 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
 
         # Initialize level set object
         pylsm = PyLevelSetModule(pyinit)
-        # Read binary from previous iteration
-        # lsto_input_file = "Reach_vol_3650x82x83_MMA/phi_binary/level_set_0085.bin"
-        # pylsm.read_binary(lsto_input_file)
 
         print("Done", flush=True)
 
@@ -271,8 +254,8 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
 
     # The optimization problem is set to be 
     #       min     Cs
-    #       s.t.    V  <= Vconstraint 
-    #               Sp <= Sconstraint
+    #       s.t.    V  <= Vconstraint
+    #               Sp <= Sconstraint (only when stress_limit_pa is set)
 
     if rank == 0:
         # Constraints
@@ -299,7 +282,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
     if rank == 0:
         try:
             output.mkdir(parents=True, exist_ok=False)
-            for folder in ("vtk", "states", "stress"):  # (2D: the 2D level set writes VTK, not STL)
+            for folder in ("vtk", "states", "stress"):  # (2D: the 2D level set writes VTK)
                 (output / folder).mkdir()
             (output / "input.json").write_text(json.dumps(config.to_dict(), indent=2) + "\n")
             convergence = open(output / "convergence.txt", "w", buffering=1)
@@ -335,7 +318,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
     # Print headers
     if rank == 0:
         convergence.write("Iteration - Volume - Cs - Sp\n")
-        timings.write("Iteration - Elasticity - Sensitivities - Suboptimization and Level set\n")
+        timings.write("Iteration - Elasticity - Sensitivities - Suboptimization - Level-set update\n")
 
     # Start optimization
     comm.barrier()
@@ -348,16 +331,12 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
             last_bpts = pylsm.get_number_boundary_points()
             if n_iter % 10 == 0:  # (port: element densities every 10 iterations, for the result viewer)
                 frames.append((n_iter, np.asarray(dens, dtype=float).reshape(nely, nelx), last_bpts))
-            if n_iter == 0:  # (2D: stop rather than optimize from a start the seeding defect changed)
-                if n_iter == 0:
-                    bpts = pylsm.get_number_boundary_points()
-
-                    assert bpts > 0 and volume > 0, (
-                        f"Level-set initialization failed: {bpts} boundary points, "
-                        f"volume {volume:.10f}. The initial design is empty."
-                    )
-
-                    start = {"volume_fraction": volume / L_volume, "boundary_points": bpts}
+            if n_iter == 0:  # (port: stop on an empty start; record the start design)
+                assert last_bpts > 0 and volume > 0, (
+                    f"Level-set initialization failed: {last_bpts} boundary points, "
+                    f"volume {volume:.10f}. The initial design is empty."
+                )
+                start = {"volume_fraction": volume / L_volume, "boundary_points": last_bpts}
         else:
             dens = None
 
@@ -371,9 +350,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
         if rank == 0: 
             print("Start solving mechanical problem...", end="", flush=True)
             start_elasticity = process_time()
-        L = lz * ufl.inner(T, u_test) * ds(1)
-        a = lz * d * ufl.inner(sigma(mu, lmbda, epsilon(u_trial)), epsilon(u_test)) * dx
-        linear_solver(comm, bilinear, linear, bcs, u, "PREONLY", "LU", False)  # (2D: direct solve, exact to round-off, as src's LU solver; a direct solve takes no initial guess)
+        linear_solver(comm, bilinear, linear, bcs, u, "PREONLY", "LU", False)  # (2D: direct solve, exact to round-off; a direct solve takes no initial guess)
         if rank == 0: 
             timing_elasticity = process_time() - start_elasticity
             print("Done", flush=True)
@@ -429,9 +406,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
             timing_sensitivity = process_time() - start_sensitivity
 
             # Save vtk files
-            pylsm.write_vtk(n_iter, output_path + "/vtk/", "opt_")  # (2D: the 2D level set writes VTK)
-
-            # Save level-set function (binary file)
+            pylsm.write_vtk(n_iter, output_path + "/vtk")  # (2D: writes vtk/level-set_NNNN.vtk; the binding ignores a file name)
 
             # Get limits
             start_suboptimization = process_time() 
@@ -493,7 +468,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
             "artifacts": {
                 "convergence": "convergence.txt", "timings": "timings.txt",
                 "density": "states/density.xdmf", "displacement": "states/displacement.xdmf",
-                "stress": "stress/stress.xdmf", "level_set_vtk": f"vtk/opt_{n_iter - 1:04d}.vtk",
+                "stress": "stress/stress.xdmf", "level_set_vtk": f"vtk/level-set_{n_iter - 1:04d}.vtk",
             "density_final": "states/density_final.npy", "density_history": "states/density_history.npz",
             },
             "notes": [

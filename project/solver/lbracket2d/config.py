@@ -68,11 +68,7 @@ class LBracket2DConfig:
                 raise ValueError("An initial hole intersects the permanent corner cut")
         object.__setattr__(self, "hole_centers_m", centers)
         nx, ny = self.mesh_shape
-        if min(nx, ny) < 6:
-            raise ValueError("PyParaLeSTO requires at least 6 cells in every direction")
         h = self.lx_m / nx
-        if not math.isclose(self.ly_m / ny, h, rel_tol=1e-10):
-            raise ValueError("The 2-D level set requires square cells")
         for name in ("cut_length_m", "load_patch_m"):
             ratio = getattr(self, name) / h
             if not math.isclose(ratio, round(ratio), abs_tol=1e-8):

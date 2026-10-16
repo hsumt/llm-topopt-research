@@ -44,4 +44,5 @@ else:
                     st.page_link(routes.JOBS, label=f"{counts[state]} in Jobs",
                                  icon=":material/arrow_forward:", query_params={"show": state})
 
-st.caption("Approved plans run from their formulation's page. Post-solve diagnosis is not connected yet.")
+st.caption("Approved plans run from their approval record or formulation page. "
+           "Post-solve diagnosis is not connected yet.")

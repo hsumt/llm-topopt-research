@@ -32,6 +32,5 @@ RUN python -m pip install --no-cache-dir --no-build-isolation --no-deps /app/_ex
 RUN mkdir -p /home/ato /app/artifacts && chmod 1777 /home/ato /app/artifacts
 ENV HOME=/home/ato XDG_CACHE_HOME=/home/ato/.cache MPLCONFIGDIR=/home/ato/.config/matplotlib
 COPY project /app/project
-COPY tests /app/tests
 EXPOSE 8501
 CMD ["python", "-m", "streamlit", "run", "project/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]

@@ -1,15 +1,18 @@
-"""The one module the UI calls; it adapts the current formulation code.
+"""The one module the UI pages call.
 
-Interim until the scoped packages exist (formulate/, precheck/, approve/, jobs/):
-formulation steps run on threads inside the Streamlit process, the block config
-is mapped from the L-bracket solver inputs, and each approval starts at most one
-solver run (launch). Pages import nothing else from project/, so only this file changes.
+It owns formulation storage and the background formulation steps (threads inside the
+Streamlit process), the pre-solve check, approvals, launching an approved plan and reading
+its run, and the process-flow view model. Pages import nothing else from project/ outside
+project.ui.
 """
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
+import io
 import json
 import logging
 import re
@@ -26,16 +29,8 @@ from project import execution
 from project.execution import ARTIFACTS, run_plan
 from project.lbracket import assess_spec, combine_review, reference_spec
 from project.models import Review, Session
+from project.ui import citations
 from project.workflow import answer_questions, parse_succeeded, ready_to_try, retry_failure, start_session
-
-__all__ = [
-    "MODEL", "EXAMPLES", "KINDS", "STATES", "OUTLINE", "with_outline", "clean_brief",
-    "Benchmark", "Blocker", "Precheck", "Formulation",
-    "PlanEntry", "Approval", "list_benchmarks", "start_benchmark", "start_formulation", "answer",
-    "add_information", "retry", "abandon", "get", "list_formulations", "precheck", "plan_entry",
-    "approve", "approve_and_run", "flow_version", "get_approval", "list_approvals", "preview", "graph", "launch", "run_actions",
-    "run_info", "walkthrough_answers", "element_preview",
-]
 
 FORMULATIONS = ARTIFACTS / "formulations"
 APPROVALS = ARTIFACTS / "approvals"
@@ -96,7 +91,6 @@ class Precheck:
     ready: bool
     blockers: dict[str, list[Blocker]]   # always has every key in KINDS
     questions: list                      # list[models.Question]
-    solver_inputs: dict | None           # only when ready
     block_config: list[dict] | None      # [{"kind", "name", "params"}], only when ready
 
 
@@ -104,7 +98,7 @@ class Precheck:
 class Formulation:
     fid: str
     title: str
-    origin: str        # brief | benchmark
+    origin: str        # brief | benchmark | simulation
     state: str         # one of STATES
     step: str | None   # what is running while state == "working"
     error: str | None  # app-side problem; model failures are on session.failure
@@ -134,8 +128,6 @@ class Approval:
     approver: str
     approved_at: str
     entries: list[PlanEntry]
-    # False on approvals recorded before runs were connected: those were approved as "nothing runs".
-    runs_connected: bool = True
 
 
 def _heading(line: str) -> str | None:
@@ -478,7 +470,7 @@ def list_formulations() -> list[Formulation]:
 
 
 def _block_config(config) -> list[dict]:
-    """Interim: express LBracket2DConfig as blocks until formulate/realize.py exists."""
+    """Express the 2D L-bracket solver config as a block list for display and the approval record."""
     nx, ny = config.mesh_shape
     blocks = [
         {"kind": "geometry", "name": "lshape",
@@ -486,10 +478,10 @@ def _block_config(config) -> list[dict]:
                     "cut_length_m": config.cut_length_m}},
         {"kind": "initial_design", "name": "holes",
          "params": {"radius_m": config.hole_radius_m, "centers_m": [list(c) for c in config.hole_centers_m]}},
-        {"kind": "regions", "name": "named_face",
-         "params": {"name": "top_arm", "face": "top face of the vertical arm"}},
-        {"kind": "regions", "name": "named_face",
-         "params": {"name": "tip_band", "face": "upper band of the horizontal-arm tip face",
+        {"kind": "regions", "name": "named_edge",
+         "params": {"name": "top_arm", "edge": "top edge of the vertical arm"}},
+        {"kind": "regions", "name": "named_edge",
+         "params": {"name": "tip_band", "edge": "upper band of the horizontal-arm tip edge",
                     "height_m": config.load_patch_m}},
         {"kind": "materials", "name": "linear_isotropic",
          "params": {"region": "domain", "youngs_modulus_pa": config.youngs_modulus_pa,
@@ -515,7 +507,7 @@ def _block_config(config) -> list[dict]:
 def precheck(session: Session | None) -> Precheck:
     blockers: dict[str, list[Blocker]] = {kind: [] for kind in KINDS}
     if session is None:
-        return Precheck(False, blockers, [], None, None)
+        return Precheck(False, blockers, [], None)
     for issue in session.review.issues:
         if issue.blocking:
             origin = "code" if issue.key.startswith("solver_") else "model"
@@ -524,8 +516,8 @@ def precheck(session: Session | None) -> Precheck:
     assessment = assess_spec(session.spec) if parse_succeeded(session) else None
     ready = ready_to_try(session) and assessment is not None and assessment.ready
     if not ready:
-        return Precheck(False, blockers, list(session.review.questions), None, None)
-    return Precheck(True, blockers, [], assessment.config.to_dict(), _block_config(assessment.config))
+        return Precheck(False, blockers, list(session.review.questions), None)
+    return Precheck(True, blockers, [], _block_config(assessment.config))
 
 
 def _hash(data: dict) -> str:
@@ -556,8 +548,7 @@ def _run_pending(status: dict) -> bool:
     """True while the current approval has not started its run: each approval starts at most one run."""
     if status.get("state") != "approved" or not status.get("approval_id"):
         return False
-    # Runs launched before run_approval_id was recorded belong to the approval current at the time.
-    return not status.get("run_dir") or status.get("run_approval_id", status.get("approval_id")) != status["approval_id"]
+    return not status.get("run_dir") or status.get("run_approval_id") != status["approval_id"]
 
 
 def flow_version(fid: str) -> tuple:
@@ -579,9 +570,8 @@ def flow_version(fid: str) -> tuple:
 def run_actions(fid: str) -> dict:
     """What can happen next to an approved formulation's run.
 
-    can_run: the current approval has not started its run yet, and it can (it was recorded with runs
-    connected). can_reapprove: no run is active, so a new approval (for example with a new budget) can
-    replace the current one.
+    can_run: the current approval has not started its run yet. can_reapprove: no run is active, so a
+    new approval (for example with a new budget) can replace the current one.
     """
     with _lock:
         status = _read(_dir(fid) / "status.json") or {}
@@ -589,9 +579,8 @@ def run_actions(fid: str) -> dict:
         run_state = _run_state(status) if approved else None
     active = run_state in ("starting", "running")
     record = get_approval(status.get("approval_id")) if approved else None
-    return {"can_run": bool(record and record.runs_connected and _run_pending(status) and not active),
+    return {"can_run": bool(record and _run_pending(status) and not active),
             "can_reapprove": approved and not active, "active": active,
-            "legacy_approval": bool(record and not record.runs_connected and _run_pending(status)),
             "run_state": run_state, "pending": _run_pending(status)}
 
 
@@ -635,17 +624,13 @@ def approve(items: list[tuple], approver: str) -> str:
         approval_id = uuid.uuid4().hex
         _write(APPROVALS / f"{approval_id}.json", {
             "approval_id": approval_id, "kind": "single" if len(entries) == 1 else "batch",
-            "approver": approver, "approved_at": _now(), "runs_connected": True,
+            "approver": approver, "approved_at": _now(),
             "entries": [{"fid": e.fid, "title": e.title, "plan_hash": e.plan_hash,
                          "plan": {"spec": e.spec, "block_config": e.block_config,
                                   "solver_inputs": e.solver_inputs, "budget": e.budget}} for e in entries],
         })
         for fid in fids:
-            previous = _read(_dir(fid) / "status.json") or {}
-            # A run from before run_approval_id was recorded belongs to the approval being replaced.
-            pinned = ({"run_approval_id": previous.get("approval_id")}
-                      if previous.get("run_dir") and "run_approval_id" not in previous else {})
-            _set_status(fid, state="approved", approval_id=approval_id, **pinned)
+            _set_status(fid, state="approved", approval_id=approval_id)
     return approval_id
 
 
@@ -669,8 +654,7 @@ def _approval(data: dict) -> Approval | None:
     try:
         entries = [PlanEntry(fid=e["fid"], title=e["title"], plan_hash=e["plan_hash"], **e["plan"])
                    for e in data["entries"]]
-        return Approval(data["approval_id"], data["kind"], data["approver"], data["approved_at"], entries,
-                        bool(data.get("runs_connected", True)))
+        return Approval(data["approval_id"], data["kind"], data["approver"], data["approved_at"], entries)
     except (KeyError, TypeError):
         return None
 
@@ -708,35 +692,15 @@ def graph(spec) -> str:
 
 # ---- simulated run and process flow ------------------------------------------------------------
 
-def start_simulation() -> str:
-    """Run the pre-solve pipeline on a scripted model (no API call) and approve the result.
+def simulation_available() -> bool:
+    """True where the local presentation demo (project/ui/demo.py, not in the repository) exists."""
+    return importlib.util.find_spec("project.ui.demo") is not None
 
-    Every code decision is real; only the model's replies are scripted (project/ui/demo.py).
-    """
+
+def start_simulation() -> str:
+    """Run the pre-solve pipeline on the demo's scripted model replies and approve the result."""
     from project.ui import demo
-    fid = uuid.uuid4().hex
-    _write(_dir(fid) / "meta.json", {"fid": fid, "origin": "simulation", "brief": demo.BRIEF["request"],
-                                     "context": demo.BRIEF["context"], "created_at": _now()})
-    respond = demo.responder()
-    with ai.scripted(respond):
-        with trace.recording(trace.recorder_for(_dir(fid), fid)):
-            trace.start("Simulated: reading and reviewing the brief")
-            session = start_session(demo.BRIEF["request"], demo.BRIEF["context"])
-            _save_session(fid, session)
-            _record_present(session)
-            trace.commit()
-        answers = {k: v for k, v in demo.ANSWERS.items() if k in {q.key for q in session.review.questions}}
-        with trace.recording(trace.recorder_for(_dir(fid), fid, len(session.revisions))):
-            trace.start("Simulated: applying the engineer's answers")
-            _record_answers(session, answers)
-            session = answer_questions(session, answers)
-            _save_session(fid, session)
-            _record_present(session)
-            trace.commit()
-    _set_status(fid, state=None, step=None, error=None)
-    if get(fid).state == "ready":
-        approve([(fid, 2, 1)], "Simulated engineer")
-    return fid
+    return demo.start_simulation()
 
 
 RULES = {
@@ -772,7 +736,6 @@ def _convergence_png(info: dict) -> str | None:
     rows = info.get("history") or []
     if not rows:
         return None
-    import base64, io as _io
     from matplotlib.figure import Figure
     config = info.get("config") or {}
     figure = Figure(figsize=(5.2, 4.2), dpi=96)
@@ -790,15 +753,14 @@ def _convergence_png(info: dict) -> str | None:
     axes[2].set_ylabel("p-norm MPa")
     axes[2].set_xlabel("iteration")
     figure.tight_layout()
-    buffer = _io.BytesIO()
+    buffer = io.BytesIO()
     figure.savefig(buffer, format="png")
     return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
 def _items(node: dict) -> list[dict]:
-    from project.ui import citations
     return [{k: item.get(k) for k in ("type", "key", "text", "kind", "origin", "fate", "fate_rule", "rule",
-                                      "why", "example_answer", "detail", "blocking")}
+                                      "why", "detail")}
             | {"rule_text": _rule_text(item.get("fate_rule") or item.get("rule")),
                "rule_cite": citations.rule(item.get("fate_rule") or item.get("rule"))} for item in node.get("items", [])]
 
@@ -879,7 +841,7 @@ ABOUT = {
         ("The plan hash covers the specification, block config, solver inputs and budget.", "project.ui.api:plan_entry"),
         ("Changing anything afterwards needs a new approval.", "project/ui/api.py#changed after it was shown"),
     ]),
-    "Approval record": ("The stored record of what was approved.", "project/ui/api.py#\"runs_connected\": True", [
+    "Approval record": ("The stored record of what was approved.", "project/ui/api.py#\"approver\": approver, \"approved_at\": _now()", [
         ("Specification, block config, solver inputs, budget and plan hash.", "project/ui/api.py#\"plan\": {\"spec\": e.spec"),
     ]),
     "Run": ("The solver runs the approved plan.", "project.execution:_worker", [
@@ -905,7 +867,7 @@ def _about(label: str) -> dict | None:
     if key is None and label.startswith("Failed"):
         return {"text": "A step failed. The reason is recorded with a controlled error code.",
                 "cite": citations.cite("project.workflow:_failed"),
-                "points": [{"text": "Nothing was sent to the solver.", "cite": citations.cite("project/workflow.py#No solver was launched")},
+                "points": [{"text": "Nothing was sent to the solver.", "cite": citations.cite("project.workflow:ready_to_try")},
                            {"text": "The engineer can retry the failed step.", "cite": citations.cite("project.workflow:retry_failure")}]}
     if key is None:
         return None
@@ -938,9 +900,6 @@ def launch(fid: str, approval_id: str | None = None) -> str:
             raise RuntimeError("This plan is already running.")
         if not _run_pending(status):
             raise ValueError("This approval has already started its run. Approve again to start another run.")
-        if not record.runs_connected:
-            raise ValueError("This approval was recorded when running was not connected, so it does not "
-                             "authorize a run. Approve again to run.")
         iterations, ranks = entry.budget["max_iterations"], entry.budget["mpi_ranks"]
         if _hash(_plan_body(formulation.session, iterations, ranks)) != entry.plan_hash:
             raise ValueError("The solver inputs the current code builds differ from the approved plan "
@@ -972,10 +931,9 @@ def run_info(fid: str) -> dict | None:
     except (OSError, ValueError):
         pass
     summary = _read(run_dir / "solver" / "summary.json")
-    density, frames = None, []
+    frames = []
     try:
         import numpy as np
-        density = np.load(run_dir / "solver" / "states" / "density_final.npy").round(3).tolist()
         history = np.load(run_dir / "solver" / "states" / "density_history.npz")
         frames = [{"iteration": int(i), "density": d.round(3).tolist(), "boundary_points": int(b)}
                   for i, d, b in zip(history["iterations"], history["densities"], history["boundary_points"])]
@@ -994,8 +952,7 @@ def run_info(fid: str) -> dict | None:
                 "frames": [{"iteration": f["iteration"], "path": str(run_dir / "paraview" / f["file"])}
                            for f in manifest.get("frames", [])]}
     return {"run": run_dir.name, "state": state.get("state"), "reason": state.get("reason"), "paraview": paraview,
-            "started_at": state.get("started_at"), "finished_at": state.get("finished_at"),
-            "history": rows, "summary": summary, "density": density, "frames": frames, "config": config,
+            "history": rows, "summary": summary, "frames": frames, "config": config,
             "budget": budget, "log_tail": log_tail, "pending": _run_pending(status)}
 
 
@@ -1010,9 +967,9 @@ def element_preview(session: Session | None) -> dict | None:
     if config is None:
         return None
     from project.solver.lbracket2d.levelset import initial_densities
-    densities, boundary_points = initial_densities(config)
+    densities, _ = initial_densities(config)
     nx = config.mesh_shape[0]
-    return {"density": densities.round(3).tolist(), "boundary_points": boundary_points,
+    return {"density": densities.round(3).tolist(),
             "cut_cells": round(nx * config.cut_length_m / config.lx_m), "mesh": list(config.mesh_shape)}
 
 
@@ -1028,7 +985,8 @@ def walkthrough_answers(fid: str) -> dict[str, str]:
 
 
 def flow(fid: str) -> dict:
-    """The formulation's pre-solve process as flowchart nodes and edges, built from its trace.
+    """The formulation's process as flowchart nodes and edges: the pre-solve steps from its trace,
+    then approval, run, render and results from the approval record and run folder.
 
     Shapes: process (a step that does work), data (inputs and specifications), document
     (tagged review), decision (diamond), folder (stored record). Positions are grid cells.
@@ -1038,7 +996,7 @@ def flow(fid: str) -> dict:
         return {"nodes": [], "edges": []}
     folder = _dir(fid)
     nodes, edges, placed = [], [], {}
-    trace_nodes = [n for n in trace.read(folder) if not n.get("interim")]
+    nodes_in_trace = [n for n in trace.read(folder) if not n.get("interim")]
 
     def add(key, shape, label, col, row, actor, detail, status="ok", sub=None):
         # Boxes are up to 150 px wide in 190 px columns and up to 92 px tall in 150 px rows,
@@ -1072,7 +1030,7 @@ def flow(fid: str) -> dict:
                {"text": formulation.brief, "context": formulation.context})
     spec_version, spec_ref = 0, None
     ready = assess_ref = critic_ref = None
-    for node in trace_nodes:
+    for node in nodes_in_trace:
         step, r = node["step"], node["round"]
         base = 2 * r
         if step == "parse":
@@ -1156,7 +1114,7 @@ def flow(fid: str) -> dict:
     if formulation.approval_id and ready:
         record = get_approval(formulation.approval_id)
         entry = next((e for e in record.entries if e.fid == fid), None) if record else None
-        col, row = placed[ready]
+        _, row = placed[ready]
         a = add("approval", "process", "Approval", 9, row, "engineer",
                 {"text": f"Approved by {record.approver} at {record.approved_at}." if record else None}, sub="engineer")
         link(ready, a, "YES")
@@ -1186,9 +1144,8 @@ def flow(fid: str) -> dict:
             render = None
             pv = info["paraview"]
             if pv["frames"] or (pv["status"] or {}).get("state"):
-                import base64
                 final = pv["frames"][-1]["path"] if pv["frames"] else None
-                image = ("data:image/png;base64," + base64.b64encode(open(final, "rb").read()).decode()) if final else None
+                image = ("data:image/png;base64," + base64.b64encode(Path(final).read_bytes()).decode()) if final else None
                 render = add("paraview", "process", "ParaView render", 12, row, "code",
                              {"text": f"Rendered by ParaView (pvbatch) from the run's cell-data density: "
                                       f"{len(pv['frames'])} frames, one cube per element, no smoothing.",

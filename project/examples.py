@@ -17,7 +17,9 @@ EXAMPLES = {
             "Coordinates: x right, y up, origin at the lower-left corner. The 125 MPa value is a "
             "calibrated stress-norm limit, not a yield or peak-stress bound."
         ),
-        # Prepared engineer answers for a walkthrough, keyed by the code check's question keys.
+        # Prepared engineer answers for a walkthrough. solver_* keys match code-check question keys
+        # and can be filled automatically; "reviewer (...)" entries are shown for copying, because
+        # reviewer question keys vary.
         "answers": {
             "solver_support": "The whole top edge of the vertical arm is clamped to the frame: "
                               "zero displacement in x and y along that edge.",
@@ -48,7 +50,7 @@ EXAMPLES = {
             "stress bound."
         ),
     },
-    "M2: FRC intake pivot side plate": {
+    "Unsupported shape: FRC intake pivot side plate": {
         "request": (
             "Design a flat 10 in by 6 in, 1/4 in thick side plate for the robot intake. "
             "Attach the plate to the robot using the existing mounting holes and retain "

@@ -30,13 +30,12 @@ def _budget(budget: dict) -> str:
             f"on {ranks} MPI process{'es' if ranks != 1 else ''}")
 
 
-def render(entry, *, show_spec: bool = True) -> None:
+def render(entry) -> None:
     st.markdown("**Solver blocks**")
     block_table(entry.block_config)
     st.markdown(f"**Budget:** {_budget(entry.budget)}")
     with st.expander("Exact solver inputs"):
         st.json(entry.solver_inputs, expanded=True)
-    if show_spec:
-        with st.expander("Specification"):
-            spec_view.render(entry.spec)
+    with st.expander("Specification"):
+        spec_view.render(entry.spec)
     st.caption(f"Plan hash (SHA-256): `{entry.plan_hash}`")

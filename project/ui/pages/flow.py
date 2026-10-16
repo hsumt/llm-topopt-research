@@ -8,7 +8,7 @@ st.title("Process flow")
 st.write("Every pre-solve step of a formulation, from the brief to the approved plan. "
          "Click a symbol to see exactly what ran; press Play to step through it.")
 
-formulations = [f for f in api.list_formulations()]
+formulations = api.list_formulations()
 fid = st.query_params.get("fid")
 with st.container(horizontal=True, vertical_alignment="bottom"):
     options = {f.fid: f for f in formulations}
@@ -16,8 +16,10 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
                           format_func=lambda k: f"{options[k].title} · {job_status.label(options[k].state)}"
                                                  f"{' · simulated' if options[k].origin == 'simulation' else ''}",
                           placeholder="Choose a formulation", width=560)
-    if st.button("Create a simulated run", icon=":material/slideshow:",
-                 help="Runs the real pre-solve code on scripted model replies. No API call is made."):
+    # Only where the local presentation demo (project/ui/demo.py) is present.
+    if api.simulation_available() and st.button(
+            "Create a simulated run", icon=":material/slideshow:",
+            help="Runs the real pre-solve code on scripted model replies. No API call is made."):
         st.query_params["fid"] = api.start_simulation()
         st.rerun()
 if choice and choice != fid:
@@ -25,7 +27,7 @@ if choice and choice != fid:
     st.rerun()
 
 if not fid or fid not in options:
-    st.info("Choose a formulation, or create a simulated run to present the flow without calling a model.")
+    st.info("Choose a formulation.")
     st.stop()
 
 
@@ -41,8 +43,8 @@ if live:
     _watch(fid, api.flow_version(fid))
     st.caption(":material/autorenew: Updates as steps and the run progress.")
 flow = api.flow(fid)
-if not flow["nodes"] or len(flow["nodes"]) <= 1:
-    st.info("This formulation has no recorded trace yet. Traces start with steps run after tracing was added.")
+if len(flow["nodes"]) <= 1:
+    st.info("This formulation has no recorded steps yet.")
     st.stop()
 flow_canvas.render(flow, fid)
 st.caption("Drag to pan, scroll to zoom. Purple outlines are model steps, black are code, amber are the engineer. "

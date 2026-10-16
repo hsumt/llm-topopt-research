@@ -107,7 +107,7 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
     ax.set_ylim(-0.15 * height, 1.15 * height)
     ax.set_aspect("equal")
 
-    ax.set_xlabel("z / plate length")
+    ax.set_xlabel("plate length")
     ax.set_ylabel("y / plate height")
 
     title = f"Physical geometry preview — {length:g} × {height:g}"
@@ -116,29 +116,6 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
         title += f" × {thickness:g}"
 
     ax.set_title(title)
-
-    unresolved = []
-
-    for region in spec.geometry.regions:
-        name = region.name.lower()
-
-        if (
-            "mount" in name
-            or "pivot" in name
-            or "bumper" in name
-        ):
-            unresolved.append(region.name)
-
-    # if unresolved:
-    #     ax.text(
-    #         length / 2,
-    #         -0.10 * height,
-    #         "CAD-governed regions not positioned in this preview:\n"
-    #         + ", ".join(unresolved),
-    #         ha="center",
-    #         va="top",
-    #         fontsize=9,
-    #     )
 
     ax.text(
         length / 2,
@@ -172,7 +149,7 @@ def _length_mm(parameters, name: str) -> float | None:
     return number if math.isfinite(number) and number > 0 else None
 
 
-def _force_vector(load) -> tuple[float, float, float] | None:
+def _force_vector(load) -> tuple[float, float] | None:
     """Draw only loads whose location, units and direction are explicit."""
     if load.location != "tip_band" or load.kind != "total_force" or load.magnitude is None:
         return None
@@ -182,13 +159,12 @@ def _force_vector(load) -> tuple[float, float, float] | None:
     raw = load.magnitude.value
     try:
         if isinstance(raw, (list, tuple)):
-            if len(raw) not in (2, 3) or load.direction not in {None, "vector"} or any(isinstance(v, bool) for v in raw):
+            if len(raw) != 2 or load.direction not in {None, "vector"} or any(isinstance(v, bool) for v in raw):
                 return None
-            vector = tuple(float(v) * factor for v in raw) + (0.0,) * (3 - len(raw))
+            vector = tuple(float(v) * factor for v in raw)
         else:
-            directions = {"x": (1, 0, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0),
-                          "y": (0, 1, 0), "+y": (0, 1, 0), "-y": (0, -1, 0),
-                          "z": (0, 0, 1), "+z": (0, 0, 1), "-z": (0, 0, -1)}
+            directions = {"x": (1, 0), "+x": (1, 0), "-x": (-1, 0),
+                          "y": (0, 1), "+y": (0, 1), "-y": (0, -1)}
             direction = directions.get(load.direction)
             if direction is None or isinstance(raw, bool) or float(raw) <= 0:
                 return None
@@ -244,7 +220,7 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                 labeled = True
 
     clamped = any(bc.location == "top_arm" and (bc.kind or "").lower() in {"fixed", "clamped"}
-                  and sorted(bc.components) in (["x", "y"], ["x", "y", "z"])
+                  and sorted(bc.components) == ["x", "y"]
                   and (bc.value is None or bc.value.value == 0)
                   for bc in spec.boundary_conditions)
     if clamped:
@@ -259,21 +235,15 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
             force = _force_vector(load)
             if force is None:
                 continue
-            fx, fy, fz = force
+            fx, fy = force
             y = arm_y - patch / 2
             ax.plot([lx, lx], [arm_y - patch, arm_y], color="#c2410c", linewidth=4)
-            in_plane = math.hypot(fx, fy)
-            if in_plane:
-                scale = .20 * max(lx, ly) / in_plane
-                endpoint = (lx + fx * scale, y + fy * scale)
-                arrow_ends.append(endpoint)
-                ax.annotate("", xy=endpoint, xytext=(lx, y),
-                            arrowprops={"arrowstyle": "-|>", "lw": 2, "color": "#c2410c"})
-                load_notes.append(f"Fx = {fx:g} N; Fy = {fy:g} N")
-            if fz:
-                ax.text(lx, y, r"$\odot$" if fz > 0 else r"$\otimes$",
-                        ha="center", va="center", color="#c2410c", fontsize=19)
-                load_notes.append(f"Fz = {fz:+g} N ({'out of' if fz > 0 else 'into'} plane)")
+            scale = .20 * max(lx, ly) / math.hypot(fx, fy)
+            endpoint = (lx + fx * scale, y + fy * scale)
+            arrow_ends.append(endpoint)
+            ax.annotate("", xy=endpoint, xytext=(lx, y),
+                        arrowprops={"arrowstyle": "-|>", "lw": 2, "color": "#c2410c"})
+            load_notes.append(f"Fx = {fx:g} N; Fy = {fy:g} N")
     if load_notes:
         ax.text(.99, .01, "\n".join(load_notes), transform=ax.transAxes,
                 ha="right", va="bottom", fontsize=9, color="#9a3412")

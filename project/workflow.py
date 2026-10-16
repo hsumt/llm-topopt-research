@@ -80,14 +80,6 @@ def parse_succeeded(session: Session) -> bool:
     return session.spec != ProblemSpec(name="Unparsed request")
 
 
-def deterministic_blockers(session: Session) -> list[str]:
-    # An empty placeholder after an API failure is not evidence that the
-    # engineer omitted geometry, loads, or material from their request.
-    if not parse_succeeded(session):
-        return []
-    return [issue.description for issue in assess_spec(session.spec).issues if issue.blocking]
-
-
 def ready_to_try(session: Session) -> bool:
     if session.failure is not None or not parse_succeeded(session):
         return False
@@ -103,12 +95,8 @@ def _failed(session: Session, step: str, error: Exception) -> Session:
         next_step=error.next_step, request_state=error.request_state,
         retryable=error.retryable,
     )
-    message = f"{step}: {failure.message} {failure.next_step} No solver was launched."
     trace.failure(step, failure)
-    return session.model_copy(update={
-        "errors": [*session.errors, message],
-        "failure": failure,
-    })
+    return session.model_copy(update={"failure": failure})
 
 
 def start_session(request: str, context: str | None = None) -> Session:
@@ -170,7 +158,7 @@ def answer_questions(session: Session, answers: dict[str, str]) -> Session:
     trace.next_round(len(revisions))
     candidate = Session(original_request=session.original_request, context=session.context,
                         spec=new_spec, review=combine_review(new_spec, Review(), interim=True),
-                        revisions=revisions, usage=[*session.usage, resolve_usage], errors=session.errors,
+                        revisions=revisions, usage=[*session.usage, resolve_usage],
                         parse_completed=True)
     try:
         review, review_usage = review_problem(new_spec, original_request=session.original_request,
@@ -203,15 +191,9 @@ def retry_failure(session: Session) -> Session:
     if not parse_succeeded(session) or (session.failure and session.failure.stage == "parse"):
         recovered = start_session(session.original_request, session.context)
         return recovered.model_copy(update={
-            "errors": [*session.errors, *recovered.errors],
             "usage": [*session.usage, *recovered.usage],
             "revisions": session.revisions,
         })
     if session.failure and session.failure.stage == "resolve":
         return answer_questions(session, session.pending_answers)
     return _retry_review(session)
-
-
-def retry_review(session: Session) -> Session:
-    """Compatibility entry point; retry the stage that actually failed."""
-    return retry_failure(session)

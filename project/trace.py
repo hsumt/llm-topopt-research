@@ -1,9 +1,10 @@
 """Append-only trace of how a formulation's questions were derived.
 
 A formulation folder gets trace.jsonl (one JSON node per line) and blobs/
-(content-addressed JSON: specs, model payloads, raw replies, rejected edits).
-A node records one step (parse, assess, critic, merge, present, answer, resolve,
-apply, failure, run.*), its actor, the nodes it used, and every issue, question,
+(content-addressed JSON: specs, model payloads, raw replies, rejected edits,
+spilled item lists, large old/new values).
+A node records one step (parse, benchmark, assess, critic, merge, present, answer,
+resolve, apply, failure, run.*), its actor, the nodes it used, and every issue, question,
 answer or update it created, kept, dropped or applied, with the rule that decided.
 
 Recording only observes. It never raises into the workflow and never changes what
@@ -34,13 +35,13 @@ TRACE_LIMIT = 5 * 1024 * 1024     # bytes of trace.jsonl per formulation
 BLOBS_LIMIT = 20 * 1024 * 1024    # bytes of blobs per formulation
 _KEY = re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")              # redaction: errs towards over-redacting
 _KEY_START = re.compile(r"(?<![A-Za-z0-9])sk-ant", re.IGNORECASE)   # intake: any key-like start
-_TEXT_FIELDS = ("text", "why", "example_answer", "basis")
+_TEXT_FIELDS = ("text", "why", "example_answer")
 _OMITTED = ("output_schema", "output_spec_schema", "prior_rounds")   # rebuilt from the source version and revisions
 _SOURCES = ("lbracket.py", "prompts.py", "models.py")
 _MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve"}   # trace step -> ai.py call step
 
 _log = logging.getLogger(__name__)
-_lock = threading.RLock()   # re-entered when a node's items spill into a blob
+_lock = threading.RLock()   # serializes trace appends and blob-budget accounting across formulation threads
 _version: str | None = None
 
 
@@ -116,9 +117,9 @@ class NullRecorder:
 class Recorder:
     enabled = True
 
-    def __init__(self, folder: Path, fid: str, round: int = 0, run: str | None = None):
+    def __init__(self, folder: Path, fid: str, round: int = 0):
         self.folder, self.fid, self.round = Path(folder), fid, round
-        self.run = run or uuid.uuid4().hex[:8]
+        self.run = uuid.uuid4().hex[:8]
         self.last: dict[str, str] = {}       # step -> latest node id written by this run
         self.before: dict[str, str] = {}     # step -> latest node id of earlier committed runs
         self.spec_node: str | None = None    # latest node that produced the current spec

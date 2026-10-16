@@ -22,8 +22,9 @@ def _links() -> None:
         st.page_link(routes.BATCH, label="Go to Batch", icon=":material/stacks:")
 
 
-def _open(fid: str, label: str = "Open this formulation") -> None:
-    st.page_link(routes.FORMULATION, label=label, icon=":material/open_in_new:", query_params={"fid": fid})
+def _open(fid: str) -> None:
+    st.page_link(routes.FORMULATION, label="Open this formulation", icon=":material/open_in_new:",
+                 query_params={"fid": fid})
 
 
 def _run_line(approval, entry) -> None:
@@ -65,16 +66,11 @@ def _recorded(aid: str) -> None:
     st.write("This is the record of what was approved; it does not change.")
     st.caption(f"Approved by {md(approval.approver)} on {_when(approval.approved_at)} · "
                f"{'single plan' if approval.kind == 'single' else 'batch'} · id {approval.approval_id}")
-    if approval.runs_connected:
-        st.caption("Each approved plan starts at most one solver run, from its formulation's page.")
-    else:
-        st.caption("Recorded when running was not connected, so this approval does not authorize a run. "
-                   "Approve again from the formulation's page to run it.")
+    st.caption("Each approved plan starts at most one solver run.")
     for entry in approval.entries:
         with st.container(border=True):
             st.subheader(md(entry.title))
-            if approval.runs_connected:
-                _run_line(approval, entry)
+            _run_line(approval, entry)
             _open(entry.fid)
             plan_view.render(entry)
 

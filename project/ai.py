@@ -28,10 +28,9 @@ from project.prompts import (
 
 T = TypeVar("T", bound=BaseModel)
 MODEL = os.getenv("FORMULATION_MODEL") or "claude-sonnet-4-6"
-USE_CACHE = os.getenv("PRESOLVE_CACHE", "1") == "1"
-CACHE_DIR = Path("artifacts/cache/simple_presolve")
+USE_CACHE = True
+CACHE_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "formulation"
 
-# _ Underscores mean that these functions are internal helpers for others. Its a naming convention, please follow.
 
 def _client():
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -74,7 +73,7 @@ def _extract_json(text: str) -> dict:
 
     return json.loads(text[start : end + 1])
 
-def _cache_key( # This is for caching. I've simplified cache.py into this.
+def _cache_key(
     step: str,
     prompt: str,
     payload: dict,
@@ -93,6 +92,8 @@ def _cache_key( # This is for caching. I've simplified cache.py into this.
     )
 
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _cache_path(key: str) -> Path:
     return CACHE_DIR / f"{key}.json"
 
@@ -160,17 +161,11 @@ def _call_model(
     # it holds the reply text but never exception text.
     key = _cache_key(step, prompt, payload)
     call = {"step": step, "model": MODEL, "cache_key": key, "cache_hit": False, "payload": payload,
-            "reply": None, "stop_reason": None, "tokens": None, "failure_code": None}
+            "reply": None, "stop_reason": None, "tokens": None}
     started = time.monotonic()
     try:
         return _call_model_once(call, key=key, step=step, prompt=prompt, payload=payload,
                                 output_type=output_type, max_tokens=max_tokens, bypass_cache=bypass_cache)
-    except ModelCallError as error:
-        call["failure_code"] = error.code
-        raise
-    except Exception:
-        call["failure_code"] = "unknown_error"
-        raise
     finally:
         call["latency_ms"] = round((time.monotonic() - started) * 1000)
         trace.record_call(call)
