@@ -1,6 +1,4 @@
 """One formulation: its specification, the pre-solve check, and what it needs next."""
-from datetime import datetime
-
 import matplotlib.pyplot as plt
 import streamlit as st
 
@@ -9,7 +7,6 @@ from project.ui.components import (failure_view, gap_report, issues_view, job_st
                                    questions_form, spec_view, usage_view)
 from project.ui.components.spec_view import md
 
-ORIGINS = {"brief": "From a brief", "benchmark": "From a benchmark"}
 NEXT = {
     "working": "The system is working on this formulation in the background; this page updates by itself.",
     "needs_input": "The specification is incomplete: answer the questions below or add information.",
@@ -24,15 +21,8 @@ NO_QUESTIONS = "The specification is incomplete: add the missing information bel
 EDITABLE = ("needs_input", "unsupported", "ready")
 
 
-def _when(stamp: str) -> str:
-    try:
-        return datetime.fromisoformat(stamp).strftime("%Y-%m-%d %H:%M UTC")
-    except ValueError:
-        return stamp or "unknown time"
-
-
 def _label(key: str, prompts: dict[str, str]) -> str:
-    return "Added information or correction" if key == "additional_information" else prompts.get(key, key)
+    return "Added information or correction" if key == api.ADDED_INFORMATION_KEY else prompts.get(key, key)
 
 
 @st.fragment(run_every=2)
@@ -73,7 +63,6 @@ def _precheck(formulation, check) -> None:
     if check.ready:
         st.success("Every required input is stated and the connected solver can run this specification.")
         plan_view.block_table(check.block_config)
-        st.caption("Interim: this block configuration is mapped from the current L-bracket solver inputs.")
         if state == "ready" and st.button("Review and approve", type="primary", icon=":material/task_alt:"):
             st.switch_page(routes.APPROVAL, query_params={"fids": fid})
         return
@@ -111,7 +100,7 @@ def _walkthrough(fid: str, questions, round_index: int) -> None:
 
     def fill() -> None:
         for key, value in matching.items():
-            st.session_state[f"answer_{fid}_{round_index}_{key}"] = value
+            st.session_state[questions_form.answer_key(fid, round_index, key)] = value
 
     with st.expander("Walkthrough: prepared answers", expanded=True, icon=":material/school:"):
         st.caption("This brief is a walkthrough example with answers prepared in advance. "
@@ -134,8 +123,7 @@ def _run(fid: str, record) -> None:
     if actions["can_run"]:
         entry = next((e for e in record.entries if e.fid == fid), None) if record else None
         budget = entry.budget if entry else {}
-        st.write(f"The approved plan has not run yet: at most {budget.get('max_iterations', '?')} iterations "
-                 f"on {budget.get('mpi_ranks', '?')} MPI process(es).")
+        st.write(f"The approved plan has not run yet: {plan_view.budget_text(budget)}.")
         with st.container(horizontal=True, vertical_alignment="center"):
             if st.button("Run approved plan", type="primary", icon=":material/play_arrow:"):
                 try:
@@ -169,7 +157,7 @@ def _run_live(fid: str) -> None:
     if info is None or info["state"] not in ("starting", "running"):
         st.rerun()   # the whole page: a finished run is drawn once, without refreshing
     _run_result(fid, info)
-    st.caption(("ParaView is rendering the result. " if info["paraview"]["step"] == "rendering with ParaView" else "")
+    st.caption(("ParaView is rendering the result. " if info["paraview"]["rendering"] else "")
                + "Refreshing every 3 s while the run is active.")
 
 
@@ -177,7 +165,7 @@ def _run_result(fid: str, info: dict) -> None:
     rows = info["history"]
     budget = info.get("budget")
     with st.container(horizontal=True, vertical_alignment="center"):
-        job_status.badge({"completed": "approved", "failed": "failed", "interrupted": "failed"}.get(info["state"], "working"))
+        job_status.run_badge(info["state"])
         st.write(f"**{info['state'].capitalize()}** · {len(rows)}{f' of {budget}' if budget else ''} iterations "
                  f"recorded · run {info['run']}")
     if info.get("reason"):
@@ -196,13 +184,11 @@ def _run_result(fid: str, info: dict) -> None:
                        help=f"Limit {limit / 1e6:.0f} MPa" if limit else None)
     frames = info.get("frames") or []
     if frames:
-        nx = len(frames[0]["density"][0])
-        cut = round(nx * info["config"].get("cut_length_m", 0) / info["config"].get("lx_m", 1))
         options = [f["iteration"] for f in frames]
         picked = st.select_slider("Design at iteration", options, value=options[-1], key=f"frame_{fid}",
                                   help="Element densities from ParaLeSTO, saved every 10 iterations and at the end.")
         frame = frames[options.index(picked)]
-        result_view.render(frame["density"], cut_cells=cut, key=f"{fid}_{picked}",
+        result_view.render(frame["density"], cut_cells=info["cut_cells"], key=f"{fid}_{picked}",
                            title=f"Iteration {picked} · {frame['boundary_points']} boundary points · ParaLeSTO elements")
         pv_frames = info["paraview"]["frames"]
         if pv_frames:
@@ -315,8 +301,8 @@ st.title(md(formulation.title))
 st.write(NO_QUESTIONS if state == "needs_input" and check and not check.questions else NEXT[state])
 with st.container(horizontal=True, vertical_alignment="center"):
     job_status.badge(state)
-    st.caption(f"{ORIGINS.get(formulation.origin, formulation.origin)} · created {_when(formulation.created_at)}"
-               f" · updated {_when(formulation.updated_at)} · id {fid}")
+    st.caption(f"{job_status.origin(formulation.origin)[0]} · created {job_status.when(formulation.created_at)}"
+               f" · updated {job_status.when(formulation.updated_at)} · id {fid}")
 
 if state == "working":
     st.info(f"{formulation.step or 'Working'}…", icon=":material/progress_activity:")
@@ -332,14 +318,14 @@ elif state == "failed":
             st.rerun()
 elif state == "approved":
     record = api.get_approval(formulation.approval_id) if formulation.approval_id else None
-    st.success(f"Approved by {md(record.approver)} on {_when(record.approved_at)}." if record else "Approved.",
+    st.success(f"Approved by {md(record.approver)} on {job_status.when(record.approved_at)}." if record else "Approved.",
                icon=":material/verified:")
     if record:
         st.page_link(routes.APPROVAL, label="Open the approval record", icon=":material/receipt_long:",
                      query_params={"aid": record.approval_id})
     _run(fid, record)
 
-if session is not None and session.parse_completed is not False:
+if session is not None and session.parse_completed:
     if state == "working":
         st.caption("Showing the last saved specification. "
                    "The pre-solve check returns when the current step finishes.")

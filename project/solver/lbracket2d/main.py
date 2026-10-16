@@ -6,7 +6,8 @@ Entry points: run(config, output, max_iterations), and
 
 Ported from mfrto/p_norm_stress_constraint/lbracket/simplified_2D_holes (see PROVENANCE.md).
 
-Original example contributors: A. Guibert, M. Pozzi, M. Bookwala.
+Original work: large-scale thermo-mechanical battery pack level-set topology optimization
+(AIAA Journal 2024); contributors: A. Guibert, M. Pozzi, M. Bookwala.
 """
 from pathlib import Path
 import argparse
@@ -14,16 +15,19 @@ import json
 import time
 
 from .config import LBracket2DConfig
+from .levelset import build_level_set
+
+# pyparalesto.pyopt sub-problem solvers by opt_algo code
+OPT_ALGORITHMS = {0: "Newton-Raphson", 1: "MMA via NLopt", 2: "simplex method"}
 
 
 def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
-    if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or not 1 <= max_iterations <= 500:
-        raise ValueError("max_iterations must be an integer between 1 and 500")
+    if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or max_iterations < 1:
+        raise ValueError("max_iterations must be a positive integer")
     output = Path(output)
     started = time.monotonic()
     # MPI must initialize before dolfinx for mesh partitioning on multiple ranks.
     from mpi4py import MPI
-    from pyparalesto.pylsm2d import PyInput, PyLevelSetModule
     from pyparalesto.pyopt import PyOptimizerModule
     from dolfinx import fem, mesh, cpp, io
     from petsc4py import PETSc
@@ -54,15 +58,8 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
     lx, ly, lz = config.lx_m, config.ly_m, config.thickness_m  # [m] outer square side lengths and plane-stress plate thickness
     cut_length = config.cut_length_m  # [m] side length of the square removed from the top right corner of the original square domain
     arm = lx - cut_length  # [m] width of each arm
-    patch_length = config.load_patch_m  # [m] side of the loaded square at the tip of the horizontal arm
-    hole_radius = config.hole_radius_m  # [m] radius of the initial holes
-    hole_centers = [tuple(c) for c in config.hole_centers_m]  # [m] hole axes
-    nelx = int(config.nelx)  # [number of elements]
-    nely = int(round(nelx*ly/lx))  # Keep the same scaled element count for the y direction (2D: no elements through the thickness)
-    cut_elems, patch_elems = int(round(nelx*cut_length/ly)), int(round(nelx*patch_length/lx))  # The number of elements in the height of the square being cut & the number of elements in the patch being traction loaded
-    arm_elems = nelx - cut_elems  # width of each arm in elements
-    assert abs(lx/nelx - ly/nely) < 1e-12, "the level set assumes square cells"  # 2D level set assumes square cells
-    assert abs(nelx*cut_length/lx - cut_elems) < 1e-9 and abs(nelx*patch_length/lx - patch_elems) < 1e-9, "the cut and the loaded square must fall on whole elements"
+    nelx, nely = config.mesh_shape  # [number of elements] square cells (2D: no elements through the thickness)
+    cut_elems, patch_elems = config.cut_cells, config.patch_cells  # The number of elements in the height of the square being cut & the number of elements in the patch being traction loaded
     L_volume = float(nelx*nely - cut_elems**2) # area of the L in elements; pyparalesto's 2D level set measures volume as area in elements
     vol_fraction = config.volume_fraction  # volume limit as a fraction of the L
     Sp_limit = config.stress_limit_pa  # [Pa] calibrated p-norm limit; None for a volume-only problem
@@ -222,30 +219,8 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
     # Level set initialization
     if rank == 0:
         print("Start initialization of the level-set...", end="", flush=True)
-        # Parameters
-        map_flag = 1 # 0 for least squares, 1 for discrete adjoint
-        perturbation = config.perturbation
+        pylsm = build_level_set(config)  # (port: shared with the formulation preview, levelset.py)
         move_limit = config.move_limit
-
-        # Initialize the input object
-        pyinit = PyInput(nelx, nely, map_flag, perturbation, move_limit)  # (2D: the move limit is set here; get_limits and update ignore the value passed to them)
-
-
-        pyinit.add_nondesign_void_rectangle(nelx, nely, cut_elems, cut_elems)  # (2D: the binding shrinks the half-widths by 0.1, so only nodes strictly inside the cut are fixed as void)
-        pyinit.create_level_set_boundary(arm_elems, nely, 1e-10, cut_elems)  # (2D: zero level set along the cut's vertical inner edge, so that edge is boundary)
-        pyinit.create_level_set_boundary(nelx, arm_elems, cut_elems, 1e-10)  # (2D: the same along the cut's horizontal inner edge)
-
-        # Define non-design domains for the boundary where traction is applied
-        pyinit.add_nondesign_domain_rectangle(nelx - 0.5*patch_elems, arm_elems - 0.5*patch_elems,
-                                              0.5*patch_elems, 0.5*patch_elems)
-        # Initial holes: design voids the optimizer can move, merge or close
-        for x_hole, y_hole in hole_centers:
-            pyinit.add_initial_void_circle(nelx*x_hole/lx, nely*y_hole/ly, nelx*hole_radius/lx)  # (2D: a circle with the same center and radius in elements)
-
-
-        # Initialize level set object
-        pylsm = PyLevelSetModule(pyinit)
-
         print("Done", flush=True)
 
     ########################################################################################################################
@@ -264,7 +239,7 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
         # Optimizer
         num_cons = len(max_cons_vals)
         curr_cons_vals = np.zeros(num_cons, dtype=np.double)
-        opt_algo = 1  # Simplex method 2 || Newton Raphson 0 || MMA NLOPT 1
+        opt_algo = 1  # sub-problem solver code; see OPT_ALGORITHMS
         pyopt = PyOptimizerModule(num_cons, max_cons_vals, opt_algo)
 
     # Iterations
@@ -461,15 +436,15 @@ def run(config: LBracket2DConfig, output: Path, max_iterations: int) -> dict:
             "runtime_seconds": time.monotonic() - started,
             "dolfinx_version": dolfinx.__version__,
             "last_evaluated_design": last_metrics,
-        "level_set": {"library": "pyparalesto (vendored, unmodified)", "level_set_module": "pyparalesto.pylsm2d",
-                      "optimizer": "pyparalesto.pyopt, MMA via NLopt (opt_algo 1)",
-                      "level_set_updates": n_iter, "final_boundary_points": int(last_bpts)},
+            "level_set": {"library": "pyparalesto (vendored, unmodified)", "level_set_module": "pyparalesto.pylsm2d",
+                          "optimizer": f"pyparalesto.pyopt, {OPT_ALGORITHMS[opt_algo]} (opt_algo {opt_algo})",
+                          "level_set_updates": n_iter, "final_boundary_points": int(last_bpts)},
             "input": config.to_dict(),
             "artifacts": {
                 "convergence": "convergence.txt", "timings": "timings.txt",
                 "density": "states/density.xdmf", "displacement": "states/displacement.xdmf",
                 "stress": "stress/stress.xdmf", "level_set_vtk": f"vtk/level-set_{n_iter - 1:04d}.vtk",
-            "density_final": "states/density_final.npy", "density_history": "states/density_history.npz",
+                "density_final": "states/density_final.npy", "density_history": "states/density_history.npz",
             },
             "notes": [
                 "Iteration budget completion does not establish optimization convergence.",
@@ -488,10 +463,10 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Run the 2-D plane-stress L-bracket level-set backend")
     parser.add_argument("--config", type=Path, required=True, help="Validated SI JSON configuration")
     parser.add_argument("--output", type=Path, required=True, help="New output directory")
-    parser.add_argument("--max-iterations", type=int, default=1, help="Bounded iteration budget (1-500)")
+    parser.add_argument("--max-iterations", type=int, default=1, help="Iteration budget, at least 1")
     args = parser.parse_args(argv)
-    if not 1 <= args.max_iterations <= 500:
-        parser.error("--max-iterations must be between 1 and 500")
+    if args.max_iterations < 1:
+        parser.error("--max-iterations must be at least 1")
     if args.config.name == ".env" or args.config.suffix == ".env":
         parser.error("Environment files are not solver configurations")
     try:

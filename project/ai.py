@@ -28,7 +28,6 @@ from project.prompts import (
 
 T = TypeVar("T", bound=BaseModel)
 MODEL = os.getenv("FORMULATION_MODEL") or "claude-sonnet-4-6"
-USE_CACHE = True
 CACHE_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "formulation"
 
 
@@ -195,7 +194,7 @@ def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: d
         call.update(model="scripted", reply=text, stop_reason="scripted", tokens={"in": 0, "out": 0})
         return _validate_response(text, output_type), Usage(step=step, model="scripted")
 
-    cached = _read_cache(key) if USE_CACHE and not bypass_cache else None
+    cached = None if bypass_cache else _read_cache(key)
 
     if cached is not None:
         try:
@@ -221,29 +220,23 @@ def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: d
         raise classify_provider_error(error) from None
 
     usage = getattr(response, "usage", None)
-    call.update(stop_reason=getattr(response, "stop_reason", None),
+    stop_reason = getattr(response, "stop_reason", None)
+    call.update(stop_reason=stop_reason,
                 tokens={"in": getattr(usage, "input_tokens", None), "out": getattr(usage, "output_tokens", None)})
+    response_text = "".join(
+        block.text for block in (getattr(response, "content", None) or [])
+        if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
+    )
+    # The trace keeps the reply even when it is partial or empty; the errors below are raised either way.
+    call["reply"] = response_text
 
-    if getattr(response, "stop_reason", None) == "max_tokens":
-        try:
-            # Keep the partial reply for the trace; the error below is raised either way.
-            call["reply"] = "".join(block.text for block in (getattr(response, "content", None) or [])
-                                    if getattr(block, "type", None) == "text"
-                                    and isinstance(getattr(block, "text", None), str))
-        except Exception:
-            pass
+    if stop_reason == "max_tokens":
         raise ModelCallError(
             "truncated_response", "Claude's response reached its output limit before it finished.",
             "Retry the AI step. If it repeats, increase this stage's output allowance "
             "or shorten the request while retaining the engineering requirements.",
             "response_received", True,
         )
-
-    response_text = "".join(
-        block.text for block in (getattr(response, "content", None) or [])
-        if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
-    )
-    call["reply"] = response_text
     if not response_text.strip():
         raise ModelCallError(
             "empty_response", "Claude returned no text that could be read as a specification.",
@@ -253,15 +246,14 @@ def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: d
 
     result = _validate_response(response_text, output_type)
 
-    input_tokens = int(response.usage.input_tokens)
-    output_tokens = int(response.usage.output_tokens)
+    input_tokens = int(usage.input_tokens)
+    output_tokens = int(usage.output_tokens)
 
-    if USE_CACHE:
-        try:
-            _write_cache(key, response_text, input_tokens, output_tokens)
-        except OSError:
-            # The optional cache must never discard a valid, paid-for response.
-            pass
+    try:
+        _write_cache(key, response_text, input_tokens, output_tokens)
+    except OSError:
+        # The cache must never discard a valid, paid-for response.
+        pass
 
     return result, Usage(
         step=step,
@@ -295,15 +287,15 @@ def review_problem(
     original_request: str | None = None,
     context: str | None = None,
     revisions: list[Revision] | None = None,
-    code_issues: list[dict] | None = None,
-    free_question_slots: int = 4,
+    code_issues: list[dict],
+    free_question_slots: int,
 ) -> tuple[Review, Usage]:
     payload = {
         "spec": spec.model_dump(exclude_none=True),
         "original_request": original_request,
         "context": context,
         "prior_rounds": [revision.model_dump() for revision in (revisions or [])],
-        "code_issues": code_issues or [],
+        "code_issues": code_issues,
         "free_question_slots": free_question_slots,
         "output_schema": Review.model_json_schema(),
     }

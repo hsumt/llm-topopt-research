@@ -4,6 +4,11 @@ import streamlit as st
 from project.ui.components.spec_view import md
 
 
+def answer_key(fid: str, round_index: int, question_key: str) -> str:
+    """Session-state key of one answer box; the walkthrough fills boxes through it."""
+    return f"answer_{fid}_{round_index}_{question_key}"
+
+
 def _other(options: list[str]) -> str | None:
     return next((o for o in options if o.strip().lower().startswith("other")), None)
 
@@ -25,7 +30,7 @@ def _use_example(values: dict[str, str]) -> None:
 
 
 def _question(fid: str, round_index: int, index: int, question) -> str | None:
-    key = f"answer_{fid}_{round_index}_{question.key}"
+    key = answer_key(fid, round_index, question.key)
     with st.container(border=True):
         st.markdown(f"**{index}. {md(question.prompt)}**")
         if question.why:

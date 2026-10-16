@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
+from project.ai_errors import RequestState
+
 class Model(BaseModel): # throws errors if extra comes in
     model_config = ConfigDict(extra="forbid")
 class Value(Model): # any value with units (125 N for example)
@@ -96,6 +98,11 @@ class ProblemSpec(Model):
 
     assumptions: list[str] = Field(default_factory=list)
 
+# Keys of issues and questions raised by the code check (lbracket.assess_spec) start with this;
+# the reviewer may not use it, so the prefix also tells the two origins apart.
+CODE_KEY_PREFIX = "solver_"
+
+
 class Issue(Model): # a spec problem found by the code check (lbracket.assess_spec) or the reviewer
     key: str
     field: str | None = None
@@ -147,7 +154,7 @@ class ModelFailure(Model):
     code: str
     message: str
     next_step: str
-    request_state: Literal["not_sent", "attempted", "response_received", "unknown"]
+    request_state: RequestState
     retryable: bool
 
 
@@ -158,6 +165,6 @@ class Session(Model): # original request + context + specification + review + re
     review: Review
     revisions: list[Revision] = Field(default_factory=list)
     usage: list[Usage] = Field(default_factory=list)
-    parse_completed: bool | None = None
+    parse_completed: bool = False
     failure: ModelFailure | None = None
     pending_answers: dict[str, str] = Field(default_factory=dict)

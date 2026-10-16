@@ -1,16 +1,18 @@
 """System prompts for the three model steps, built from named parts.
 
 Each step's prompt is its parts joined in order (PARTS); the UI shows them part by part.
-In the solver contract, the template, hole count, geometry keys, region names, units and p
-are generated from lbracket.py and LBracket2DConfig; the other names mirror
-lbracket.assess_spec and must be kept in step by hand. The contract goes to parse and
-resolve only: the reviewer works on engineering intent, and only the code decides what the
-solver cannot implement.
+In the solver contract, every name the code check accepts is interpolated from the
+lbracket.py constants that lbracket.assess_spec tests against, so the prompt and the check
+cannot drift apart. Only the schema's fixed choices (physical_dimension 2, sense "minimize",
+relation "<="), the property names E and nu, and the hole role "preserved_void" (named so the
+model can record it; the check rejects it) are written out. The contract goes to parse
+and resolve only: the reviewer works on engineering intent, and only the code decides what
+the solver cannot implement.
 """
-from dataclasses import fields
+import json
 
 from project import lbracket
-from project.solver.lbracket2d.config import LBracket2DConfig
+from project.models import CODE_KEY_PREFIX
 
 PARSE_RULES = """
 You turn an engineer's request into a structured engineering problem.
@@ -49,7 +51,7 @@ Rules:
 - Keep names and descriptions short; no explanatory prose.
 """
 
-REVIEW_RULES = """
+REVIEW_RULES = f"""
 You review a structured engineering problem before it is run, alongside a
 deterministic code check. Return JSON only, matching the supplied Review schema.
 
@@ -62,7 +64,7 @@ materially change the problem being solved, beyond what code_issues covers.
 
 Rules:
 - Do not repeat or rephrase anything in code_issues; the code already asks about
-  it. Use your own keys; never start a key with "solver_".
+  it. Use your own keys; never start a key with "{CODE_KEY_PREFIX}".
 - Ask at most free_question_slots questions (none when it is 0), and only about
   decisions. Combine related decisions when one answer can settle them.
 - Each question names the physical detail that is unresolved and what a usable
@@ -137,8 +139,10 @@ Rules:
 
 def solver_contract() -> str:
     """The connected solver's vocabulary, generated from the code that checks it."""
-    p = next(f.default for f in fields(LBracket2DConfig) if f.name == "p_norm")
     regions = "; ".join(f"{name} = {role}" for name, role in lbracket.REGIONS.items())
+    signed = [f'"{name}"' for name in lbracket.FORCE_DIRECTIONS if name[0] in "+-"]
+    directions = ", ".join(signed[:-1]) + " or " + signed[-1]
+    components = json.dumps(list(lbracket.SUPPORT_COMPONENTS))
     return f"""
 Solver contract. The connected solver handles one 2D plane-stress L-bracket plate family. Use these
 exact names when the engineer's words mean them. A requirement with another
@@ -150,37 +154,37 @@ code reports what the solver cannot implement.
   geometry.physical_dimension = 2 (a flat plate analysed in plane stress; thickness
   is the uniform plate thickness). Coordinates: x right, y up, origin at the
   lower-left corner.
-- Holes: geometry.hole_role = "initial_void" when the holes may move, merge or
+- Holes: geometry.hole_role = "{lbracket.HOLE_ROLE}" when the holes may move, merge or
   close; "preserved_void" when they must stay.
 - Geometry parameters, each a Value with a length unit: {", ".join(lbracket.GEOMETRY_ORDER)}.
   hole_centers is {lbracket.HOLES} [x, y] pairs in one length unit. load_patch is
-  the height of the loaded band at the upper end of the horizontal-arm tip face,
+  the height of the loaded band at the upper end of the horizontal-arm tip edge,
   through the full thickness. Never infer a dimension from a name. A governing
   CAD model or drawing that is named but not supplied goes in
   geometry.authoritative_source.
 - Regions (name = role): {regions}. Use these names for these meanings and no
   other names for them.
-- Physics: family "solid_mechanics"; regime "linear_static" only when static
-  small-strain linear elasticity is stated; representation "2d_plane_stress" only
+- Physics: family "{lbracket.FAMILY}"; regime "{lbracket.REGIME}" only when static
+  small-strain linear elasticity is stated; representation "{lbracket.REPRESENTATION}" only
   if requested, otherwise leave it empty.
-- Material: one uniform material with region "domain" and properties E (stress
+- Material: one uniform material with region "{lbracket.DOMAIN}" and properties E (stress
   unit) and nu (no unit). A material name does not supply E or nu. A named
   datasheet goes in materials[0].data_source.
 - Support: a clamp over the whole top edge of the vertical arm is location
-  "top_arm", kind "clamped", components ["x", "y"]. Other restraints keep
+  "{lbracket.SUPPORT_REGION}", kind "{lbracket.SUPPORT_KIND}", components {components}. Other restraints keep
   their own meaning.
 - Load: one total force spread uniformly over the tip band is location
-  "tip_band", kind "total_force", magnitude {{"value": [Fx, Fy], "unit": force
-  unit}}, or a positive scalar with direction "+x", "-x", "+y" or "-y". A pressure or point
+  "{lbracket.LOAD_REGION}", kind "{lbracket.LOAD_KIND}", magnitude {{"value": [Fx, Fy], "unit": force
+  unit}}, or a positive scalar with direction {directions}. A pressure or point
   load is not this.
-- Objective: sense "minimize", quantity "compliance"; design_variable
-  "material_distribution".
-- Volume: quantity "volume_fraction", relation "<=", region "l_domain" only when
+- Objective: sense "minimize", quantity "{lbracket.OBJECTIVE}"; design_variable
+  "{lbracket.DESIGN_VARIABLE}".
+- Volume: quantity "{lbracket.VOLUME_QUANTITY}", relation "<=", region "{lbracket.REFERENCE_REGION}" only when
   the reference is the full L domain excluding the cut.
-- Stress: optimization.stress_requirement "volume_only" only when no stress
-  constraint is wanted; "pnorm_limit" only for the calibrated volume-averaged
-  p = {p:g} norm, with a constraint quantity "stress_p_norm", relation "<=",
-  region "l_domain" and a limit with a stress unit. Yield or peak stress is a
+- Stress: optimization.stress_requirement "{lbracket.VOLUME_ONLY}" only when no stress
+  constraint is wanted; "{lbracket.PNORM_LIMIT}" only for the calibrated volume-averaged
+  p = {lbracket.P_NORM:g} norm, with a constraint quantity "{lbracket.STRESS_QUANTITY}", relation "<=",
+  region "{lbracket.REFERENCE_REGION}" and a limit with a stress unit. Yield or peak stress is a
   different quantity and keeps its own name.
 - Units: lengths {", ".join(lbracket.LENGTH_UNITS)}; stresses {", ".join(lbracket.STRESS_UNITS)};
   forces {", ".join(lbracket.FORCE_UNITS)}.

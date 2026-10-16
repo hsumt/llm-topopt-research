@@ -1,11 +1,11 @@
 """Process flow: how a formulation went from brief to approved plan, step by step."""
 import streamlit as st
 
-from project.ui import api, routes
+from project.ui import api, flow_model, routes
 from project.ui.components import flow_canvas, job_status
 
 st.title("Process flow")
-st.write("Every pre-solve step of a formulation, from the brief to the approved plan. "
+st.write("Every step of a formulation, from the brief through approval to its run and results. "
          "Click a symbol to see exactly what ran; press Play to step through it.")
 
 formulations = api.list_formulations()
@@ -42,7 +42,7 @@ if live:
     # Redraw only when a step or the run changes state, so the canvas stays usable meanwhile.
     _watch(fid, api.flow_version(fid))
     st.caption(":material/autorenew: Updates as steps and the run progress.")
-flow = api.flow(fid)
+flow = flow_model.flow(fid)
 if len(flow["nodes"]) <= 1:
     st.info("This formulation has no recorded steps yet.")
     st.stop()

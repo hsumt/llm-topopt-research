@@ -5,7 +5,6 @@
 !docker/conda-linux-64.lock
 !_external/
 !project/
-!tests/
 **/.env
 **/*.env
 **/.env.*

@@ -3,6 +3,8 @@ import re
 
 import streamlit as st
 
+from project.ui.api import UNPARSED_NAME
+
 _MARKDOWN = re.compile(r"([\\`*_\[\]<>#$~|])")
 _RELATIONS = {"<=": "≤", ">=": "≥", "=": "="}
 _STRESS = {"volume_only": "volume constraint only", "pnorm_limit": "p-norm stress limit"}
@@ -103,7 +105,7 @@ def _or(value, missing: str) -> str:
 def _problem(spec: dict) -> None:
     _heading("Problem")
     name = spec.get("name")
-    _fields([("Name", None if name in (None, "", "Unparsed request") else name),
+    _fields([("Name", None if name in (None, "", UNPARSED_NAME) else name),
              ("Type", capital(words(spec.get("problem_kind"))))])
 
 

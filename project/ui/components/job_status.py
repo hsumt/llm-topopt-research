@@ -1,4 +1,6 @@
-"""The one state badge used on every page."""
+"""The state badges, origin labels and timestamps used on every page."""
+from datetime import datetime
+
 import streamlit as st
 
 LABELS: dict[str, tuple[str, str]] = {
@@ -28,3 +30,25 @@ def label(state: str) -> str:
 
 def badge(state: str) -> None:
     st.badge(label(state), icon=_ICONS.get(state), color=LABELS.get(state, ("", "gray"))[1])
+
+
+def run_badge(run_state: str) -> None:
+    """A solver run's state, shown with the formulation badge of the same meaning."""
+    badge({"completed": "approved", "failed": "failed", "interrupted": "failed"}.get(run_state, "working"))
+
+
+ORIGINS = {"brief": ("From a brief", ":material/edit_note:"),
+           "benchmark": ("Benchmark", ":material/science:"),
+           "simulation": ("Simulated", ":material/slideshow:")}
+
+
+def origin(kind: str) -> tuple[str, str]:
+    """(label, icon) for a formulation's origin."""
+    return ORIGINS.get(kind, (kind, ":material/description:"))
+
+
+def when(stamp: str) -> str:
+    try:
+        return datetime.fromisoformat(stamp).strftime("%Y-%m-%d %H:%M UTC")
+    except ValueError:
+        return stamp or "unknown time"

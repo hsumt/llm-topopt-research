@@ -1,5 +1,4 @@
 """Approve exact plans for ready formulations, or read a recorded approval."""
-from datetime import datetime
 import hashlib
 
 import streamlit as st
@@ -7,13 +6,6 @@ import streamlit as st
 from project.ui import api, routes
 from project.ui.components import job_status, plan_view
 from project.ui.components.spec_view import md
-
-
-def _when(stamp: str) -> str:
-    try:
-        return datetime.fromisoformat(stamp).strftime("%Y-%m-%d %H:%M UTC")
-    except ValueError:
-        return stamp or "unknown time"
 
 
 def _links() -> None:
@@ -48,8 +40,7 @@ def _run_line(approval, entry) -> None:
             else:
                 st.switch_page(routes.FORMULATION, query_params={"fid": fid})
     elif actions["run_state"] and not actions["pending"]:
-        job_status.badge({"completed": "approved", "failed": "failed", "interrupted": "failed"}.get(
-            actions["run_state"], "working"))
+        job_status.run_badge(actions["run_state"])
         st.caption(f"Run {actions['run_state']}. Open the formulation for its results.")
 
 
@@ -64,7 +55,7 @@ def _recorded(aid: str) -> None:
     count = len(approval.entries)
     st.title("Approved plan" if count == 1 else f"Approved batch of {count} plans")
     st.write("This is the record of what was approved; it does not change.")
-    st.caption(f"Approved by {md(approval.approver)} on {_when(approval.approved_at)} · "
+    st.caption(f"Approved by {md(approval.approver)} on {job_status.when(approval.approved_at)} · "
                f"{'single plan' if approval.kind == 'single' else 'batch'} · id {approval.approval_id}")
     st.caption("Each approved plan starts at most one solver run.")
     for entry in approval.entries:
@@ -78,7 +69,6 @@ def _recorded(aid: str) -> None:
 def _review(fids: list[str]) -> None:
     st.title("Review and approve")
     st.write("Check every input below. Approving records these exact plans.")
-    st.caption("Interim: block configurations are mapped from the current L-bracket solver inputs.")
     items, hashes = [], []
     for fid in fids:
         formulation = api.get(fid)
@@ -107,11 +97,12 @@ def _review(fids: list[str]) -> None:
                 continue
             budget = st.columns([1, 1, 2])
             iterations = int(budget[0].number_input(
-                "Max iterations", min_value=1, max_value=500, value=500, step=1, key=f"iterations_{fid}",
-                help="The most optimization iterations the solver may run. 500 is a full run; "
+                "Max iterations", min_value=1, max_value=api.MAX_ITERATIONS, value=api.MAX_ITERATIONS, step=1,
+                key=f"iterations_{fid}",
+                help=f"The most optimization iterations the solver may run. {api.MAX_ITERATIONS} is a full run; "
                      "use a few iterations for a quick check."))
             ranks = int(budget[1].number_input(
-                "MPI processes", min_value=1, max_value=8, value=1, step=1, key=f"ranks_{fid}",
+                "MPI processes", min_value=1, max_value=api.MAX_RANKS, value=1, step=1, key=f"ranks_{fid}",
                 help="Parallel solver processes."))
             try:
                 entry = api.plan_entry(fid, iterations, ranks)

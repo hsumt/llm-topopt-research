@@ -27,7 +27,7 @@ RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 # Compile inside the image; no host binary, checkout, or editable-install path.
 COPY _external /app/_external
 RUN python -m pip install --no-cache-dir --no-build-isolation --no-deps /app/_external/pyparalesto \
-    && python -c "from mpi4py import MPI; import dolfinx; from pyparalesto.pylsm import PyInput; from pyparalesto.pyopt import PyOptimizerModule; assert dolfinx.__version__ == '0.7.0'"
+    && python -c "from mpi4py import MPI; import dolfinx; from pyparalesto.pylsm2d import PyInput, PyLevelSetModule; from pyparalesto.pyopt import PyOptimizerModule; assert dolfinx.__version__ == '0.7.0'"
 
 RUN mkdir -p /home/ato /app/artifacts && chmod 1777 /home/ato /app/artifacts
 ENV HOME=/home/ato XDG_CACHE_HOME=/home/ato/.cache MPLCONFIGDIR=/home/ato/.config/matplotlib

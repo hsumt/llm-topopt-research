@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, Polygon
 
+from project import lbracket
 from project.models import ProblemSpec
 
 
@@ -12,7 +13,7 @@ def problem_graph(spec: ProblemSpec) -> str:
         "digraph problem {",
         "rankdir=LR;",
         'node [shape=box, style="rounded"];',
-        f'problem [label="{spec.name}\\n{spec.problem_kind}"];',
+        f'problem [label="{_clean(spec.name)}\\n{spec.problem_kind}"];',
     ]
 
     if spec.geometry:
@@ -79,7 +80,7 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
     if spec.geometry is None:
         return None
 
-    if spec.geometry.template == "lbracket2d_five_holes":
+    if spec.geometry.template == lbracket.TEMPLATE:
         return _lbracket_preview(spec)
 
     parameters = spec.geometry.parameters
@@ -130,16 +131,17 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
     return fig
 
 
-_LENGTH_TO_MM = {"m": 1000., "cm": 10., "mm": 1., "in": 25.4,
-                 "inch": 25.4, "inches": 25.4}
-_FORCE_TO_N = {"n": 1., "kn": 1000., "lbf": 4.4482216152605}
+def _mm_per(unit: str | None) -> float | None:
+    """Millimetres per unit, for the length units the code check accepts."""
+    factor = lbracket.LENGTH_TO_M.get((unit or "").strip().lower())
+    return None if factor is None else factor * 1000
 
 
 def _length_mm(parameters, name: str) -> float | None:
     item = parameters.get(name)
     if item is None or isinstance(item.value, bool):
         return None
-    factor = _LENGTH_TO_MM.get((item.unit or "").strip().lower())
+    factor = _mm_per(item.unit)
     if factor is None:
         return None
     try:
@@ -151,9 +153,9 @@ def _length_mm(parameters, name: str) -> float | None:
 
 def _force_vector(load) -> tuple[float, float] | None:
     """Draw only loads whose location, units and direction are explicit."""
-    if load.location != "tip_band" or load.kind != "total_force" or load.magnitude is None:
+    if load.location != lbracket.LOAD_REGION or load.kind != lbracket.LOAD_KIND or load.magnitude is None:
         return None
-    factor = _FORCE_TO_N.get((load.magnitude.unit or "").strip().lower())
+    factor = lbracket.FORCE_TO_N.get((load.magnitude.unit or "").strip().lower())
     if factor is None:
         return None
     raw = load.magnitude.value
@@ -163,9 +165,7 @@ def _force_vector(load) -> tuple[float, float] | None:
                 return None
             vector = tuple(float(v) * factor for v in raw)
         else:
-            directions = {"x": (1, 0), "+x": (1, 0), "-x": (-1, 0),
-                          "y": (0, 1), "+y": (0, 1), "-y": (0, -1)}
-            direction = directions.get(load.direction)
+            direction = lbracket.FORCE_DIRECTIONS.get(load.direction)
             if direction is None or isinstance(raw, bool) or float(raw) <= 0:
                 return None
             vector = tuple(float(raw) * factor * value for value in direction)
@@ -198,8 +198,8 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
 
     centers = parameters.get("hole_centers")
     if centers is not None and radius is not None:
-        factor = _LENGTH_TO_MM.get((centers.unit or "").strip().lower())
-        initial = geometry.hole_role == "initial_void"
+        factor = _mm_per(centers.unit)
+        initial = geometry.hole_role == lbracket.HOLE_ROLE
         hole_label = "Initial holes (may change)" if initial else "Specified holes"
         if factor is not None and isinstance(centers.value, (list, tuple)):
             labeled = False
@@ -219,8 +219,9 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                 ax.add_patch(circle)
                 labeled = True
 
-    clamped = any(bc.location == "top_arm" and (bc.kind or "").lower() in {"fixed", "clamped"}
-                  and sorted(bc.components) == ["x", "y"]
+    clamped = any(bc.location == lbracket.SUPPORT_REGION
+                  and (bc.kind or "").lower() in {lbracket.SUPPORT_KIND, "fixed"}
+                  and sorted(bc.components) == sorted(lbracket.SUPPORT_COMPONENTS)
                   and (bc.value is None or bc.value.value == 0)
                   for bc in spec.boundary_conditions)
     if clamped:

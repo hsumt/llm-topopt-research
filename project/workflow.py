@@ -1,8 +1,11 @@
 from project import trace
 from project.ai import parse_problem, resolve_answers, review_problem
 from project.ai_errors import ModelCallError, classify_error
-from project.lbracket import assess_spec, combine_review
+from project.lbracket import MAX_QUESTIONS, assess_spec, combine_review
 from project.models import ModelFailure, ProblemSpec, Resolution, Review, Revision, Session
+
+
+UNPARSED_NAME = "Unparsed request"   # name of the placeholder spec before a successful parse
 
 
 class PatchRejected(ValueError):
@@ -68,16 +71,11 @@ def _code_check(spec: ProblemSpec) -> dict:
     """What the reviewer is told the code check already found, and how many questions it may add."""
     assessment = assess_spec(spec)
     return {"code_issues": [issue.model_dump() for issue in assessment.issues],
-            "free_question_slots": max(0, 4 - len(assessment.questions))}
+            "free_question_slots": max(0, MAX_QUESTIONS - len(assessment.questions))}
 
 
 def parse_succeeded(session: Session) -> bool:
-    """Recognize old saved sessions without inventing a successful parse."""
-    if session.parse_completed is not None:
-        return session.parse_completed
-    if any(item.step == "parse" for item in session.usage):
-        return True
-    return session.spec != ProblemSpec(name="Unparsed request")
+    return session.parse_completed
 
 
 def ready_to_try(session: Session) -> bool:
@@ -101,7 +99,7 @@ def _failed(session: Session, step: str, error: Exception) -> Session:
 
 def start_session(request: str, context: str | None = None) -> Session:
     fallback = Session(original_request=request, context=context,
-                       spec=ProblemSpec(name="Unparsed request"), review=Review(),
+                       spec=ProblemSpec(name=UNPARSED_NAME), review=Review(),
                        parse_completed=False)
     try:
         spec, parse_usage = parse_problem(request, context)
@@ -111,14 +109,7 @@ def start_session(request: str, context: str | None = None) -> Session:
     session = Session(original_request=request, context=context, spec=spec,
                       review=combine_review(spec, Review(), interim=True), usage=[parse_usage],
                       parse_completed=True)
-    try:
-        review, review_usage = review_problem(spec, original_request=request, context=context, revisions=[],
-                                             **_code_check(spec))
-    except Exception as error:
-        return _failed(session, "review", error)
-    trace.critic(review)
-    return session.model_copy(update={"review": combine_review(spec, review),
-                                      "usage": [parse_usage, review_usage]})
+    return _review(session)
 
 
 def answer_questions(session: Session, answers: dict[str, str]) -> Session:
@@ -160,18 +151,11 @@ def answer_questions(session: Session, answers: dict[str, str]) -> Session:
                         spec=new_spec, review=combine_review(new_spec, Review(), interim=True),
                         revisions=revisions, usage=[*session.usage, resolve_usage],
                         parse_completed=True)
-    try:
-        review, review_usage = review_problem(new_spec, original_request=session.original_request,
-                                             context=session.context, revisions=revisions,
-                                             **_code_check(new_spec))
-    except Exception as error:
-        return _failed(candidate, "review", error)
-    trace.critic(review)
-    return candidate.model_copy(update={"review": combine_review(new_spec, review),
-                                        "usage": [*candidate.usage, review_usage]})
+    return _review(candidate)
 
 
-def _retry_review(session: Session) -> Session:
+def _review(session: Session) -> Session:
+    """Run the reviewer on the session's spec and merge its review with the code check."""
     candidate = Session.model_validate(session.model_dump())
     try:
         review, review_usage = review_problem(candidate.spec,
@@ -196,4 +180,4 @@ def retry_failure(session: Session) -> Session:
         })
     if session.failure and session.failure.stage == "resolve":
         return answer_questions(session, session.pending_answers)
-    return _retry_review(session)
+    return _review(session)

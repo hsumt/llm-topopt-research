@@ -13,16 +13,11 @@ FILTERS = {
     "problems": ("Not supported / Failed", ("unsupported", "failed")),
     "closed": ("Closed", ("approved", "abandoned")),
 }
-ORIGINS = {"brief": ("From a brief", ":material/edit_note:"), "benchmark": ("Benchmark", ":material/science:")}
 
 
 def _plain(text: str, limit: int = 90) -> str:
     """Model- or user-written text shown literally in a Markdown label."""
     return md(text if len(text) <= limit else text[:limit - 1] + "…")
-
-
-def _when(stamp: str) -> str:
-    return f"{stamp.replace('T', ' ')[:16]} UTC" if stamp else "unknown"
 
 
 def _signature(items: list) -> tuple:
@@ -63,7 +58,7 @@ if not formulations:
 elif not items:
     st.caption("No formulations in this group.")
 for f in items:
-    origin, icon = ORIGINS.get(f.origin, (f.origin, ":material/description:"))
+    origin, icon = job_status.origin(f.origin)
     with st.container(border=True):
         left, middle, right = st.columns([6, 2, 3], vertical_alignment="center")
         with left:
@@ -72,7 +67,7 @@ for f in items:
                 st.caption(f.step)
         with middle:
             job_status.badge(f.state)
-        right.caption(f"{origin} · updated {_when(f.updated_at)} · id {f.fid[:8]}")
+        right.caption(f"{origin} · updated {job_status.when(f.updated_at)} · id {f.fid[:8]}")
 
 st.subheader("Approvals")
 approvals = api.list_approvals()
@@ -86,6 +81,6 @@ for approval in approvals:
         left, right = st.columns([6, 5], vertical_alignment="center")
         left.page_link(routes.APPROVAL, label=title, icon=":material/verified:",
                        query_params={"aid": approval.approval_id})
-        right.caption(f"{kind} · approved by {_plain(approval.approver)} · {_when(approval.approved_at)}")
+        right.caption(f"{kind} · approved by {_plain(approval.approver)} · {job_status.when(approval.approved_at)}")
 if approvals:
     st.caption("Each approved plan starts at most one solver run.")

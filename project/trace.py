@@ -27,6 +27,8 @@ import threading
 import uuid
 from pathlib import Path
 
+from project.models import CODE_KEY_PREFIX
+
 VERSION = 1
 TEXT_LIMIT = 300                  # characters per text field on an item
 LINE_LIMIT = 64 * 1024            # bytes per node line; larger item lists spill into a blob
@@ -38,7 +40,7 @@ _KEY_START = re.compile(r"(?<![A-Za-z0-9])sk-ant", re.IGNORECASE)   # intake: an
 _TEXT_FIELDS = ("text", "why", "example_answer")
 _OMITTED = ("output_schema", "output_spec_schema", "prior_rounds")   # rebuilt from the source version and revisions
 _SOURCES = ("lbracket.py", "prompts.py", "models.py")
-_MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve"}   # trace step -> ai.py call step
+MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve"}   # trace step -> ai.py call step
 
 _log = logging.getLogger(__name__)
 _lock = threading.RLock()   # serializes trace appends and blob-budget accounting across formulation threads
@@ -251,9 +253,10 @@ class Recorder:
         self.last[step] = self.latest = node_id
         return node_id
 
-    def take_call(self, step: str) -> dict | None:
+    def take_call(self, call_step: str) -> dict | None:
+        """The pending model call, if ai.py made it for call_step."""
         call, self.call = self.call, None
-        return call if call and call.get("step") == _MODEL_STEPS.get(step) else None
+        return call if call and call.get("step") == call_step else None
 
     def model_record(self, call: dict | None) -> dict:
         """Node fields for a model call: payload and reply blobs, model info, latency."""
@@ -298,7 +301,7 @@ def recorder_for(folder: Path, fid: str, round: int = 0):
 
 def item(kind: str, obj, *, origin: str, fate: str, rule: str | None = None, fate_rule: str | None = None,
          sources=(), detail: dict | None = None) -> dict:
-    """One issue, question, answer or update as it appears in a node."""
+    """One issue, question or update as it appears in a node."""
     entry = {"type": kind, "origin": origin, "fate": fate, "rule": rule, "fate_rule": fate_rule,
              "from": [s for s in sources if s], "detail": detail or {}}
     if kind == "issue":
@@ -306,12 +309,14 @@ def item(kind: str, obj, *, origin: str, fate: str, rule: str | None = None, fat
     elif kind == "question":
         entry.update(key=obj.key, text=obj.prompt, why=obj.why, issue_keys=list(obj.issue_keys),
                      answer_type=obj.answer_type, example_answer=obj.example_answer)
+    elif kind == "update":
+        entry.update(key="/".join(map(str, obj.path)), text=json.dumps(obj.value, default=str))
     return entry
 
 
 def origin_of(key: str) -> str:
-    # Until Issue has an origin field, the code marks its own items with the solver_ prefix.
-    return "code" if key.startswith("solver_") else "model"
+    # Until Issue has an origin field, the code marks its own items with CODE_KEY_PREFIX.
+    return "code" if key.startswith(CODE_KEY_PREFIX) else "model"
 
 
 # ---- pipeline steps (each a no-op outside recording(), and never raising) ------------------------
@@ -365,7 +370,7 @@ def parsed(spec) -> None:
     recorder = current()
     if not recorder.enabled:
         return
-    call = recorder.model_record(recorder.take_call("parse"))
+    call = recorder.model_record(recorder.take_call(MODEL_STEPS["parse"]))
     outputs = {**call.pop("outputs", {}), "spec": recorder.blob(spec.model_dump(mode="json"))}
     recorder.spec_node = recorder.node("parse", "model", "ai.parse_problem",
                                        parents=[recorder.last.get("run.start")], outputs=outputs, **call)
@@ -379,7 +384,7 @@ def critic(review) -> None:
     items = [item("issue", i, origin="model", fate="created") for i in review.issues]
     items += [item("question", q, origin="model", fate="created") for q in review.questions]
     recorder.node("critic", "model", "ai.review_problem", parents=[recorder.spec_node], items=items,
-                  **recorder.model_record(recorder.take_call("critic")))
+                  **recorder.model_record(recorder.take_call(MODEL_STEPS["critic"])))
 
 
 @guarded
@@ -387,15 +392,14 @@ def resolved(resolution) -> None:
     recorder = current()
     if not recorder.enabled:
         return
-    items = [{"type": "update", "origin": "model", "fate": "created", "key": "/".join(map(str, u.path)),
-              "text": json.dumps(u.value, default=str), "from": [], "detail": {"path": list(u.path)}}
+    items = [item("update", u, origin="model", fate="created", detail={"path": list(u.path)})
              for u in resolution.updates]
     recorder.claimed = list(resolution.resolved_issue_keys)
     # A retried resolve reuses the answers recorded by the earlier run.
     answer = recorder.last.get("answer") or recorder.before.get("answer")
     recorder.node("resolve", "model", "ai.resolve_answers", parents=[answer], items=items,
                   extra={"claimed_resolved": recorder.claimed},
-                  **recorder.model_record(recorder.take_call("resolve")))
+                  **recorder.model_record(recorder.take_call(MODEL_STEPS["resolve"])))
 
 
 def _at(data, path):
@@ -427,11 +431,10 @@ def applied(spec, resolution, new_spec, error: Exception | None = None) -> None:
             fate, rule = "rejected", culprit_rule
         else:
             fate, rule = "rejected", culprit_rule if culprit is None and culprit_rule else "apply.atomic"
-        items.append({"type": "update", "origin": "model", "key": "/".join(map(str, update.path)),
-                      "text": json.dumps(update.value, default=str), "fate": fate, "fate_rule": rule,
-                      "from": [f"{resolve}#{n}"] if resolve else [],
-                      "detail": {"path": list(update.path), "old": recorder.small(_at(before, update.path)),
-                                 "new": recorder.small(_at(after, update.path)) if after else None}})
+        items.append(item("update", update, origin="model", fate=fate, fate_rule=rule,
+                          sources=[f"{resolve}#{n}"] if resolve else [],
+                          detail={"path": list(update.path), "old": recorder.small(_at(before, update.path)),
+                                  "new": recorder.small(_at(after, update.path)) if after else None}))
     outputs = ({"spec": recorder.blob(after)} if new_spec
                else {"rejected": recorder.blob(resolution.model_dump(mode="json"))})
     node = recorder.node("apply", "code", "workflow.apply_resolution", parents=[resolve, recorder.spec_node],
@@ -443,14 +446,14 @@ def applied(spec, resolution, new_spec, error: Exception | None = None) -> None:
 
 @guarded
 def failure(stage: str, failure) -> None:
+    """Record a failed model step; stage is the ai.py call step (a MODEL_STEPS value)."""
     recorder = current()
     if not recorder.enabled:
         return
-    step = {"review": "critic"}.get(stage, stage)
     recorder.node("failure", "code", "workflow._failed", parents=[recorder.latest], status="failed",
                   failure_code=failure.code,
                   extra={"stage": stage, "request_state": failure.request_state, "retryable": failure.retryable},
-                  **recorder.model_record(recorder.take_call(step)))
+                  **recorder.model_record(recorder.take_call(stage)))
 
 
 @guarded

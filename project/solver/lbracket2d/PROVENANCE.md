@@ -20,16 +20,21 @@ been deleted.
   - the run also writes `states/density_final.npy` and `states/density_history.npz`
     (element densities every 10 iterations and at the last iteration);
   - the per-iteration rebuild of the forms `L` and `a`, which were never recompiled,
-    and the commented-out binary restart are removed.
+    and the commented-out binary restart are removed;
+  - the level-set initialization moved to `levelset.build_level_set`, and the element
+    counts come from `LBracket2DConfig`, whose validation replaces the source's
+    square-cell and whole-element assertions.
 
   The FE model, level-set setup and optimizer calls are otherwise unchanged.
 - `pyfea.py`, `utils.py`: copied unchanged apart from a provenance docstring.
 - `config.py`: new; adapted from the 3-D port's validated contract (equal outer
-  lengths, so square cells; plane-stress thickness; a 2-component force). Reference
-  values are the source's, with the 0.75 volume fraction of its 2 Oct vf75 run and the
-  source's 125 MPa calibrated limit.
-- `levelset.py`: new; builds the starting level set with ParaLeSTO alone (no FEM) for
-  the formulation preview, repeating `main.py`'s level-set initialization.
+  lengths, so square cells; plane-stress thickness; a 2-component force), with the
+  element counts (`mesh_shape`, `cut_cells`, `patch_cells`) in the source's formulas.
+  Reference values are the source's, with the 0.75 volume fraction of its 2 Oct vf75
+  run and the source's 125 MPa calibrated limit.
+- `levelset.py`: new; `build_level_set` holds the source's level-set initialization
+  (ParaLeSTO alone, no FEM). `main.run` and the formulation preview
+  (`initial_densities`) both call it.
 - `render_paraview.py`: new; pvbatch element renderer that `project/execution.py` runs
   after a successful solve.
 

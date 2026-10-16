@@ -1,6 +1,6 @@
 """Process-flow canvas: flowchart symbols on a pannable grid, a detail drawer per node, and playback.
 
-Everything interactive runs in the browser; Python only passes the flow from api.flow().
+Everything interactive runs in the browser; Python only passes the flow from flow_model.flow().
 """
 import streamlit as st
 
@@ -185,7 +185,7 @@ function citeHtml(c) {
     return `<span class="row${hl ? " hl" : ""}"><span class="ln">${n}</span>${esc(line)}</span>`;
   }).join("");
   return `<button class="cite" type="button" title="Show the code behind this">‹/› ${esc(c.label)}</button>` +
-    `<div class="codebox" hidden><div class="codehead"><span>${esc(c.file)} · lines ${c.start}–${c.end}${c.truncated ? " (first 60 lines shown)" : ""}</span>` +
+    `<div class="codebox" hidden><div class="codehead"><span>${esc(c.file)} · lines ${c.start}–${c.end}${c.truncated ? ` (first ${c.shown} lines shown)` : ""}</span>` +
     (c.open ? `<a href="${esc(c.open)}" title="Open this line in VS Code on your machine">Open in VS Code ↗</a>` : "") +
     `</div><pre class="code">${rows}</pre></div>`;
 }
@@ -427,5 +427,5 @@ def _component(**kwargs):
 
 
 def render(flow: dict, key: str) -> None:
-    """Draw the process flow returned by api.flow()."""
+    """Draw the process flow returned by flow_model.flow()."""
     _component(data={**flow, "key": key, "css": _CSS}, key=f"flow_{key}", height=740)

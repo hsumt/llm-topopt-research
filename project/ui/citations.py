@@ -23,6 +23,7 @@ _DICT_ENTRY = re.compile(r'^\s*"[\w.]+":\s*[("]')   # a description table entry,
 def _entry(path: str, lines: list[str], first: int, start: int, end: int, truncated: bool = False) -> dict:
     host = os.environ.get("ATO_HOST_REPO")
     return {"file": path, "first": first, "start": start, "end": end, "lines": lines, "truncated": truncated,
+            "shown": len(lines),
             "label": f"{Path(path).name}:{start}" + (f"-{end}" if end != start else ""),
             "open": f"vscode://file/{host.rstrip('/')}/{path}:{start}" if host else None}
 

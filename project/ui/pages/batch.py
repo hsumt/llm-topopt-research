@@ -4,13 +4,7 @@ import hashlib
 import streamlit as st
 
 from project.ui import api, routes
-
-ORIGINS = {"brief": "From a brief", "benchmark": "Benchmark"}
-
-
-def _when(stamp: str) -> str:
-    return f"{stamp.replace('T', ' ')[:16]} UTC" if stamp else "unknown"
-
+from project.ui.components import job_status
 
 st.title("Batch")
 st.write("Select the ready formulations to approve together, then review them.")
@@ -26,7 +20,7 @@ if not ready:
         st.page_link(routes.JOBS, label="Formulations waiting for your input", icon=":material/list_alt:",
                      query_params={"show": "needs_input"})
 else:
-    rows = [{"Title": f.title, "Source": ORIGINS.get(f.origin, f.origin), "Updated": _when(f.updated_at),
+    rows = [{"Title": f.title, "Source": job_status.origin(f.origin)[0], "Updated": job_status.when(f.updated_at),
              "Id": f.fid[:8]} for f in ready]
     # The key follows the list, so a changed list starts with a clean selection.
     listing = hashlib.sha1(",".join(f.fid for f in ready).encode()).hexdigest()[:12]

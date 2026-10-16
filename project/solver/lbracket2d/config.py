@@ -80,6 +80,16 @@ class LBracket2DConfig:
     def mesh_shape(self) -> tuple[int, int]:
         return self.nelx, round(self.nelx * self.ly_m / self.lx_m)
 
+    @property
+    def cut_cells(self) -> int:
+        """Width of the removed corner, in elements."""
+        return round(self.nelx * self.cut_length_m / self.ly_m)
+
+    @property
+    def patch_cells(self) -> int:
+        """Side of the loaded square at the tip, in elements."""
+        return round(self.nelx * self.load_patch_m / self.lx_m)
+
     def to_dict(self) -> dict:
         return asdict(self)
 

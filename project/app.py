@@ -1,4 +1,4 @@
-"""ATO Streamlit entry point. Pages live in project/ui/pages and call only project.ui.api."""
+"""ATO Streamlit entry point. Pages live in project/ui/pages and call project.ui.api (and project.ui.flow_model)."""
 import streamlit as st
 
 from project.ui import routes
