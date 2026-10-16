@@ -5,6 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 mkdir -p artifacts
 export COMPOSE_DISABLE_ENV_FILE=1
 export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+export ATO_HOST_REPO="$PWD"
 compose_env_file=/dev/null
 if [[ -f .env ]]; then
     compose_env_file=.env

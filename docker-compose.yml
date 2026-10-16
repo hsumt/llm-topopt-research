@@ -12,10 +12,14 @@ services:
     volumes:
       - ./artifacts:/app/artifacts
       - home:/home/ato
+      # Host ParaView, used by each run to render its element densities (read-only).
+      - ${PARAVIEW_DIR:-/opt/paraview}:/opt/paraview:ro
     environment:
       # Runtime only: shell environment takes precedence over the local .env.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       FORMULATION_MODEL: ${FORMULATION_MODEL:-}
+      # Host path of this repository, so the app can link code citations to VS Code on the host.
+      ATO_HOST_REPO: ${ATO_HOST_REPO:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)"]
       interval: 15s

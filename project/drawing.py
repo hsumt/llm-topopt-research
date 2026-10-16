@@ -79,7 +79,7 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
     if spec.geometry is None:
         return None
 
-    if spec.geometry.template == "lbracket3d_five_holes":
+    if spec.geometry.template == "lbracket2d_five_holes":
         return _lbracket_preview(spec)
 
     parameters = spec.geometry.parameters
@@ -182,9 +182,9 @@ def _force_vector(load) -> tuple[float, float, float] | None:
     raw = load.magnitude.value
     try:
         if isinstance(raw, (list, tuple)):
-            if len(raw) != 3 or load.direction not in {None, "vector"} or any(isinstance(v, bool) for v in raw):
+            if len(raw) not in (2, 3) or load.direction not in {None, "vector"} or any(isinstance(v, bool) for v in raw):
                 return None
-            vector = tuple(float(v) * factor for v in raw)
+            vector = tuple(float(v) * factor for v in raw) + (0.0,) * (3 - len(raw))
         else:
             directions = {"x": (1, 0, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0),
                           "y": (0, 1, 0), "+y": (0, 1, 0), "-y": (0, -1, 0),
@@ -244,11 +244,11 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                 labeled = True
 
     clamped = any(bc.location == "top_arm" and (bc.kind or "").lower() in {"fixed", "clamped"}
-                  and sorted(bc.components) == ["x", "y", "z"]
+                  and sorted(bc.components) in (["x", "y"], ["x", "y", "z"])
                   and (bc.value is None or bc.value.value == 0)
                   for bc in spec.boundary_conditions)
     if clamped:
-        ax.plot([0, arm_x], [ly, ly], linewidth=3, color="#334155", label="Top face clamped")
+        ax.plot([0, arm_x], [ly, ly], linewidth=3, color="#334155", label="Top edge clamped")
         ax.add_patch(plt.Rectangle((0, ly), arm_x, .025 * ly, facecolor="none",
                                   edgecolor="#64748b", hatch="////", linewidth=.6))
 
@@ -289,7 +289,7 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
     ax.set_aspect("equal")
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(loc="upper right", fontsize=8, frameon=False)
-    fig.text(.5, .01, "x–y footprint; thickness extends along z. Dimensions and loads shown only when specified.",
+    fig.text(.5, .01, "Plate in plane stress, uniform thickness. Dimensions and loads shown only when specified.",
              ha="center", fontsize=8, color="#64748b")
     fig.tight_layout(rect=(0, .045, 1, 1))
     return fig

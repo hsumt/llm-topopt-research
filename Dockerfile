@@ -2,6 +2,11 @@
 FROM anaconda/miniconda@sha256:ffb09b25d6ba331b18f0a87f5b2f0fc1b6e661f99f765e4c2d7f61e015df0efd
 
 WORKDIR /app
+# ParaView is mounted from the host at /opt/paraview (docker-compose.yml). These are the system
+# libraries its official Linux binary needs for headless OSMesa rendering in this Debian image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libosmesa6 libgomp1 libpciaccess0 libx11-6 libxext6 libxt6 \
+    && rm -rf /var/lib/apt/lists/*
 COPY docker/conda-linux-64.lock /tmp/conda-linux-64.lock
 RUN conda create --yes --override-channels --channel conda-forge --prefix /opt/ato --file /tmp/conda-linux-64.lock \
     && conda clean -afy

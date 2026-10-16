@@ -1,43 +1,52 @@
-"""Deterministic contract between the engineering specification and the 3D solver.
+"""Deterministic contract between the engineering specification and the 2D plane-stress solver.
 
 The template is intentionally narrow. An unrepresented requirement blocks a run;
 neither a quiet critic nor an inferred benchmark default grants solver readiness.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
+import sys
 
+from project import trace
 from project.models import Issue, ProblemSpec, Question, Review, Value
-from project.solver.lbracket3d.config import LBracket3DConfig, reference_config
+from project.solver.lbracket2d.config import LBracket2DConfig, reference_config
 
 
-TEMPLATE = "lbracket3d_five_holes"
-GEOMETRY_FIELDS = {"lx", "ly", "thickness", "cut_length", "load_patch", "hole_radius", "hole_centers"}
+TEMPLATE = "lbracket2d_five_holes"
+GEOMETRY_ORDER = ("lx", "ly", "thickness", "cut_length", "load_patch", "hole_radius", "hole_centers")
+GEOMETRY_FIELDS = set(GEOMETRY_ORDER)
+HOLES = 5
+# Named regions and the role each must carry; prompts.py tells the model these exact names.
+REGIONS = {"top_arm": "support", "tip_band": "load", "initial_holes": "initial_void",
+           "corner_cut": "passive_void", "domain": "design"}
 _LENGTH = {"m": 1., "mm": .001, "cm": .01, "in": .0254, "inch": .0254, "inches": .0254}
 _STRESS = {"pa": 1., "kpa": 1e3, "mpa": 1e6, "gpa": 1e9, "psi": 6894.757293168}
 _FORCE = {"n": 1., "kn": 1e3, "lbf": 4.4482216152605}
+LENGTH_UNITS, STRESS_UNITS, FORCE_UNITS = (("m", "mm", "cm", "in"), ("Pa", "kPa", "MPa", "GPa", "psi"),
+                                         ("N", "kN", "lbf"))
 
 # These illustrate an answer's wording; they never enter config_values or the
 # specification. The interface displays them separately from the answer input.
 _SUPPORT_EXAMPLE = (
     "The entire top face of the vertical arm is bonded to a rigid frame. "
-    "Set displacement to zero in x, y and z over that whole face."
+    "Set displacement to zero in x and y over that whole edge."
 )
 _GEOMETRY_EXAMPLES = {
-    "lx": "outer x length = 100 mm",
-    "ly": "outer y length = 100 mm",
-    "thickness": "thickness = 12 mm",
-    "cut_length": "upper-right square cut = 60 by 60 mm, through thickness",
-    "load_patch": "tip band = 4 mm high at the upper end of the horizontal-arm tip face, through the full thickness",
-    "hole_radius": "initial through-hole radius = 10 mm",
-    "hole_centers": "five initial hole centers = (20,20), (20,50), (20,80), (50,20), (80,20) mm in the x-y plane, measured from the lower-left corner",
+    "lx": "outer x length = <length> mm",
+    "ly": "outer y length = <length> mm",
+    "thickness": "thickness = <thickness> mm",
+    "cut_length": "upper-right square cut = <size> by <size> mm, through thickness",
+    "load_patch": "tip band = <height> mm high at the upper end of the horizontal-arm tip face, through the full thickness",
+    "hole_radius": "initial through-hole radius = <radius> mm",
+    "hole_centers": "five initial hole centers = (<x1>,<y1>), …, (<x5>,<y5>) mm in the x-y plane, measured from the lower-left corner",
 }
 
 
 def _tip_patch_example(spec: ProblemSpec) -> str:
     """Use a stated thickness when available; the sample patch height is illustrative."""
     thickness = "full thickness"
-    height = "4 mm"
+    height = "<height> mm"
     if spec.geometry and "thickness" in spec.geometry.parameters:
         value = spec.geometry.parameters["thickness"]
         try:
@@ -56,7 +65,7 @@ def _tip_patch_example(spec: ProblemSpec) -> str:
 
 
 def _volume_example(limit: Value | None) -> str:
-    percentage = "75%"
+    percentage = "<fraction>%"
     if limit is not None:
         try:
             percentage = f"{100 * _fraction(limit):g}%"
@@ -70,9 +79,12 @@ def _volume_example(limit: Value | None) -> str:
 
 @dataclass
 class SpecAssessment:
-    config: LBracket3DConfig | None
+    config: LBracket2DConfig | None
     issues: list[Issue]
     questions: list[Question]
+    # For the trace only: what each rule created and what became of it. Never read by checks.
+    trace_items: list[dict] = field(default_factory=list, compare=False, repr=False)
+    trace_index: dict[int, int] = field(default_factory=dict, compare=False, repr=False)
 
     @property
     def ready(self) -> bool:
@@ -112,19 +124,26 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
     issues: list[Issue] = []
     questions: list[Question] = []
     config_values: dict = {}
+    events: list[dict] = []      # trace record of each add(); see SpecAssessment.trace_items
+    index: dict[int, int] = {}
 
     def add(key, field, description, *, kind="decision", question=None, example=None):
+        rule = f"assess.{key}@lbracket.py:{sys._getframe(1).f_lineno}"
         key = "solver_" + key
         issues.append(Issue(key=key, field=field, description=description, kind=kind))
+        index[id(issues[-1])] = len(events)
+        events.append(trace.item("issue", issues[-1], origin="code", fate="created", rule=rule))
         if question:
             questions.append(Question(key=key, issue_keys=[key], prompt=question,
                                       why=description, example_answer=example))
+            index[id(questions[-1])] = len(events)
+            events.append(trace.item("question", questions[-1], origin="code", fate="created", rule=rule))
 
     if spec.problem_kind != "optimization":
         add("problem", "problem_kind", "This solver performs topology optimization only.",
             kind="decision" if spec.problem_kind == "unknown" else "unsupported",
             question="What should be optimized, and what should the objective and constraints be?" if spec.problem_kind == "unknown" else None,
-            example="Minimize compliance, with material volume limited to 75% of the full L-shaped domain excluding the corner cut. State any additional stress requirement separately.")
+            example="Minimize compliance, with material volume limited to <fraction>% of the full L-shaped domain excluding the corner cut. State any additional stress requirement separately.")
 
     geometry = spec.geometry
     if geometry is None or geometry.template is None:
@@ -136,9 +155,9 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
     if geometry is not None:
         if geometry.physical_dimension is None:
             add("dimension", "geometry.physical_dimension", "The physical geometry dimension is missing.",
-                question="Is this a physical 3D bracket with a through-thickness shape?")
-        elif geometry.physical_dimension != 3:
-            add("dimension", "geometry.physical_dimension", "This backend represents a 3D bracket.", kind="unsupported")
+                question="Is this a flat plate of uniform thickness, analysed in plane stress?")
+        elif geometry.physical_dimension != 2:
+            add("dimension", "geometry.physical_dimension", "This backend represents a 2D plane-stress plate.", kind="unsupported")
         if geometry.hole_role is None:
             add("hole_role", "geometry.hole_role", "Initial holes and preserved mounting holes are different requirements.",
                 question="May the five initial holes move, merge, or close during optimization, or must they remain as mounting holes?" if geometry.template is not None else None)
@@ -147,8 +166,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         extras = set(geometry.parameters) - GEOMETRY_FIELDS
         if extras:
             add("geometry_extra", "geometry.parameters", "Unrepresented geometry parameters: " + ", ".join(sorted(extras)), kind="unsupported")
-        allowed_regions = {"top_arm": "support", "tip_band": "load", "initial_holes": "initial_void", "corner_cut": "passive_void", "domain": "design"}
-        if any(allowed_regions.get(r.name) != r.role for r in geometry.regions):
+        if any(REGIONS.get(r.name) != r.role for r in geometry.regions):
             add("regions", "geometry.regions", "Additional protected, mounting, or other geometry regions are not represented by this template.", kind="unsupported")
         missing = sorted(GEOMETRY_FIELDS - geometry.parameters.keys())
         if missing:
@@ -169,7 +187,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
             try:
                 if name == "hole_centers":
                     factor = _factor(value, _LENGTH)
-                    if not isinstance(value.value, (list, tuple)) or len(value.value) != 5:
+                    if not isinstance(value.value, (list, tuple)) or len(value.value) != HOLES:
                         raise ValueError("requires five x/y coordinate pairs")
                     centers = []
                     for center in value.value:
@@ -195,8 +213,8 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         elif _token(physics.regime) not in {"linear_static", "static_linear_elasticity", "static_linear_elastic"}:
             add("regime", "physics.regime", "Only static small-strain linear elasticity is implemented.", kind="unsupported")
         # The adapter chooses the solid discretization, unless the engineer asks for another model.
-        if physics.representation is not None and _token(physics.representation) not in {"3d_solid", "3d_solid_continuum", "three_dimensional_solid"}:
-            add("representation", "physics.representation", "The requested analysis representation is not supported by the 3D solid solver.", kind="unsupported")
+        if physics.representation is not None and _token(physics.representation) not in {"2d_plane_stress", "plane_stress", "two_dimensional_plane_stress"}:
+            add("representation", "physics.representation", "The requested analysis representation is not supported by the 2D plane-stress solver.", kind="unsupported")
 
     if not spec.materials:
         add("material", "materials", "The material has not been identified.",
@@ -238,9 +256,9 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         bc = spec.boundary_conditions[0]
         if not bc.kind or not bc.location or not bc.components:
             add("support", "boundary_conditions", "The support location or translational restraint behavior is missing.",
-                question="What motion does the mounting interface prevent? Specify whether the whole top face is held at zero displacement in x, y and z, or describe the actual restraint and any permitted motion.",
+                question="What motion does the mounting interface prevent? Specify whether the whole top face is held at zero displacement in x and y and z, or describe the actual restraint and any permitted motion.",
                 example=_SUPPORT_EXAMPLE)
-        elif bc.location != "top_arm" or _token(bc.kind) not in {"clamped", "fixed"} or sorted(bc.components) != ["x", "y", "z"]:
+        elif bc.location != "top_arm" or _token(bc.kind) not in {"clamped", "fixed"} or sorted(bc.components) != ["x", "y"]:
             add("support", "boundary_conditions", "The connected solver supports only a clamp holding the entire top face of the vertical arm at zero displacement in x, y and z. The requested mounting behavior needs a different support implementation.", kind="unsupported")
         if bc.value is not None:
             try:
@@ -252,7 +270,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
     if not spec.loads:
         add("load", "loads", "The load is missing.",
             question="What total force (magnitude and direction or x/y/z components, with units) acts on the horizontal-arm tip band?",
-            example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
+            example="The total force is [<Fx>, <Fy>] N in the stated x/y coordinates.")
     elif len(spec.loads) != 1:
         add("loads", "loads", "This backend supports exactly one load vector and one load case; multiple loads cannot be silently combined.", kind="unsupported")
     else:
@@ -266,20 +284,19 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         if load.magnitude is None:
             add("force", "loads.0.magnitude", "The applied force has no magnitude.",
                 question="Provide the total force and its x/y/z direction with units.",
-                example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
+                example="The total force is [<Fx>, <Fy>] N in the stated x/y coordinates.")
         else:
             try:
                 factor = _factor(load.magnitude, _FORCE)
                 raw = load.magnitude.value
                 if isinstance(raw, (list, tuple)):
-                    if len(raw) != 3 or load.direction not in {None, "vector"}:
-                        raise ValueError("requires three components and no conflicting direction")
+                    if len(raw) != 2 or load.direction not in {None, "vector"}:
+                        raise ValueError("requires two in-plane components and no conflicting direction")
                     force = tuple(_number(v) * factor for v in raw)
                 else:
                     magnitude = _number(raw) * factor
-                    direction = {"+x": (1, 0, 0), "x": (1, 0, 0), "-x": (-1, 0, 0),
-                                 "+y": (0, 1, 0), "y": (0, 1, 0), "-y": (0, -1, 0),
-                                 "+z": (0, 0, 1), "z": (0, 0, 1), "-z": (0, 0, -1)}.get(load.direction)
+                    direction = {"+x": (1, 0), "x": (1, 0), "-x": (-1, 0),
+                                 "+y": (0, 1), "y": (0, 1), "-y": (0, -1)}.get(load.direction)
                     if direction is None:
                         raise ValueError("requires an explicit coordinate direction or force vector")
                     if magnitude <= 0:
@@ -288,8 +305,8 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                 config_values["force_n"] = force
             except ValueError as error:
                 add("force", "loads.0", "Force " + str(error),
-                    question="Provide the applied force as [Fx, Fy, Fz] and its force units.",
-                    example="The total force is [0, -5000, 0] N in the stated x/y/z coordinates.")
+                    question="Provide the applied force as [Fx, Fy] and its force units.",
+                    example="The total force is [<Fx>, <Fy>] N in the stated x/y coordinates.")
 
     # Patch extent and force distribution are one physical decision. A concise
     # answer should resolve both without asking for the same interface twice.
@@ -301,6 +318,10 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
             patch_question.prompt = "Where and how is the tip force transferred? Specify the loaded face, the band's height with units, whether it spans the full thickness, and whether the stated total force is uniformly distributed."
             patch_question.why = "The load's area and distribution are unresolved; both affect the local stress field."
             questions.remove(model_question)
+            events[index[id(model_question)]].update(fate="merged", fate_rule="assess.merge_patch_load",
+                                                    detail={"into": patch_question.key})
+            events[index[id(patch_question)]]["detail"] = {"absorbed": model_question.key,
+                                                          "rewritten_by": "assess.merge_patch_load"}
 
     optimization = spec.optimization
     if optimization is None:
@@ -330,7 +351,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                     add("volume_relation", "optimization.constraints", "Only an upper bound on volume fraction is supported.", kind="unsupported")
                 if constraint.limit is None:
                     add("volume_limit", "optimization.constraints", "The material fraction is missing.", question="What maximum fraction of the full L domain may contain material?",
-                        example="At most 75% of the full L-shaped domain may contain material.")
+                        example="At most <fraction>% of the full L-shaped domain may contain material.")
                 else:
                     try:
                         config_values["volume_fraction"] = _fraction(constraint.limit)
@@ -352,7 +373,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         if not volume_seen:
             add("volume", "optimization.constraints", "A volume fraction upper bound and its reference domain are required.",
                 question="What maximum material fraction is permitted, and is it measured relative to the full L domain excluding the square cut?",
-                example="Retain at most 75% of the full L-shaped domain, excluding the permanent square cut but before subtracting the five initial holes.")
+                example="Retain at most <fraction>% of the full L-shaped domain, excluding the permanent square cut but before subtracting the five initial holes.")
         if optimization.stress_requirement is None:
             add("stress_choice", "optimization.stress_requirement", "The engineer has not specified whether the problem is volume-only or includes a calibrated stress p-norm constraint.",
                 question="Is this minimum compliance with only a volume limit, or do you also require a stress constraint? State any physical stress requirement as intended; this solver currently supports only a calibrated p=6 norm, not a peak/yield bound.")
@@ -371,37 +392,54 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
     config = None
     if not issues:
         try:
-            config = LBracket3DConfig.from_dict(config_values)
+            config = LBracket2DConfig.from_dict(config_values)
         except (TypeError, ValueError) as error:
             add("config", "geometry", "Solver configuration is invalid: " + str(error), kind="data")
-    return SpecAssessment(config=config, issues=issues, questions=questions[:4])
+    for question in questions[4:]:
+        events[index[id(question)]].update(fate="capped", fate_rule="assess.cap_questions_4")
+    return SpecAssessment(config=config, issues=issues, questions=questions[:4], trace_items=events, trace_index=index)
 
 
-def combine_review(spec: ProblemSpec, review: Review) -> Review:
-    """Deterministic issues survive any LLM verdict; questions remain bounded."""
+def combine_review(spec: ProblemSpec, review: Review, *, interim: bool = False) -> Review:
+    """Deterministic issues survive any LLM verdict; questions remain bounded.
+
+    interim marks the code-only merge made before the critic answers; it affects the trace only.
+    """
     assessment = assess_spec(spec)
+    fates: dict[tuple[str, int], tuple[str, str | None]] = {}   # trace only
     model_issues = []
     known_material = len(spec.materials) == 1 and bool(spec.materials[0].name)
-    for issue in review.issues:
+    for n, issue in enumerate(review.issues):
         if issue.key.startswith("solver_"):
+            fates["issue", n] = ("dropped", "merge.drop_solver_prefix")
             continue
         text = " ".join((issue.key, issue.field or "", issue.description)).lower()
         # A model may disregard the prompt and ask for a guessed modulus. Keep
         # this as missing source data even when the model labels it a decision.
         if known_material and (".properties" in text or "young's modulus" in text or "youngs_modulus" in text or "poisson" in text):
             issue = issue.model_copy(update={"kind": "data"})
+            fates["issue", n] = ("relabeled", "merge.relabel_material_data")
+        else:
+            fates["issue", n] = ("kept", None)
         model_issues.append(issue)
     issues = assessment.issues + model_issues
     questions = list(assessment.questions)
     decision_keys = {i.key for i in issues if i.blocking and i.kind == "decision"}
     seen = {q.key for q in questions}
-    for question in review.questions:
+    for n, question in enumerate(review.questions):
         if len(questions) >= 4:
-            break
-        if question.key not in seen and set(question.issue_keys) & decision_keys:
+            fates["question", n] = ("capped", "merge.cap_4")
+        elif question.key in seen:
+            fates["question", n] = ("dropped", "merge.dedupe_question_key")
+        elif not set(question.issue_keys) & decision_keys:
+            fates["question", n] = ("dropped", "merge.q_requires_decision_link")
+        else:
             questions.append(question)
             seen.add(question.key)
-    return Review(issues=issues, questions=questions)
+            fates["question", n] = ("kept", None)
+    result = Review(issues=issues, questions=questions)
+    trace.merged(assessment, review, result, fates, interim=interim)
+    return result
 
 
 def reference_spec() -> ProblemSpec:
@@ -411,15 +449,15 @@ def reference_spec() -> ProblemSpec:
                   for name in GEOMETRY_FIELDS if name != "hole_centers"}
     parameters["hole_centers"] = {"value": c.hole_centers_m, "unit": "m"}
     return ProblemSpec.model_validate({
-        "name": "3D L-bracket with five initial holes", "problem_kind": "optimization",
-        "geometry": {"template": TEMPLATE, "physical_dimension": 3, "hole_role": "initial_void",
+        "name": "2D L-bracket with five initial holes", "problem_kind": "optimization",
+        "geometry": {"template": TEMPLATE, "physical_dimension": 2, "hole_role": "initial_void",
                      "description": "Equal-arm L with an upper-right square cut and five movable initial through-holes.",
                      "parameters": parameters},
-        "physics": {"family": "solid_mechanics", "representation": "3d_solid", "regime": "linear_static"},
-        "materials": [{"name": "Reference titanium model", "region": "domain", "data_source": "Explicit simplified_3D_holes benchmark constants",
+        "physics": {"family": "solid_mechanics", "representation": "2d_plane_stress", "regime": "linear_static"},
+        "materials": [{"name": "Reference titanium model", "region": "domain", "data_source": "Explicit simplified_2D_holes benchmark constants (mfrto)",
                        "properties": {"E": {"value": c.youngs_modulus_pa, "unit": "Pa"},
                                       "nu": {"value": c.poisson_ratio}}}],
-        "boundary_conditions": [{"name": "Top clamp", "location": "top_arm", "kind": "clamped", "components": ["x", "y", "z"]}],
+        "boundary_conditions": [{"name": "Top clamp", "location": "top_arm", "kind": "clamped", "components": ["x", "y"]}],
         "loads": [{"name": "Tip-band force", "location": "tip_band", "kind": "total_force",
                    "magnitude": {"value": c.force_n, "unit": "N"}, "load_case": "reference"}],
         "optimization": {"design_variable": "material_distribution", "stress_requirement": "pnorm_limit",
@@ -430,6 +468,6 @@ def reference_spec() -> ProblemSpec:
 
 
 def starter_spec() -> ProblemSpec:
-    return ProblemSpec.model_validate({"name": "My 3D L-bracket", "problem_kind": "optimization",
-                                      "geometry": {"physical_dimension": 3, "description": "L-bracket"},
+    return ProblemSpec.model_validate({"name": "My 2D L-bracket", "problem_kind": "optimization",
+                                      "geometry": {"physical_dimension": 2, "description": "L-bracket plate"},
                                       "physics": {"family": "solid_mechanics"}})

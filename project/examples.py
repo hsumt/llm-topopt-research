@@ -1,46 +1,51 @@
 EXAMPLES = {
-    "3D L-bracket: preliminary design brief": {
+    "2D L-bracket: walkthrough (missing support, load band, volume reference)": {
         "request": (
-            "Set up a minimum-compliance topology optimization study for a titanium "
-            "L-bracket with a 100 by 100 mm envelope, 12 mm thickness, and a 60 by "
-            "60 mm upper-right cut through the thickness. Use a uniform isotropic "
-            "material model with E = 120 GPa and nu = 0.36, under static small-strain "
-            "linear elasticity.\n\n"
-            "The vertical arm is mounted to a rigid frame at its upper end. The "
-            "horizontal-arm tip carries a total force of [0, -5000, 0] N. Retain "
-            "no more than 75% material.\n\n"
-            "Initialize the design with five through-holes of radius 10 mm, centered "
-            "at (20,20), (20,50), (20,80), (50,20), and (80,20) mm. These are "
-            "optimization seeds and may move, merge, or close. Include the calibrated "
-            "volume-averaged p = 6 stress-norm constraint over the L domain, with an "
-            "upper limit of 116 MPa. No manufacturing constraints apply."
+            "Part and purpose: a titanium L-bracket plate; minimum-compliance level-set design.\n\n"
+            "Design space: 100 by 100 mm outer square with a 60 by 60 mm upper-right cut, 12 mm "
+            "thick, analysed as a flat plate in plane stress. Five initial holes of radius 10 mm at "
+            "(20,20), (20,50), (20,80), (50,20) and (80,20) mm; they may move, merge or close.\n\n"
+            "Material and data source: uniform isotropic titanium model, E = 120 GPa, nu = 0.36; "
+            "static small-strain linear elasticity.\n\n"
+            "Supports: the vertical arm is bolted to a frame at its top.\n\n"
+            "Loads: a 5 kN downward load at the tip of the horizontal arm.\n\n"
+            "Objective and limits: minimize compliance; keep at most 75% material. Include the "
+            "calibrated volume-averaged p = 6 stress norm over the L domain, limit 125 MPa.\n\n"
+            "Manufacturing: none."
         ),
         "context": (
-            "Coordinates: x right, y up, z through thickness, with the origin at "
-            "the lower-left corner. Hole centers are given in the x-y plane. The "
-            "116 MPa value is a calibrated stress-norm limit, not a material yield "
-            "value or a local peak-stress bound."
+            "Coordinates: x right, y up, origin at the lower-left corner. The 125 MPa value is a "
+            "calibrated stress-norm limit, not a yield or peak-stress bound."
         ),
+        # Prepared engineer answers for a walkthrough, keyed by the code check's question keys.
+        "answers": {
+            "solver_support": "The whole top edge of the vertical arm is clamped to the frame: "
+                              "zero displacement in x and y along that edge.",
+            "solver_dimensions": "Spread the 5 kN total force uniformly over a 4 mm high band at the upper end "
+                                 "of the horizontal-arm tip edge, through the full thickness, acting in -y.",
+            "solver_volume_reference": "75% of the full L-shaped area, excluding the corner cut, "
+                                       "before subtracting the initial holes.",
+            "reviewer (stress basis)": "The 125 MPa limit is calibrated for this benchmark with p = 6.",
+            "reviewer (corner fillet)": "No fillet; keep the sharp re-entrant corner as in the benchmark.",
+        },
     },
-    "3D L-bracket: explicit five-hole benchmark": {
+    "2D L-bracket: explicit five-hole benchmark": {
         "request": (
-            "Use the simplified_3D_holes benchmark: an equal-arm 100 mm by 100 mm L, "
-            "12 mm thick, with a 60 mm upper-right square cut through thickness. "
-            "Use five movable initial through-holes, radius 10 mm, at (20,20), (20,50), "
-            "(20,80), (50,20), (80,20) mm. The holes may move, merge or close. "
-            "Use static small-strain linear isotropic 3D solid elasticity, uniform "
-            "E=120 GPa and nu=0.36. Clamp the full top face of the vertical arm in x,y,z. "
-            "Distribute a total force [0,-5000,0] N over the 4 mm high band at the upper "
-            "end of the horizontal-arm tip face, through the full thickness. Minimize "
-            "compliance with at most 75% material relative to the full L domain excluding "
-            "the square cut. Also use the calibrated volume-averaged p=6 stress norm "
-            "constraint, upper limit 116 MPa over the L domain. No manufacturing constraints."
+            "Use the simplified_2D_holes benchmark: an equal-arm 100 mm by 100 mm L plate, "
+            "12 mm thick, plane stress, with a 60 mm upper-right square cut. Use five movable "
+            "initial through-holes, radius 10 mm, at (20,20), (20,50), (20,80), (50,20), (80,20) mm. "
+            "The holes may move, merge or close. Use static small-strain linear isotropic "
+            "elasticity, uniform E=120 GPa and nu=0.36. Clamp the full top edge of the vertical arm "
+            "in x and y. Distribute a total force [0,-5000] N over the 4 mm high band at the upper "
+            "end of the horizontal-arm tip edge, through the full thickness. Minimize compliance "
+            "with at most 75% material relative to the full L domain excluding the square cut. "
+            "Also use the calibrated volume-averaged p=6 stress norm constraint, upper limit "
+            "125 MPa over the L domain. No manufacturing constraints."
         ),
         "context": (
-            "Coordinates: x right, y up, z through thickness, origin at lower-left. "
-            "This explicitly selected reference is a 3D extension inspired by Fig.5, "
-            "not a reproduction of the paper. The 116 MPa norm limit is calibrated; "
-            "it is not a material yield limit or peak stress bound."
+            "Coordinates: x right, y up, origin at lower-left. This is the mfrto simplified_2D_holes "
+            "case. The 125 MPa norm limit is calibrated; it is not a material yield limit or peak "
+            "stress bound."
         ),
     },
     "M2: FRC intake pivot side plate": {

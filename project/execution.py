@@ -93,7 +93,7 @@ def run_plan(session: Session, max_iterations: int = 2, ranks: int = 1) -> dict:
         raise ValueError("Resolve blocking specification issues before running.")
     assessment = assess_spec(session.spec)
     if not assessment.ready or assessment.config is None:
-        raise ValueError("The specification is not supported by the 3D L-bracket solver.")
+        raise ValueError("The specification is not supported by the 2D L-bracket solver.")
     if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or not 1 <= max_iterations <= 500:
         raise ValueError("Iteration budget must be an integer between 1 and 500.")
     if isinstance(ranks, bool) or not isinstance(ranks, int) or not 1 <= ranks <= 8:
@@ -116,7 +116,7 @@ def launch_run(session: Session, *, approved_hash: str, max_iterations: int = 2,
         raise ValueError("The specification or run settings changed; review the current configuration.")
     if ranks > 1 and shutil.which("mpiexec") is None:
         raise RuntimeError("MPI is unavailable. Start the supplied Docker image.")
-    run_dir = ARTIFACTS / "runs" / "lbracket3d" / (
+    run_dir = ARTIFACTS / "runs" / "lbracket2d" / (
         datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_" + uuid.uuid4().hex[:10]
     )
     run_dir.mkdir(parents=True)
@@ -179,6 +179,33 @@ def run_status(run_dir: Path) -> dict:
         return status
 
 
+PVBATCH = Path(os.environ.get("ATO_PVBATCH", "/opt/paraview/bin/pvbatch"))
+
+
+def _render_paraview(run_dir: Path) -> dict:
+    """Render the finished run's element densities with ParaView (pvbatch), as part of the run.
+
+    ParaView comes from the host (mounted at /opt/paraview by docker-compose.yml). Without it
+    the run still completes and records why no ParaView render exists.
+    """
+    if not PVBATCH.exists():
+        return {"state": "unavailable", "reason": f"{PVBATCH} not found; mount a ParaView install at /opt/paraview."}
+    _set_status(run_dir, step="rendering with ParaView")
+    script = Path(__file__).resolve().parent / "solver" / "lbracket2d" / "render_paraview.py"
+    environment = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    try:
+        with (run_dir / "paraview.log").open("w") as output:
+            result = subprocess.run([str(PVBATCH), "--opengl-window-backend", "OSMesa", str(script),
+                                     str(run_dir / "solver"), str(run_dir / "paraview")],
+                                    stdout=output, stderr=subprocess.STDOUT, env=environment, timeout=900, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {"state": "failed", "reason": type(error).__name__}
+    if result.returncode != 0 or not (run_dir / "paraview" / "manifest.json").exists():
+        return {"state": "failed", "reason": f"pvbatch exited with code {result.returncode}; see paraview.log"}
+    frames = json.loads((run_dir / "paraview" / "manifest.json").read_text())["frames"]
+    return {"state": "rendered", "frames": len(frames), "renderer": str(PVBATCH)}
+
+
 def _worker(run_dir: Path) -> int:
     try:
         identity = _process_identity(os.getpid())
@@ -194,7 +221,7 @@ def _worker(run_dir: Path) -> int:
                 or _canonical(approval["config"]) != _canonical(plan["config"])
                 or _canonical(approval["spec"]) != _canonical(plan["spec"])):
             raise _ApprovalMismatch()
-        command = [sys.executable, "-m", "project.solver.lbracket3d.main",
+        command = [sys.executable, "-m", "project.solver.lbracket2d.main",
                    "--config", str(run_dir / "config.json"), "--output", str(run_dir / "solver"),
                    "--max-iterations", str(plan["max_iterations"])]
         if plan["mpi_ranks"] > 1:
@@ -202,9 +229,10 @@ def _worker(run_dir: Path) -> int:
         _set_status(run_dir, state="running", command=command)
         with (run_dir / "solver.log").open("w") as output:
             result = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, check=False)
+        paraview = _render_paraview(run_dir) if result.returncode == 0 else {"state": "skipped", "reason": "solver failed"}
         state = "completed" if result.returncode == 0 else "failed"
         _set_status(run_dir, state=state, returncode=result.returncode, finished_at=_now(),
-                    convergence="not assessed")
+                    convergence="not assessed", paraview=paraview)
         return result.returncode
     except Exception as error:
         reason = ("Saved solver inputs no longer match the approved plan. Review and approve a new run."
@@ -215,7 +243,7 @@ def _worker(run_dir: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the reviewed 3D L-bracket in the supplied Docker environment.")
+    parser = argparse.ArgumentParser(description="Run the reviewed 2D L-bracket in the supplied Docker environment.")
     parser.add_argument("--reference", action="store_true", help="Explicitly select every physical input in the recorded five-hole benchmark.")
     parser.add_argument("--session", type=Path, help="Validated saved formulation Session JSON.")
     parser.add_argument("--max-iterations", type=int, default=2)
@@ -229,7 +257,7 @@ def main() -> int:
     if args.reference:
         from project.lbracket import reference_spec
         from project.models import Review
-        session = Session(original_request="Run the documented simplified_3D_holes benchmark.", spec=reference_spec(), review=Review())
+        session = Session(original_request="Run the documented simplified_2D_holes benchmark.", spec=reference_spec(), review=Review())
     else:
         session = Session.model_validate_json(args.session.read_text())
     plan = run_plan(session, args.max_iterations, args.ranks)

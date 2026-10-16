@@ -1,11 +1,15 @@
+from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import json
 import os
 from pathlib import Path
+import time
 from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from project import trace
 from project.ai_errors import ModelCallError, classify_provider_error
 
 from project.models import (
@@ -152,7 +156,50 @@ def _call_model(
     max_tokens: int,
     bypass_cache: bool = False,
 ) -> tuple[T, Usage]:
+    # The call record goes to the formulation trace whether the call succeeds or fails;
+    # it holds the reply text but never exception text.
     key = _cache_key(step, prompt, payload)
+    call = {"step": step, "model": MODEL, "cache_key": key, "cache_hit": False, "payload": payload,
+            "reply": None, "stop_reason": None, "tokens": None, "failure_code": None}
+    started = time.monotonic()
+    try:
+        return _call_model_once(call, key=key, step=step, prompt=prompt, payload=payload,
+                                output_type=output_type, max_tokens=max_tokens, bypass_cache=bypass_cache)
+    except ModelCallError as error:
+        call["failure_code"] = error.code
+        raise
+    except Exception:
+        call["failure_code"] = "unknown_error"
+        raise
+    finally:
+        call["latency_ms"] = round((time.monotonic() - started) * 1000)
+        trace.record_call(call)
+
+
+_scripted: ContextVar = ContextVar("ato_scripted_model", default=None)
+
+
+@contextmanager
+def scripted(responder):
+    """Answer model calls on this thread with responder(step, payload) -> dict.
+
+    For simulated runs and tests: no API call is made and the response cache is not used.
+    """
+    token = _scripted.set(responder)
+    try:
+        yield
+    finally:
+        _scripted.reset(token)
+
+
+def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: dict,
+                     output_type: type[T], max_tokens: int, bypass_cache: bool) -> tuple[T, Usage]:
+    responder = _scripted.get()
+    if responder is not None:
+        text = json.dumps(responder(step, payload))
+        call.update(model="scripted", reply=text, stop_reason="scripted", tokens={"in": 0, "out": 0})
+        return _validate_response(text, output_type), Usage(step=step, model="scripted")
+
     cached = _read_cache(key) if USE_CACHE and not bypass_cache else None
 
     if cached is not None:
@@ -162,6 +209,7 @@ def _call_model(
             # A damaged or obsolete cache is not evidence that the live API failed.
             pass
         else:
+            call.update(cache_hit=True, reply=cached["response_text"])
             return result, Usage(step=step, model=MODEL, cache_hit=True)
 
     client = _client()
@@ -177,7 +225,18 @@ def _call_model(
     except Exception as error:
         raise classify_provider_error(error) from None
 
+    usage = getattr(response, "usage", None)
+    call.update(stop_reason=getattr(response, "stop_reason", None),
+                tokens={"in": getattr(usage, "input_tokens", None), "out": getattr(usage, "output_tokens", None)})
+
     if getattr(response, "stop_reason", None) == "max_tokens":
+        try:
+            # Keep the partial reply for the trace; the error below is raised either way.
+            call["reply"] = "".join(block.text for block in (getattr(response, "content", None) or [])
+                                    if getattr(block, "type", None) == "text"
+                                    and isinstance(getattr(block, "text", None), str))
+        except Exception:
+            pass
         raise ModelCallError(
             "truncated_response", "Claude's response reached its output limit before it finished.",
             "Retry the AI step. If it repeats, increase this stage's output allowance "
@@ -189,6 +248,7 @@ def _call_model(
         block.text for block in (getattr(response, "content", None) or [])
         if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
     )
+    call["reply"] = response_text
     if not response_text.strip():
         raise ModelCallError(
             "empty_response", "Claude returned no text that could be read as a specification.",
@@ -240,12 +300,16 @@ def review_problem(
     original_request: str | None = None,
     context: str | None = None,
     revisions: list[Revision] | None = None,
+    code_issues: list[dict] | None = None,
+    free_question_slots: int = 4,
 ) -> tuple[Review, Usage]:
     payload = {
         "spec": spec.model_dump(exclude_none=True),
         "original_request": original_request,
         "context": context,
         "prior_rounds": [revision.model_dump() for revision in (revisions or [])],
+        "code_issues": code_issues or [],
+        "free_question_slots": free_question_slots,
         "output_schema": Review.model_json_schema(),
     }
 
