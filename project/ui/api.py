@@ -8,7 +8,6 @@ from project/ outside project.ui.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import importlib.util
 import json
 import logging
 import re
@@ -102,7 +101,7 @@ class Precheck:
 class Formulation:
     fid: str
     title: str
-    origin: str        # brief | benchmark | simulation
+    origin: str        # brief | benchmark
     state: str         # one of STATES
     step: str | None   # what is running while state == "working"
     error: str | None  # app-side problem; model failures are on session.failure
@@ -780,16 +779,3 @@ def element_preview(session: Session | None) -> dict | None:
     from project.solver.lbracket2d.levelset import initial_densities
     densities, _ = initial_densities(config)
     return {"density": densities.round(3).tolist(), "cut_cells": config.cut_cells, "mesh": list(config.mesh_shape)}
-
-
-# ---- simulated run (local demo) ----------------------------------------------------------------
-
-def simulation_available() -> bool:
-    """True where the local presentation demo (project/ui/demo.py, not in the repository) exists."""
-    return importlib.util.find_spec("project.ui.demo") is not None
-
-
-def start_simulation() -> str:
-    """Run the pre-solve pipeline on the demo's scripted model replies and approve the result."""
-    from project.ui import demo
-    return demo.start_simulation()

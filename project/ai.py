@@ -179,7 +179,7 @@ _scripted: ContextVar = ContextVar("ato_scripted_model", default=None)
 def scripted(responder):
     """Answer model calls on this thread with responder(step, payload) -> dict.
 
-    For simulated runs and tests: no API call is made and the response cache is not used.
+    For tests and offline runs: no API call is made and the response cache is not used.
     """
     token = _scripted.set(responder)
     try:

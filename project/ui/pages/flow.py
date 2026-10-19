@@ -10,18 +10,10 @@ st.write("Every step of a formulation, from the brief through approval to its ru
 
 formulations = api.list_formulations()
 fid = st.query_params.get("fid")
-with st.container(horizontal=True, vertical_alignment="bottom"):
-    options = {f.fid: f for f in formulations}
-    choice = st.selectbox("Formulation", list(options), index=list(options).index(fid) if fid in options else None,
-                          format_func=lambda k: f"{options[k].title} · {job_status.label(options[k].state)}"
-                                                 f"{' · simulated' if options[k].origin == 'simulation' else ''}",
-                          placeholder="Choose a formulation", width=560)
-    # Only where the local presentation demo (project/ui/demo.py) is present.
-    if api.simulation_available() and st.button(
-            "Create a simulated run", icon=":material/slideshow:",
-            help="Runs the real pre-solve code on scripted model replies. No API call is made."):
-        st.query_params["fid"] = api.start_simulation()
-        st.rerun()
+options = {f.fid: f for f in formulations}
+choice = st.selectbox("Formulation", list(options), index=list(options).index(fid) if fid in options else None,
+                      format_func=lambda k: f"{options[k].title} · {job_status.label(options[k].state)}",
+                      placeholder="Choose a formulation", width=560)
 if choice and choice != fid:
     st.query_params["fid"] = choice
     st.rerun()

@@ -28,7 +28,6 @@ _CSS = """
   font-size: 13px; cursor: pointer; color: #1f2328; }
 .ato-bar button:hover { background: #f0f0f0; }
 .ato-bar button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
-.ato-tag { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #fff3cd; border: 1px solid #e8c766; }
 .ato-step { font-size: 13px; color: #555; background: #ffffffcc; padding: 3px 8px; border-radius: 6px; }
 .ato-live, .ato-status { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
 .ato-live { background: #e8f1fb; border-color: #9cc3e8; color: #0b4f8a; }
@@ -300,8 +299,7 @@ export default function (component) {
 
   const bar = document.createElement("div");
   bar.className = "ato-bar";
-  bar.innerHTML = `${flow.origin === "simulation" ? '<span class="ato-tag">Simulated run · scripted model replies, real pipeline code</span>' : ""}
-    <span class="ato-live" style="display:none"></span>
+  bar.innerHTML = `<span class="ato-live" style="display:none"></span>
     <button data-a="play">▶ Play</button><button data-a="prev">◀</button><button data-a="next">▶|</button>
     <button data-a="all">Show all</button><button data-a="fit">Fit</button>
     <button data-a="follow" title="Keep the active step in view">Follow</button>

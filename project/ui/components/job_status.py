@@ -38,8 +38,7 @@ def run_badge(run_state: str) -> None:
 
 
 ORIGINS = {"brief": ("From a brief", ":material/edit_note:"),
-           "benchmark": ("Benchmark", ":material/science:"),
-           "simulation": ("Simulated", ":material/slideshow:")}
+           "benchmark": ("Benchmark", ":material/science:")}
 
 
 def origin(kind: str) -> tuple[str, str]:
