@@ -1,11 +1,22 @@
 """Process-flow canvas: flowchart symbols on a pannable grid, a detail drawer per node, and playback.
 
 Everything interactive runs in the browser; Python only passes the flow from flow_model.flow().
+While a formulation step or its run is in progress the page passes a fresh flow every few
+seconds: the canvas updates in place, marks the active node, and keeps pan, zoom and the
+open drawer.
 """
+import functools
+import json
+import logging
+
 import streamlit as st
 
+from project.ui import api, flow_model
+
+_log = logging.getLogger(__name__)
+
 _CSS = """
-.ato-flow { position: relative; height: 720px; border: 1px solid #d6d6d6; border-radius: 10px; overflow: hidden;
+.ato-flow { position: relative; border: 1px solid #d6d6d6; border-radius: 10px; overflow: hidden;
   background-color: #f4f4f4; font-family: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif; color: #1f2328;
   user-select: none; }
 .ato-flow.grid { background-image: linear-gradient(#e3e3e3 1px, transparent 1px), linear-gradient(90deg, #e3e3e3 1px, transparent 1px); }
@@ -19,6 +30,11 @@ _CSS = """
 .ato-bar button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
 .ato-tag { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #fff3cd; border: 1px solid #e8c766; }
 .ato-step { font-size: 13px; color: #555; background: #ffffffcc; padding: 3px 8px; border-radius: 6px; }
+.ato-live, .ato-status { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
+.ato-live { background: #e8f1fb; border-color: #9cc3e8; color: #0b4f8a; }
+.ato-live::before { content: "●"; color: #0b6bcb; margin-right: 5px; animation: ato-blink 1.2s ease-in-out infinite; }
+.ato-status { background: #fff; border-color: #d6d6d6; color: #444; }
+@keyframes ato-blink { 50% { opacity: .25; } }
 .node text { font-size: 13px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 .node .sub { font-size: 10.5px; fill: #6b6b6b; }
 .node .shape { fill: #fff; stroke: #2b2b2b; stroke-width: 1.2; }
@@ -31,12 +47,17 @@ _CSS = """
 .node:hover .shape { stroke-width: 2.2; }
 .node.selected .shape { stroke: #0b6bcb; stroke-width: 2.6; }
 .node.current .shape { filter: drop-shadow(0 0 6px #0b6bcb); stroke: #0b6bcb; stroke-width: 2.6; }
+.node.active .shape { stroke: #0b6bcb; stroke-width: 2.8; fill: #eef5fc; animation: ato-pulse 1.4s ease-in-out infinite; }
+.node.waiting .shape { stroke: #b7791f; stroke-width: 2; stroke-dasharray: 6 4; fill: #fffaf0; }
+@keyframes ato-pulse { 0%, 100% { filter: drop-shadow(0 0 1px #0b6bcb66); } 50% { filter: drop-shadow(0 0 9px #0b6bcb); } }
 .node.hidden, .edge.hidden { opacity: 0.08; }
 .edge path { fill: none; stroke: #2b2b2b; stroke-width: 2.4; }
 .edge.dashed path { stroke-dasharray: 7 5; stroke: #777; }
+.edge.flowing path { stroke: #0b6bcb; stroke-dasharray: 9 6; animation: ato-march .8s linear infinite; }
+@keyframes ato-march { to { stroke-dashoffset: -15; } }
 .edge text { font-size: 12px; font-weight: 600; fill: #2b2b2b; }
 .edge { transition: opacity .25s; }
-.ato-legend { position: absolute; bottom: 10px; left: 10px; display: flex; gap: 12px; font-size: 12px; background: #ffffffd9;
+.ato-legend { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; background: #ffffffd9;
   padding: 5px 9px; border-radius: 6px; z-index: 3; }
 .ato-legend i { display: inline-block; width: 10px; height: 10px; border: 2px solid; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .ato-drawer { position: absolute; top: 0; right: 0; width: 440px; max-width: 70%; height: 100%; background: #fff;
@@ -96,7 +117,8 @@ _CSS = """
 _JS = r"""
 const NS = "http://www.w3.org/2000/svg";
 const CW = 190, RH = 150, W = 150, H = 62, DW = 124, DH = 92;
-const views = {};
+const views = {};    // per canvas key: pan, zoom, selection, playback, follow
+const mounts = {};   // per canvas key: the drawn canvas, so a live refresh can update it in place
 
 function el(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
@@ -189,11 +211,18 @@ function citeHtml(c) {
     (c.open ? `<a href="${esc(c.open)}" title="Open this line in VS Code on your machine">Open in VS Code ↗</a>` : "") +
     `</div><pre class="code">${rows}</pre></div>`;
 }
+function aboutFor(label) {
+  // Step descriptions are keyed by node label; "Specification v2" uses "Specification", and so on.
+  const exact = STATIC.about[label];
+  if (exact !== undefined) return exact;
+  const hit = Object.entries(STATIC.about).find(([k]) => String(label).startsWith(k));
+  return hit ? hit[1] : null;
+}
 function promptsHtml(d) {
   if (!d.prompts || !d.prompts.length) return "";
   return `<details open><summary>Prompts sent (${d.prompts.length} parts)</summary>` +
     (d.prompt_note ? `<p class="rule">${esc(d.prompt_note)}</p>` : "") +
-    d.prompts.map(p => `<details><summary>${esc(p.name)}</summary>${prettyPrompt(p.text)}</details>`).join("") + "</details>";
+    d.prompts.map(p => `<details><summary>${esc(p.name)}</summary>${prettyPrompt(STATIC.prompts[p.name])}</details>`).join("") + "</details>";
 }
 function block(title, text, open) {
   return text ? `<details ${open ? "open" : ""}><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>` : "";
@@ -202,8 +231,9 @@ function detailHtml(n) {
   const d = n.detail || {};
   let html = `<button class="close" title="Close">×</button><h3>${esc(n.label)}</h3>
     <div class="meta">${esc(n.shape)} · ${esc(n.actor)}${n.sub ? " · " + esc(n.sub) : ""}${n.status !== "ok" ? " · " + esc(n.status) : ""}</div>`;
-  if (d.about) html += `<div class="about"><p>${esc(d.about.text)}${citeHtml(d.about.cite)}</p><ul>` +
-    (d.about.points || []).map(x => `<li>${esc(x.text)}${citeHtml(x.cite)}</li>`).join("") + `</ul></div>`;
+  const about = aboutFor(n.label);
+  if (about) html += `<div class="about"><p>${esc(about.text)}${citeHtml(about.cite)}</p><ul>` +
+    (about.points || []).map(x => `<li>${esc(x.text)}${citeHtml(x.cite)}</li>`).join("") + `</ul></div>`;
   if (d.text) html += `<p>${esc(d.text)}</p>`;
   if (d.metrics && Object.keys(d.metrics).length) html += table(Object.entries(d.metrics).map(([k, v]) =>
     `<tr><td class="k">${esc(k)}</td><td>${esc(typeof v === "number" ? (Math.abs(v) > 1e4 ? v.toExponential(3) : +v.toFixed(4)) : v)}</td></tr>`));
@@ -232,35 +262,62 @@ function detailHtml(n) {
   return html;
 }
 
+// The structure of a flow: what needs a rebuild when it changes. Status, subtitles, details
+// and the live line change in place.
+function structure(flow) {
+  return JSON.stringify([
+    flow.height || 720,
+    flow.nodes.map(n => [n.id, n.col, n.row, n.shape, n.actor, n.label, !!n.sub,
+                         ((n.detail || {}).prompts || []).map(p => p.name)]),
+    flow.edges.map(e => [e.from, e.to, e.label || "", e.exit || ""]),
+  ]);
+}
+
 export default function (component) {
   const { data, parentElement } = component;
   const flow = data || {nodes: [], edges: []};
   const key = flow.key || "flow";
-  const view = views[key] || (views[key] = {x: 20, y: 30, k: 0.78, bg: "grid", selected: null, step: -1, playing: false});
+  const view = views[key] || (views[key] = {x: 20, y: 30, k: 0.78, bg: "grid", selected: null, step: -1,
+                                            playing: false, follow: true, lastActive: null});
+  const sig = structure(flow);
+  const old = mounts[key];
+  if (old && old.parent === parentElement && old.root.isConnected && old.sig === sig) {
+    old.update(flow, false);
+    return old.unmount;   // Streamlit keeps the latest returned function and calls it on unmount
+  }
+  const saved = old && old.root.isConnected ? old.drawerState() : null;
+  if (old) old.teardown();
+  let current = flow, drawerSig = null;
+
   parentElement.innerHTML = "";
   const style = document.createElement("style");
-  style.textContent = flow.css || "";
+  style.textContent = STATIC.css;
   parentElement.appendChild(style);
   const root = document.createElement("div");
   root.className = "ato-flow " + view.bg;
+  root.style.height = (flow.height || 720) + "px";
   parentElement.appendChild(root);
 
   const bar = document.createElement("div");
   bar.className = "ato-bar";
   bar.innerHTML = `${flow.origin === "simulation" ? '<span class="ato-tag">Simulated run · scripted model replies, real pipeline code</span>' : ""}
+    <span class="ato-live" style="display:none"></span>
     <button data-a="play">▶ Play</button><button data-a="prev">◀</button><button data-a="next">▶|</button>
     <button data-a="all">Show all</button><button data-a="fit">Fit</button>
+    <button data-a="follow" title="Keep the active step in view">Follow</button>
     <button data-a="grid" class="${view.bg === "grid" ? "on" : ""}">Grid</button><button data-a="dots" class="${view.bg === "dots" ? "on" : ""}">Dots</button>
     <span class="ato-step"></span>`;
   root.appendChild(bar);
+  const liveEl = bar.querySelector(".ato-live"), followBtn = bar.querySelector('[data-a="follow"]');
   const legend = document.createElement("div");
   legend.className = "ato-legend";
   legend.innerHTML = '<span><i style="border-color:#6d4fc2"></i>model</span><span><i style="border-color:#2b2b2b"></i>code</span>' +
     '<span><i style="border-color:#b7791f"></i>engineer</span><span><i style="border-color:#c62828;background:#fdecea"></i>failed</span>' +
+    '<span><i style="border-color:#0b6bcb;background:#eef5fc"></i>running now</span><span><i style="border-color:#777;border-style:dashed"></i>still to come</span>' +
     '<span>▭ process ▱ data ⬭ review document ◇ decision 🗀 record</span>';
   root.appendChild(legend);
   const drawer = document.createElement("div");
-  drawer.className = "ato-drawer";
+  drawer.className = "ato-drawer" + (view.selected ? " open" : "");   // already open: no slide-in on a rebuild
   root.appendChild(drawer);
   const pop = document.createElement("div");
   pop.className = "ato-pop";
@@ -273,7 +330,7 @@ export default function (component) {
   function showPrompt(part, node, ev) {
     clearTimeout(hideTimer);
     pop.innerHTML = `<div class="prompt-title">${esc(node.label)} · ${esc(part.name)}</div>` +
-      (node.detail.prompt_note ? `<p class="rule">${esc(node.detail.prompt_note)}</p>` : "") + prettyPrompt(part.text);
+      (node.detail.prompt_note ? `<p class="rule">${esc(node.detail.prompt_note)}</p>` : "") + prettyPrompt(STATIC.prompts[part.name]);
     const r = root.getBoundingClientRect();
     pop.style.display = "block";
     const x = Math.min(ev.clientX - r.left + 12, r.width - pop.offsetWidth - 10);
@@ -289,13 +346,18 @@ export default function (component) {
   el("path", {d: "M0,0 L10,5 L0,10 z", fill: "#2b2b2b"}, marker);
   const g = el("g", {}, svg);
 
-  const boxes = {}, nodeEls = {}, edgeEls = [];
+  const boxes = {}, nodeEls = {}, subEls = {}, edgeEls = [];
+  const nodeClass = n => `node ${n.shape} ${n.actor} ${n.status}`;
+  const edgeClass = (e, f) => {
+    const target = f.nodes.find(n => n.id === e.to);
+    return "edge" + (e.dashed ? " dashed" : "") + (target && target.status === "active" ? " flowing" : "");
+  };
   flow.nodes.forEach(n => { boxes[n.id] = box(n); });
-  flow.edges.forEach(e => {
+  flow.edges.forEach((e, index) => {
     const a = boxes[e.from], b = boxes[e.to];
     if (!a || !b) return;
     const pts = route(a, b, e.exit);
-    const ge = el("g", {class: "edge" + (e.dashed ? " dashed" : "")}, g);
+    const ge = el("g", {class: edgeClass(e, flow)}, g);
     el("path", {d: "M" + pts.map(p => p.join(",")).join(" L"), "marker-end": `url(#arrow-${key})`}, ge);
     if (e.label) {
       const [p0, p1] = pts;
@@ -304,15 +366,15 @@ export default function (component) {
       const t = el("text", {x: p0[0] + (leftward ? -34 : horizontal ? 10 : 8), y: p0[1] + (horizontal ? -8 : 16)}, ge);
       t.textContent = e.label;
     }
-    edgeEls.push({ge, e});
+    edgeEls.push({ge, e, index});
   });
   flow.nodes.forEach(n => {
     const b = boxes[n.id];
-    const gn = el("g", {class: `node ${n.shape} ${n.actor} ${n.status}`}, g);
+    const gn = el("g", {class: nodeClass(n)}, g);
     el("path", {class: "shape", d: shapePath(n, b)}, gn);
     const label = el("text", {x: b.x, y: b.y - (n.sub ? 7 : 0)}, gn);
     label.textContent = n.label;
-    if (n.sub) { const s = el("text", {class: "sub", x: b.x, y: b.y + 11}, gn); s.textContent = n.sub; }
+    if (n.sub) { subEls[n.id] = el("text", {class: "sub", x: b.x, y: b.y + 11}, gn); subEls[n.id].textContent = n.sub; }
     gn.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
     const parts = (n.detail && n.detail.prompts) || [];
     if (parts.length) {
@@ -324,7 +386,7 @@ export default function (component) {
         el("rect", {x, y: b.b + 6, width: widths[i], height: 17, rx: 8.5}, pg);
         const pt = el("text", {x: x + widths[i] / 2, y: b.b + 15}, pg);
         pt.textContent = "✎ " + part.name;
-        pg.addEventListener("mouseenter", ev => showPrompt(part, n, ev));
+        pg.addEventListener("mouseenter", ev => showPrompt(part, current.nodes.find(x => x.id === n.id) || n, ev));
         pg.addEventListener("mouseleave", hidePop);
         pg.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
         x += widths[i] + gap;
@@ -340,6 +402,7 @@ export default function (component) {
     root.style.backgroundSize = `${24 * view.k}px ${24 * view.k}px`;
     root.style.backgroundPosition = `${view.x}px ${view.y}px`;
     const revealed = view.step < 0 ? null : new Set(order.slice(0, view.step + 1));
+    if (revealed) current.nodes.forEach(n => { if (n.status === "active" || n.status === "waiting") revealed.add(n.id); });
     for (const id in nodeEls) {
       nodeEls[id].classList.toggle("hidden", !!revealed && !revealed.has(id));
       nodeEls[id].classList.toggle("selected", view.selected === id);
@@ -348,11 +411,18 @@ export default function (component) {
     edgeEls.forEach(({ge, e}) => ge.classList.toggle("hidden", !!revealed && !(revealed.has(e.from) && revealed.has(e.to))));
     stepLabel.textContent = view.step < 0 ? `${order.length} steps` : `Step ${view.step + 1} of ${order.length}`;
     bar.querySelector('[data-a="play"]').textContent = view.playing ? "❚❚ Pause" : "▶ Play";
+    followBtn.classList.toggle("on", view.follow);
   }
-  function select(id) {
-    view.selected = id;
-    const n = flow.nodes.find(x => x.id === id);
-    if (!n) { drawer.classList.remove("open"); apply(); return; }
+  function drawerState() {
+    // The reader's place in the drawer: scroll, which sections are open, which code boxes are shown.
+    return {scroll: drawer.scrollTop,
+            open: Object.fromEntries([...drawer.querySelectorAll("details")].map(d => [d.querySelector("summary")?.textContent, d.open])),
+            code: [...drawer.querySelectorAll(".codebox")].map(b => b.hidden),
+            pre: [...drawer.querySelectorAll("pre")].map(p => p.scrollTop)};
+  }
+  function renderDrawer(n, keep) {
+    // keep: true keeps the place in this drawer; an object restores a place saved before a rebuild.
+    const state = keep === true ? drawerState() : keep || null;
     drawer.innerHTML = detailHtml(n);
     drawer.querySelectorAll(".cite").forEach(button => button.addEventListener("click", ev => {
       ev.stopPropagation();
@@ -360,17 +430,74 @@ export default function (component) {
       if (box) box.hidden = !box.hidden;
     }));
     drawer.querySelector(".close").onclick = () => { view.selected = null; drawer.classList.remove("open"); apply(); };
+    if (state) {
+      drawer.querySelectorAll("details").forEach(d => {
+        const s = d.querySelector("summary")?.textContent;
+        if (s in state.open) d.open = state.open[s];
+      });
+      drawer.querySelectorAll(".codebox").forEach((b, i) => { if (i < state.code.length) b.hidden = state.code[i]; });
+      drawer.querySelectorAll("pre").forEach((p, i) => { if (i < state.pre.length) p.scrollTop = state.pre[i]; });
+      drawer.scrollTop = state.scroll;
+    }
+    drawerSig = JSON.stringify([n.detail, n.status, n.sub]);
+  }
+  function select(id) {
+    view.selected = id;
+    const n = current.nodes.find(x => x.id === id);
+    if (!n) { drawer.classList.remove("open"); apply(); return; }
+    renderDrawer(n, false);
     drawer.classList.add("open");
     apply();
   }
-  function fit() {
+  // Where a focused step sits vertically: below the toolbar, in the upper part of the canvas.
+  const focusY = rect => Math.min((rect.height + 50) / 2, 280);
+  function reveal(id) {
+    // Pan just enough to bring the active step back into view; leave the zoom alone.
+    const b = boxes[id], rect = root.getBoundingClientRect();
+    if (!b || !rect.width) return;
+    const right = rect.width - (drawer.classList.contains("open") ? drawer.offsetWidth : 0);
+    const sx = view.x + b.x * view.k, sy = view.y + b.y * view.k;
+    if (sx < 90 || sx > right - 90 || sy < 120 || sy > rect.height - 70) {
+      view.x = right / 2 - b.x * view.k;
+      view.y = focusY(rect) - b.y * view.k;
+      apply();
+    }
+  }
+  function fit(minK = 0) {
+    // The whole flow; with minK, never smaller than that, centred on the step that matters now.
     const xs = Object.values(boxes), rect = root.getBoundingClientRect();
     if (!xs.length) return;
     const minX = Math.min(...xs.map(b => b.l)) - 40, maxX = Math.max(...xs.map(b => b.r)) + 40;
     const minY = Math.min(...xs.map(b => b.t)) - 60, maxY = Math.max(...xs.map(b => b.b)) + 50;
     const top = 96, bottom = 46;   // clear the toolbar and the legend
     const k = Math.min(rect.width / (maxX - minX), (rect.height - top - bottom) / (maxY - minY), 1.4);
-    view.k = k; view.x = -minX * k + (rect.width - (maxX - minX) * k) / 2; view.y = -minY * k + top;
+    view.k = Math.max(k, minK); view.x = -minX * view.k + (rect.width - (maxX - minX) * view.k) / 2; view.y = -minY * view.k + top;
+    if (view.k > k) {
+      const focus = boxes[current.active] || boxes[order.filter(id => !/^(next|live):/.test(id)).slice(-1)[0]];
+      if (focus) { view.x = rect.width / 2 - focus.x * view.k; view.y = focusY(rect) - focus.y * view.k; }
+    }
+    apply();
+  }
+  function update(next, first) {
+    current = next;
+    for (const n of next.nodes) {
+      if (!nodeEls[n.id]) continue;
+      nodeEls[n.id].setAttribute("class", nodeClass(n));
+      if (subEls[n.id] && subEls[n.id].textContent !== n.sub) subEls[n.id].textContent = n.sub || "";
+    }
+    edgeEls.forEach(({ge, index}) => ge.setAttribute("class", edgeClass(next.edges[index], next)));
+    liveEl.textContent = next.status_text || (next.live ? "Live" : "");
+    liveEl.className = next.live ? "ato-live" : "ato-status";
+    liveEl.style.display = liveEl.textContent ? "" : "none";
+    followBtn.style.display = next.live ? "" : "none";
+    if (view.selected) {
+      const n = next.nodes.find(x => x.id === view.selected);
+      if (!n) { view.selected = null; drawer.classList.remove("open"); }
+      else if (first) { renderDrawer(n, saved); drawer.classList.add("open"); }
+      else if (JSON.stringify([n.detail, n.status, n.sub]) !== drawerSig) renderDrawer(n, true);
+    }
+    if (next.active && view.follow && view.fitted && (first || next.active !== view.lastActive)) reveal(next.active);
+    view.lastActive = next.active;
     apply();
   }
   function go(step) {
@@ -394,7 +521,8 @@ export default function (component) {
     } else if (a === "prev") { view.playing = false; clearInterval(view.timer); go(view.step < 0 ? 0 : view.step - 1); }
     else if (a === "next") { view.playing = false; clearInterval(view.timer); go(view.step + 1); }
     else if (a === "all") { view.playing = false; clearInterval(view.timer); view.step = -1; apply(); }
-    else if (a === "fit") fit();
+    else if (a === "fit") fit();   // everything, however small
+    else if (a === "follow") { view.follow = !view.follow; if (view.follow && current.active) reveal(current.active); apply(); }
     else if (a === "grid" || a === "dots") {
       view.bg = a; root.className = "ato-flow " + a;
       bar.querySelector('[data-a="grid"]').classList.toggle("on", a === "grid");
@@ -403,10 +531,25 @@ export default function (component) {
     }
   });
 
+  // Dragging pans the canvas and stops following the active step (Follow turns it back on).
   let drag = null;
-  svg.addEventListener("mousedown", ev => { drag = {x: ev.clientX - view.x, y: ev.clientY - view.y}; svg.classList.add("dragging"); });
-  window.addEventListener("mousemove", ev => { if (!drag) return; view.x = ev.clientX - drag.x; view.y = ev.clientY - drag.y; apply(); });
-  window.addEventListener("mouseup", () => { drag = null; svg.classList.remove("dragging"); });
+  svg.addEventListener("mousedown", ev => {
+    drag = {x: ev.clientX - view.x, y: ev.clientY - view.y, sx: ev.clientX, sy: ev.clientY, moved: false};
+    svg.classList.add("dragging");
+  });
+  const onMove = ev => {
+    // A click with a little hand jitter is a click, not a drag that stops Follow.
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) <= 4) return;
+      drag.moved = true; view.follow = false;
+    }
+    view.x = ev.clientX - drag.x; view.y = ev.clientY - drag.y;
+    apply();
+  };
+  const onUp = () => { drag = null; svg.classList.remove("dragging"); };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
   svg.addEventListener("wheel", ev => {
     ev.preventDefault();
     const rect = svg.getBoundingClientRect(), mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
@@ -416,16 +559,70 @@ export default function (component) {
   }, {passive: false});
   svg.addEventListener("click", () => { view.selected = null; drawer.classList.remove("open"); apply(); });
 
-  if (!view.fitted) { view.fitted = true; requestAnimationFrame(fit); }
-  if (view.selected) select(view.selected); else apply();
+  // Fit once the canvas has a size: it has none while it sits in a collapsed expander.
+  const sizer = new ResizeObserver(() => {
+    if (view.fitted || !root.clientWidth) return;
+    fit(0.55);
+    view.fitted = true;
+    if (current.active && view.follow) reveal(current.active);
+  });
+  sizer.observe(root);
+  // A rebuild drops this drawing's listeners; unmounting (Streamlit calls the returned function) also stops playback.
+  const teardown = () => { sizer.disconnect(); window.removeEventListener("mousemove", onMove);
+                           window.removeEventListener("mouseup", onUp); };
+  const mount = {parent: parentElement, root, sig, update, drawerState, teardown};
+  mount.unmount = () => {
+    teardown();
+    clearInterval(view.timer);
+    view.playing = false;
+    if (mounts[key] === mount) delete mounts[key];
+  };
+  mounts[key] = mount;
+  update(flow, true);
+  return mount.unmount;
 }
 """
 
+@functools.lru_cache(maxsize=1)
+def _script() -> str:
+    # What never changes while the app runs travels in the script, not with every live refresh:
+    # the stylesheet, the step descriptions with their code citations, and the prompt texts.
+    static = {"css": _CSS, "about": flow_model.about_table(), "prompts": flow_model.prompt_texts()}
+    return "const STATIC = " + json.dumps(static) + ";\n" + _JS
+
+
 def _component(**kwargs):
     # Registered on each render: registration belongs to the running app, which tests and reruns may replace.
-    return st.components.v2.component("ato_flow_canvas", js=_JS)(**kwargs)
+    return st.components.v2.component("ato_flow_canvas", js=_script())(**kwargs)
 
 
-def render(flow: dict, key: str) -> None:
+def render(flow: dict, key: str, height: int = 720) -> None:
     """Draw the process flow returned by flow_model.flow()."""
-    _component(data={**flow, "key": key, "css": _CSS}, key=f"flow_{key}", height=740)
+    _component(data={**flow, "key": key, "height": height}, key=f"flow_{key}", height=height + 20)
+
+
+def show(fid: str, key: str, height: int = 720, flow: dict | None = None) -> None:
+    """A formulation's process flow; while a step or its run is in progress, refreshed in place every 2 s."""
+    if api.is_live(fid):
+        _live(fid, key, height)
+    else:
+        _draw(fid, key, height, flow)
+
+
+@st.fragment(run_every=2)
+def _live(fid: str, key: str, height: int) -> None:
+    flow = _draw(fid, key, height)
+    if flow is not None and not flow["live"]:
+        st.rerun()   # the whole page: a finished flow is drawn once, without refreshing
+
+
+def _draw(fid: str, key: str, height: int, flow: dict | None = None) -> dict | None:
+    # A flow that cannot be built (say, a damaged run folder) must not take the page down with it.
+    try:
+        flow = flow or flow_model.flow(fid)
+    except Exception:
+        _log.exception("Process flow for %s could not be built", fid)
+        st.error("The process flow could not be drawn for this formulation.")
+        return None
+    render(flow, key, height)
+    return flow

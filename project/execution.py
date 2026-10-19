@@ -210,13 +210,13 @@ def _worker(run_dir: Path) -> int:
             result = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT, check=False)
         paraview = _render_paraview(run_dir) if result.returncode == 0 else {"state": "skipped", "reason": "solver failed"}
         state = "completed" if result.returncode == 0 else "failed"
-        _set_status(run_dir, state=state, returncode=result.returncode, finished_at=utc_now(),
+        _set_status(run_dir, state=state, step=None, returncode=result.returncode, finished_at=utc_now(),
                     convergence="not assessed", paraview=paraview)
         return result.returncode
     except Exception as error:
         reason = ("Saved solver inputs no longer match the approved plan. Review and approve a new run."
                   if isinstance(error, _ApprovalMismatch) else type(error).__name__)
-        _set_status(run_dir, state="failed", reason=reason, finished_at=utc_now(),
+        _set_status(run_dir, state="failed", step=None, reason=reason, finished_at=utc_now(),
                     convergence="not assessed")
         return 1
 

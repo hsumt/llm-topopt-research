@@ -1,4 +1,4 @@
-"""Process flow: how a formulation went from brief to approved plan, step by step."""
+"""Process flow: how a formulation went from brief to run results, step by step, live while it runs."""
 import streamlit as st
 
 from project.ui import api, flow_model, routes
@@ -30,23 +30,12 @@ if not fid or fid not in options:
     st.info("Choose a formulation.")
     st.stop()
 
-
-@st.fragment(run_every=3)
-def _watch(fid: str, version: tuple) -> None:
-    if api.flow_version(fid) != version:
-        st.rerun()
-
-
-live = options[fid].state == "working" or api.run_actions(fid)["active"]
-if live:
-    # Redraw only when a step or the run changes state, so the canvas stays usable meanwhile.
-    _watch(fid, api.flow_version(fid))
-    st.caption(":material/autorenew: Updates as steps and the run progress.")
 flow = flow_model.flow(fid)
-if len(flow["nodes"]) <= 1:
+if len(flow["nodes"]) <= 1 and not flow["live"]:
     st.info("This formulation has no recorded steps yet.")
     st.stop()
-flow_canvas.render(flow, fid)
-st.caption("Drag to pan, scroll to zoom. Purple outlines are model steps, black are code, amber are the engineer. "
+flow_canvas.show(fid, fid, flow=flow)
+st.caption("Drag to pan, scroll to zoom. Purple outlines are model steps, black are code, amber are the engineer; "
+           "the pulsing step is running now and dashed steps are still to come. "
            "Model reasoning shown here is the model's own output, not verified fact.")
 st.page_link(routes.FORMULATION, label="Open this formulation", icon=":material/description:", query_params={"fid": fid})

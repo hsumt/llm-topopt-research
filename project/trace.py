@@ -2,7 +2,9 @@
 
 A formulation folder gets trace.jsonl (one JSON node per line) and blobs/
 (content-addressed JSON: specs, model payloads, raw replies, rejected edits,
-spilled item lists, large old/new values).
+spilled item lists, large old/new values). While a model call is in flight it also
+has activity.json, which names that step for the live process flow; it is not part
+of the trace and is removed when the call ends.
 A node records one step (parse, benchmark, assess, critic, merge, present, answer,
 resolve, apply, failure, run.*), its actor, the nodes it used, and every issue, question,
 answer or update it created, kept, dropped or applied, with the rule that decided.
@@ -27,6 +29,7 @@ import threading
 import uuid
 from pathlib import Path
 
+from project import storage
 from project.models import CODE_KEY_PREFIX
 
 VERSION = 1
@@ -41,6 +44,7 @@ _TEXT_FIELDS = ("text", "why", "example_answer")
 _OMITTED = ("output_schema", "output_spec_schema", "prior_rounds")   # rebuilt from the source version and revisions
 _SOURCES = ("lbracket.py", "prompts.py", "models.py")
 MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve"}   # trace step -> ai.py call step
+ACTIVITY = "activity.json"
 
 _log = logging.getLogger(__name__)
 _lock = threading.RLock()   # serializes trace appends and blob-budget accounting across formulation threads
@@ -326,6 +330,31 @@ def record_call(call: dict) -> None:
     recorder = current()
     if recorder.enabled:
         recorder.call = call
+
+
+@guarded
+def calling(call_step: str) -> None:
+    """Mark the model call that is starting (ai.py call step), for the live process flow."""
+    recorder = current()
+    if recorder.enabled:
+        step = next((s for s, c in MODEL_STEPS.items() if c == call_step), call_step)
+        storage.write_json(recorder.folder / ACTIVITY, {"step": step, "round": recorder.round, "since": _now()})
+
+
+@guarded
+def called() -> None:
+    recorder = current()
+    if recorder.enabled:
+        (recorder.folder / ACTIVITY).unlink(missing_ok=True)
+
+
+def activity(folder: Path) -> dict | None:
+    """The model call in flight for this formulation, if any: {"step", "round", "since"}."""
+    try:
+        data = json.loads((Path(folder) / ACTIVITY).read_text())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) and data.get("step") in MODEL_STEPS else None
 
 
 @guarded

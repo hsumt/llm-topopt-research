@@ -186,6 +186,23 @@ def _about(label: str) -> dict | None:
             "points": [{"text": point, "cite": citations.cite(point_anchor)} for point, point_anchor in points]}
 
 
+def about_table() -> dict:
+    """Every step description with its resolved code citations, keyed by node label."""
+    return {label: _about(label) for label in [*ABOUT, "Failed"]}
+
+
+def prompt_texts() -> dict:
+    """The text of every prompt part, keyed by part name; nodes name the parts they used."""
+    return {name: text.strip() for parts in prompts.PARTS.values() for name, text in parts}
+
+
+def _image(path) -> str | None:
+    try:
+        return "data:image/png;base64," + base64.b64encode(Path(path).read_bytes()).decode()
+    except OSError:
+        return None
+
+
 def flow(fid: str) -> dict:
     """The formulation's process as flowchart nodes and edges: the pre-solve steps from its trace,
     then approval, run, render and results from the approval record and run folder.
@@ -207,8 +224,7 @@ def flow(fid: str) -> dict:
             row += 0.55
         placed[key] = (col, row)
         nodes.append({"id": key, "shape": shape, "label": label, "sub": sub, "col": col, "row": row,
-                      "actor": actor, "status": status, "order": len(nodes),
-                      "detail": {**detail, "about": _about(label)}})
+                      "actor": actor, "status": status, "order": len(nodes), "detail": detail})
         return key
 
     def link(a, b, label=None, dashed=False, exit=None):
@@ -221,7 +237,7 @@ def flow(fid: str) -> dict:
         parts = prompts.PARTS.get(trace.MODEL_STEPS.get(node["step"]), ())
         return {"actor": "model", "model": model.get("model"), "cache_hit": model.get("cache_hit"),
                 "tokens": model.get("tokens"), "latency_ms": node.get("latency_ms"),
-                "prompts": [{"name": name, "text": text.strip()} for name, text in parts],
+                "prompts": [{"name": name} for name, _ in parts],
                 "prompt_note": None if same else "This step ran with an earlier version of the prompts; "
                                                  "the text shown is the current version.",
                 "payload": _blob_text(folder, node["in"].get("payload")),
@@ -232,6 +248,7 @@ def flow(fid: str) -> dict:
                {"text": formulation.brief, "context": formulation.context})
     spec_version, spec_ref = 0, None
     ready = assess_ref = critic_ref = None
+    base = 0
     for node in nodes_in_trace:
         step, r = node["step"], node["round"]
         base = 2 * r
@@ -313,53 +330,125 @@ def flow(fid: str) -> dict:
                      "reply": _blob_text(folder, (node.get("out") or {}).get("reply"))}, status="failed")
             link(prev, f, "error", dashed=True)
             prev = f
-    if formulation.approval_id and ready:
-        record = api.get_approval(formulation.approval_id)
-        entry = next((e for e in record.entries if e.fid == fid), None) if record else None
-        _, row = placed[ready]
+    # What is happening now: the model call in flight, the engineer's turn, or the approved run.
+    active = waiting = None
+    status_text = None
+    call = trace.activity(folder) if formulation.state == "working" else None
+    if call:
+        call_base = 2 * call.get("round", 0)
+        label, col, row, after = {"parse": ("Parse brief", 1, call_base, prev),
+                                  "critic": ("Reviewer", 4.5, call_base + 0.45, spec_ref or prev),
+                                  "resolve": ("Resolve answers", 6, call_base + 1, prev)}[call["step"]]
+        parts = prompts.PARTS.get(trace.MODEL_STEPS[call["step"]], ())
+        active = add("live:" + call["step"], "process", label, col, row, "model",
+                     {"text": f"Model call in progress since {call.get('since')}.",
+                      "prompts": [{"name": name} for name, _ in parts]},
+                     status="active", sub="model · running")
+        link(after, active)
+        status_text = f"{label}: model call running"
+    elif formulation.state == "working":
+        status_text = formulation.step or "Working"
+    elif formulation.state == "needs_input" and prev and prev.endswith(":questions"):
+        waiting = add("next:answers", "data", "Engineer answers", 7, base + 1, "engineer",
+                      {"text": "Waiting for the engineer to answer the questions shown."},
+                      status="waiting", sub="waiting for you")
+        link(prev, waiting, dashed=True)
+        status_text = "Waiting for your answers"
+    if ready and formulation.state in ("ready", "approved"):
+        active, run_text = _approval_and_run(fid, formulation, placed[ready][1], ready, add, link, active)
+        status_text = run_text or status_text
+    return {"nodes": nodes, "edges": edges, "title": formulation.title, "origin": formulation.origin,
+            "state": formulation.state, "live": api.is_live(fid), "active": active or waiting,
+            "status_text": status_text}
+
+
+def _approval_and_run(fid, formulation, row, ready, add, link, active):
+    """Approval, approval record, run, ParaView render and results, with the step now running marked.
+
+    Before approval and before the run starts, the steps still to come are drawn as pending.
+    Returns the active node id and a status line.
+    """
+    record = api.get_approval(formulation.approval_id) if formulation.state == "approved" else None
+    entry = next((e for e in record.entries if e.fid == fid), None) if record else None
+    if formulation.state != "approved":
         a = add("approval", "process", "Approval", 9, row, "engineer",
-                {"text": f"Approved by {record.approver} at {record.approved_at}." if record else None}, sub="engineer")
+                {"text": "Waiting for the engineer to review and approve the exact plan."},
+                status="waiting", sub="waiting for you")
+        link(ready, a, "YES", dashed=True)
+        f = add("record", "folder", "Approval record", 10, row, "code", {"text": "Written when the plan is approved."},
+                status="pending", sub="after approval")
+        link(a, f, dashed=True)
+        info, text, active = None, "Waiting for approval", a
+    else:
+        a = add("approval", "process", "Approval", 9, row, "engineer",
+                {"text": f"Approved by {record.approver} at {record.approved_at}." if record else "Approved."},
+                sub="engineer")
         link(ready, a, "YES")
         f = add("record", "folder", "Approval record", 10, row, "code",
                 {"plan_hash": entry.plan_hash if entry else None,
                  "block_config": entry.block_config if entry else None,
                  "solver_inputs": entry.solver_inputs if entry else None, "budget": entry.budget if entry else None})
         link(a, f)
-        info = api.run_info(fid)
+        info = api.run_info(fid, with_frames=False)
         if info is not None and info["pending"]:
             info = None   # that run belongs to an earlier approval
-        if info is None:
-            run = add("run", "process", "Run", 11, row, "code",
-                      {"text": "Not started yet. Run the approved plan from the formulation page."}, status="pending",
-                      sub="not started")
-            link(f, run, dashed=True)
-        else:
-            done = len(info["history"])
-            state = info["state"]
-            run = add("run", "process", "Run", 11, row, "code",
-                      {"text": f"Run {info['run']}: {state}." + (f" {info['reason']}" if info.get("reason") else ""),
-                       "metrics": (info["summary"] or {}).get("level_set") or {},
-                       "history_tail": info["history"][-5:], "solver_inputs": info["config"]},
-                      status="failed" if state in ("failed", "interrupted") else "ok" if state == "completed" else "pending",
-                      sub=f"{state} · {done} it")
-            link(f, run)
-            render = None
-            pv = info["paraview"]
-            if pv["frames"] or (pv["status"] or {}).get("state"):
-                final = pv["frames"][-1]["path"] if pv["frames"] else None
-                image = ("data:image/png;base64," + base64.b64encode(Path(final).read_bytes()).decode()) if final else None
-                render = add("paraview", "process", "ParaView render", 12, row, "code",
-                             {"text": f"Rendered by ParaView (pvbatch) from the run's cell-data density: "
-                                      f"{len(pv['frames'])} frames, one cube per element, no smoothing.",
-                              "metrics": pv["status"] or {}, "image": image},
-                             status="ok" if pv["frames"] else "failed", sub=f"{len(pv['frames'])} frames")
-                link(run, render)
-            if info["summary"]:
-                last = (info["summary"] or {}).get("last_evaluated_design") or {}
-                results = add("results", "data", "Results", 13 if render else 12, row, "code",
-                              {"metrics": last, "summary_notes": info["summary"].get("notes"),
-                               "image": _convergence_png(info)},
-                              sub=f"vf {last.get('volume_fraction', 0):.3f} · C {last.get('compliance', 0):.3g}")
-                link(render or run, results)
-    return {"nodes": nodes, "edges": edges, "title": formulation.title, "origin": formulation.origin,
-            "state": formulation.state}
+        text = "Approved; the run has not started" if info is None else None
+
+    state = info["state"] if info else None
+    done = len(info["history"]) if info else 0
+    budget = (info or {}).get("budget") or ((entry.budget or {}).get("max_iterations") if entry else None)
+    progress = f"{done}/{budget} it" if budget else f"{done} it"
+    rendering = bool(info and info["paraview"]["rendering"])
+    running = state in ("starting", "running")
+
+    if info is None:
+        run = add("run", "process", "Run", 11, row, "code",
+                  {"text": "Starts when the approved plan is run."}, status="pending", sub="not started")
+    else:
+        run = add("run", "process", "Run", 11, row, "code",
+                  {"text": f"Run {info['run']}: {state}." + (f" {info['reason']}" if info.get("reason") else ""),
+                   "metrics": (info["summary"] or {}).get("level_set") or {},
+                   "history_tail": info["history"][-5:], "solver_inputs": info["config"]},
+                  status="active" if running and not rendering else "failed" if state in ("failed", "interrupted")
+                  else "ok" if state == "completed" or rendering else "pending",
+                  sub="starting" if state == "starting" else f"solved · {progress}" if rendering else
+                  f"running · {progress}" if running else f"{state} · {progress}")
+    link(f, run, dashed=info is None)
+    if running and not rendering:
+        active, text = run, f"Run: {'starting' if state == 'starting' else 'solving'} · {progress}"
+
+    pv = (info or {}).get("paraview") or {"frames": [], "status": None, "rendering": False}
+    pv_state = (pv["status"] or {}).get("state")
+    final = pv["frames"][-1]["path"] if pv["frames"] else None
+    render = add("paraview", "process", "ParaView render", 12, row, "code",
+                 {"text": "Rendering the run's element densities with ParaView (pvbatch)." if rendering else
+                          f"Rendered by ParaView (pvbatch) from the run's cell-data density: {len(pv['frames'])} "
+                          "frames, one cube per element, no smoothing." if pv["frames"] else
+                          f"No render: {(pv['status'] or {}).get('reason')}" if pv_state in ("unavailable", "failed") else
+                          "Renders the run's element densities when the solver finishes.",
+                  "metrics": pv["status"] or {},
+                  "image": _image(final) if final else None},
+                 status="active" if rendering else "ok" if pv["frames"] else
+                 "failed" if pv_state in ("unavailable", "failed") else "pending",
+                 sub="rendering" if rendering else f"{len(pv['frames'])} frames" if pv["frames"] else
+                 pv_state or ("skipped" if state in ("failed", "interrupted") else "after the run"))
+    link(run, render, dashed=not (rendering or pv["frames"] or pv_state))
+    if rendering:
+        active, text = render, "ParaView: rendering the result"
+
+    summary = (info or {}).get("summary")
+    if state == "completed" and summary:
+        last = summary.get("last_evaluated_design") or {}
+        results = add("results", "data", "Results", 13, row, "code",
+                      {"metrics": last, "summary_notes": summary.get("notes"), "image": _convergence_png(info)},
+                      sub=f"vf {last.get('volume_fraction', 0):.3f} · C {last.get('compliance', 0):.3g}")
+        link(render, results)
+        text = text or "Run completed"
+    else:
+        results = add("results", "data", "Results", 13, row, "code",
+                      {"text": "Written when the run completes."}, status="pending",
+                      sub="no results" if state in ("failed", "interrupted") else "after the run")
+        link(render, results, dashed=True)
+        if state in ("failed", "interrupted"):
+            text = text or f"Run {state}"
+    return active, text

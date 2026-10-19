@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 from project.ui import api, routes
-from project.ui.components import (failure_view, gap_report, issues_view, job_status, plan_view, result_view,
-                                   questions_form, spec_view, usage_view)
+from project.ui.components import (failure_view, flow_canvas, gap_report, issues_view, job_status, plan_view,
+                                   result_view, questions_form, spec_view, usage_view)
 from project.ui.components.spec_view import md
 
 NEXT = {
@@ -135,7 +135,7 @@ def _run(fid: str, record) -> None:
             _approve_again(fid, "Change the budget (approve again)")
     if info is None:
         return
-    st.page_link(routes.FLOW, label="Follow this run in the process flow", icon=":material/account_tree:",
+    st.page_link(routes.FLOW, label="Open the full process flow", icon=":material/account_tree:",
                  query_params={"fid": fid})
     if info["pending"]:
         st.caption("Previous run, from an earlier approval:")
@@ -145,6 +145,20 @@ def _run(fid: str, record) -> None:
         _run_result(fid, info)
         if not info["pending"] and actions["can_reapprove"]:
             _approve_again(fid, "Approve another run")
+
+
+def _process(fid: str) -> None:
+    """The formulation's process flow, opened when a step or run starts and following the active step."""
+    live, key = api.is_live(fid), f"flow_open_{fid}"
+    # Open it once when something starts; after that, open or closed is the engineer's choice.
+    if live and not st.session_state.get(key + "_opened"):
+        st.session_state[key] = st.session_state[key + "_opened"] = True
+    elif not live:
+        st.session_state.pop(key + "_opened", None)
+    with st.expander("Process flow · live" if live else "Process flow", key=key, on_change="rerun",
+                     icon=":material/account_tree:"):
+        if live or st.session_state.get(key):   # built only when it can be seen
+            flow_canvas.show(fid, f"page_{fid}", height=520)
 
 
 def _approve_again(fid: str, label: str) -> None:
@@ -307,6 +321,7 @@ with st.container(horizontal=True, vertical_alignment="center"):
 if state == "working":
     st.info(f"{formulation.step or 'Working'}…", icon=":material/progress_activity:")
     _watch(fid, formulation.updated_at)
+    _process(fid)
 elif state == "failed":
     failure_view.render(session.failure if session else None, formulation.error)
     if st.button("Retry", type="primary", icon=":material/refresh:"):
@@ -316,6 +331,7 @@ elif state == "failed":
             st.error(str(error))
         else:
             st.rerun()
+    _process(fid)
 elif state == "approved":
     record = api.get_approval(formulation.approval_id) if formulation.approval_id else None
     st.success(f"Approved by {md(record.approver)} on {job_status.when(record.approved_at)}." if record else "Approved.",
@@ -323,7 +339,10 @@ elif state == "approved":
     if record:
         st.page_link(routes.APPROVAL, label="Open the approval record", icon=":material/receipt_long:",
                      query_params={"aid": record.approval_id})
+    _process(fid)
     _run(fid, record)
+else:
+    _process(fid)
 
 if session is not None and session.parse_completed:
     if state == "working":

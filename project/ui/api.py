@@ -547,20 +547,10 @@ def _run_pending(status: dict) -> bool:
     return not status.get("run_dir") or status.get("run_approval_id") != status["approval_id"]
 
 
-def flow_version(fid: str) -> tuple:
-    """Changes whenever this formulation's process flow gains a node or a node changes state.
-
-    Cheap to poll: no densities are read, and a run's iteration count is left out so a running
-    solver does not redraw the flow every few seconds.
-    """
+def is_live(fid: str) -> bool:
+    """True while something is happening to this formulation: a formulation step or its solver run."""
     formulation = get(fid)
-    if formulation is None:
-        return ()
-    status = _read(_dir(fid) / "status.json") or {}
-    run_dir = _run_dir(status)
-    run = execution.run_status(run_dir) if run_dir else {}
-    return (formulation.state, formulation.approval_id, len(trace_nodes(fid)), run_dir and run_dir.name,
-            run.get("state"), run.get("step"))
+    return formulation is not None and (formulation.state == "working" or run_actions(fid)["active"])
 
 
 def run_actions(fid: str) -> dict:
@@ -580,8 +570,11 @@ def run_actions(fid: str) -> dict:
             "run_state": run_state, "pending": _run_pending(status)}
 
 
-def run_info(fid: str) -> dict | None:
-    """Status, convergence history, summary and final density of a formulation's latest run."""
+def run_info(fid: str, with_frames: bool = True) -> dict | None:
+    """Status, convergence history, summary and density frames of a formulation's latest run.
+
+    with_frames=False skips loading the density snapshots, for callers that poll during a run.
+    """
     try:
         status = _read(_dir(fid) / "status.json") or {}
     except ValueError:
@@ -601,13 +594,14 @@ def run_info(fid: str) -> dict | None:
         pass
     summary = _read(run_dir / "solver" / "summary.json")
     frames = []
-    try:
-        import numpy as np
-        history = np.load(run_dir / "solver" / "states" / "density_history.npz")
-        frames = [{"iteration": int(i), "density": d.round(3).tolist(), "boundary_points": int(b)}
-                  for i, d, b in zip(history["iterations"], history["densities"], history["boundary_points"])]
-    except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile):
-        pass   # not written yet, or caught mid-write; the next refresh reads it
+    if with_frames:
+        try:
+            import numpy as np
+            history = np.load(run_dir / "solver" / "states" / "density_history.npz")
+            frames = [{"iteration": int(i), "density": d.round(3).tolist(), "boundary_points": int(b)}
+                      for i, d, b in zip(history["iterations"], history["densities"], history["boundary_points"])]
+        except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile):
+            pass   # not written yet, or caught mid-write; the next refresh reads it
     config = _read(run_dir / "config.json") or {}
     try:
         cut_cells = LBracket2DConfig.from_dict(config).cut_cells
@@ -621,7 +615,8 @@ def run_info(fid: str) -> dict | None:
         except OSError:
             pass
     manifest = _read(run_dir / "paraview" / "manifest.json") or {}
-    paraview = {"status": state.get("paraview"), "rendering": state.get("step") == execution.RENDERING_STEP,
+    running = state.get("state") in ("starting", "running")
+    paraview = {"status": state.get("paraview"), "rendering": running and state.get("step") == execution.RENDERING_STEP,
                 "frames": [{"iteration": f["iteration"], "path": str(run_dir / "paraview" / f["file"])}
                            for f in manifest.get("frames", [])]}
     return {"run": run_dir.name, "state": state.get("state"), "reason": state.get("reason"), "paraview": paraview,

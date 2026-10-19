@@ -162,12 +162,14 @@ def _call_model(
     call = {"step": step, "model": MODEL, "cache_key": key, "cache_hit": False, "payload": payload,
             "reply": None, "stop_reason": None, "tokens": None}
     started = time.monotonic()
+    trace.calling(step)
     try:
         return _call_model_once(call, key=key, step=step, prompt=prompt, payload=payload,
                                 output_type=output_type, max_tokens=max_tokens, bypass_cache=bypass_cache)
     finally:
         call["latency_ms"] = round((time.monotonic() - started) * 1000)
         trace.record_call(call)
+        trace.called()
 
 
 _scripted: ContextVar = ContextVar("ato_scripted_model", default=None)
