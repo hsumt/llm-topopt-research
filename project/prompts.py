@@ -7,7 +7,9 @@ cannot drift apart. Only the schema's fixed choices (physical_dimension 2, sense
 relation "<="), the property names E and nu, and the hole role "preserved_void" (named so the
 model can record it; the check rejects it) are written out. The contract goes to parse
 and resolve only: the reviewer works on engineering intent, and only the code decides what
-the solver cannot implement.
+the solver cannot implement. The reviewer gets the spec vocabulary instead, what the
+contract's names mean and nothing about what they support, so it can tell a requirement
+the spec encodes from one an edit dropped.
 """
 import json
 
@@ -45,7 +47,7 @@ Rules:
   a numerical model. If the engineer says there are no manufacturing
   requirements, leave `manufacturing` empty.
 - Assumptions: only assumptions the engineer explicitly states that no other
-  field captures. Never your own interpretations.
+  field or solver-contract name captures. Never your own interpretations.
 - No solver settings: mesh size, penalties, filters, optimizer settings,
   tolerances or iteration limits.
 - Keep names and descriptions short; no explanatory prose.
@@ -73,6 +75,10 @@ Rules:
 - Do not ask again for anything the engineer supplied or answered in
   prior_rounds. Use prior_rounds to notice requirements that the parser or an
   earlier edit dropped.
+- A prior round answered under engineer_edit lists values the engineer set
+  directly (old → new). They are stated values: never ask to confirm them. Ask
+  only when a changed value conflicts with another stated value, region or
+  requirement.
 - Interfaces: ask how the real attachment behaves rather than for a
   boundary-condition label. For a solid or plate model, discuss translations, not
   rotational degrees of freedom.
@@ -86,6 +92,10 @@ Rules:
   question. Never suggest nominal constants.
 - Manufacturing features: ask only for missing physical intent (governing
   drawing, face, depth, protected skin), never for a numerical representation.
+- why: one or two sentences of reasoning shown to the engineer with the
+  question: what in the spec, the brief or prior_rounds leaves this unresolved,
+  and how the possible answers would change the problem being solved. Refer to
+  the spec in plain words; no invented values and no verdict on solver support.
 - example_answer: optionally one short illustration of a specific enough answer,
   with units, coordinate directions or a described region. Use placeholders
   such as <length> mm, not numbers the engineer did not give. Leave it null when
@@ -94,6 +104,32 @@ Rules:
 
 A question is worth asking only if its answer could change the mathematical or
 physical problem.
+"""
+
+CLARIFY_RULES = """
+You help an engineer understand one question the system asked about their design
+problem. Return JSON only, matching the supplied Clarification schema.
+
+Input: the question (its prompt, the reasoning shown with it, any options and an
+example answer), the issues it settles (each with its description, the spec field,
+what the spec states there now and the solver input a value there feeds), the
+current spec, the original request and context, the mode and the engineer's query.
+
+Rules:
+- mode "explain": say in plain engineering language what the question asks, why
+  it matters for this problem, and what a usable answer states. rewording is null.
+- mode "reword": explain briefly and set rewording to the same question in
+  clearer words. It must ask for exactly the same decision or data, keep the
+  meaning of any options, and add no assumption.
+- mode "ask": answer the engineer's query about the question. Give a rewording
+  only if it helps; otherwise null.
+- Never answer the question for the engineer and never recommend or prefer an
+  option. Never state values, constants or dimensions the engineer did not give;
+  use placeholders such as <length> mm in any illustration.
+- Do not edit or propose edits to the spec, and do not judge what the solver
+  supports or whether a run would succeed.
+- Use only facts in the input; say plainly when the input does not settle
+  something. Keep the explanation under 150 words, as plain text.
 """
 
 ISSUE_KINDS = """
@@ -113,7 +149,7 @@ Return JSON only, matching the supplied Resolution schema. Your output is a
 proposal; code applies and checks it.
 
 Input: the spec, its blocking issues, the questions asked, the answers (keyed by
-question key), the original request and context, and prior_rounds.
+question key), clarifications, the original request and context, and prior_rounds.
 
 Rules:
 - Edit only what the answers state. No cleanup, no unrelated improvements, no
@@ -121,10 +157,22 @@ Rules:
   change.
 - An answer keyed additional_information is free text the engineer added outside
   any question; apply only what it explicitly states.
+- A prior round answered under engineer_edit holds values the engineer set
+  directly; they are already in the spec. Keep them unless an answer changes them.
 - example_answer texts are illustrations, not answers. Apply their content only
   if the engineer's own answer states or adopts it; an empty answer adopts
   nothing.
 - If an answer is insufficient, make no edit for it.
+- Assumptions: add one only for a requirement the engineer states that no field
+  and no solver-contract name captures, in the engineer's words; the code reports
+  it. If a field or a contract name already expresses an answer, edit that field
+  or make no edit; never restate it as an assumption.
+- The code check asks about each free-text assumption: an answer that it only
+  restates what the solver already models removes that entry (replace
+  `assumptions` with the list without it); an answer that keeps it makes no edit.
+- clarifications are explanations or rewordings of a question that the system
+  showed the engineer at their request. They are not answers and supply no
+  values; use them only to read which wording the engineer was answering.
 - Paths point into the supplied ProblemSpec. Field names are fixed by the schema;
   new keys are allowed only inside geometry.parameters and
   materials[i].properties, each as a complete Value (value and unit).
@@ -183,7 +231,7 @@ code reports what the solver cannot implement.
   the reference is the full L domain excluding the cut.
 - Stress: optimization.stress_requirement "{lbracket.VOLUME_ONLY}" only when no stress
   constraint is wanted; "{lbracket.PNORM_LIMIT}" only for the calibrated volume-averaged
-  p = {lbracket.P_NORM:g} norm, with a constraint quantity "{lbracket.STRESS_QUANTITY}", relation "<=",
+  p = {lbracket.P_NORM:g} norm of the {lbracket.STRESS_MEASURE}, with a constraint quantity "{lbracket.STRESS_QUANTITY}", relation "<=",
   region "{lbracket.REFERENCE_REGION}" and a limit with a stress unit. Yield or peak stress is a
   different quantity and keeps its own name.
 - Units: lengths {", ".join(lbracket.LENGTH_UNITS)}; stresses {", ".join(lbracket.STRESS_UNITS)};
@@ -193,11 +241,37 @@ code reports what the solver cannot implement.
 
 SOLVER_CONTRACT = solver_contract()
 
+
+def spec_vocabulary() -> str:
+    """What the contract's names mean, for the reviewer; generated from the same constants."""
+    components = json.dumps(list(lbracket.SUPPORT_COMPONENTS))
+    return f"""
+Spec vocabulary. These names in the spec carry the meaning shown, so a spec that
+uses one already states that requirement; it has not been dropped. What the solver
+supports is still for the code to decide.
+
+- optimization.stress_requirement "{lbracket.PNORM_LIMIT}" with a constraint quantity
+  "{lbracket.STRESS_QUANTITY}" over region "{lbracket.REFERENCE_REGION}": the calibrated volume-averaged
+  p = {lbracket.P_NORM:g} norm of the {lbracket.STRESS_MEASURE} over the L domain.
+- Constraint quantity "{lbracket.VOLUME_QUANTITY}" over region "{lbracket.REFERENCE_REGION}": the material
+  fraction of the full L domain, excluding the permanent cut.
+- Load kind "{lbracket.LOAD_KIND}" at location "{lbracket.LOAD_REGION}": the stated total force distributed
+  uniformly over the tip band, through the full thickness; geometry.parameters.load_patch
+  is the band's height.
+- Support kind "{lbracket.SUPPORT_KIND}" at location "{lbracket.SUPPORT_REGION}" with components {components}: zero
+  displacement in those directions over the whole top edge of the vertical arm.
+- geometry.hole_role "{lbracket.HOLE_ROLE}": the initial holes may move, merge or close.
+"""
+
+
+SPEC_VOCABULARY = spec_vocabulary()
+
 # Each step's prompt, as (name, text) parts in the order they are sent.
 PARTS = {
     "parse": (("Parse rules", PARSE_RULES), ("Solver contract", SOLVER_CONTRACT)),
-    "review": (("Review rules", REVIEW_RULES), ("Issue kinds", ISSUE_KINDS)),
+    "review": (("Review rules", REVIEW_RULES), ("Spec vocabulary", SPEC_VOCABULARY), ("Issue kinds", ISSUE_KINDS)),
     "resolve": (("Resolve rules", RESOLVE_RULES), ("Solver contract", SOLVER_CONTRACT)),
+    "clarify": (("Clarify rules", CLARIFY_RULES), ("Spec vocabulary", SPEC_VOCABULARY)),
 }
-PARSE_PROMPT, REVIEW_PROMPT, RESOLVE_PROMPT = ("".join(text for _, text in PARTS[step])
-                                               for step in ("parse", "review", "resolve"))
+PARSE_PROMPT, REVIEW_PROMPT, RESOLVE_PROMPT, CLARIFY_PROMPT = ("".join(text for _, text in PARTS[step])
+                                                               for step in ("parse", "review", "resolve", "clarify"))

@@ -4,7 +4,7 @@ import hashlib
 import streamlit as st
 
 from project.ui import api, routes
-from project.ui.components import job_status, plan_view
+from project.ui.components import changes_view, job_status, plan_view
 from project.ui.components.spec_view import md
 
 
@@ -80,6 +80,9 @@ def _review(fids: list[str]) -> None:
             with st.container(horizontal=True, vertical_alignment="center"):
                 job_status.badge(formulation.state)
                 st.caption(f"id {fid}")
+            if formulation.parent:
+                st.caption(f"Copy of {md(formulation.parent.get('title') or 'an approved formulation')}.")
+                changes_view.render(api.changes_from_parent(fid))
             if formulation.state == "approved":
                 actions = api.run_actions(fid)
                 if not actions["can_reapprove"]:

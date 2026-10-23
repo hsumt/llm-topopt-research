@@ -39,5 +39,5 @@ def render(entry) -> None:
     with st.expander("Exact solver inputs"):
         st.json(entry.solver_inputs, expanded=True)
     with st.expander("Specification"):
-        spec_view.render(entry.spec)
+        spec_view.render(entry.spec, key=entry.fid)
     st.caption(f"Plan hash (SHA-256): `{entry.plan_hash}`")

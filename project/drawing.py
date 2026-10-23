@@ -7,12 +7,44 @@ from matplotlib.patches import Circle, Polygon
 from project import lbracket
 from project.models import ProblemSpec
 
+# Every colour is chosen per theme: light ink on dark, dark ink on light. "page" is the app's backgroundColor and
+# fills the figure, so a figure drawn for the wrong mode (st.context.theme can lag a theme switch until the next
+# rerun) still reads, as a light or dark panel. Holes are painted in it to read as cut-outs. Load = the theme's orange.
+_PALETTES = {
+    False: {"page": "#ffffff", "ink": "#1f2328", "muted": "#64748b", "fill": "#dbe9f1", "edge": "#294c60",
+            "hole": "#42677e", "clamp": "#334155", "load": "#e2660c", "load_text": "#9a3412"},
+    True: {"page": "#0e1117", "ink": "#e6e8eb", "muted": "#9ca3af", "fill": "#1c3242", "edge": "#8cb8d6",
+           "hole": "#a3c4dc", "clamp": "#cbd5e1", "load": "#ffbd45", "load_text": "#ffbd45"},
+}
 
-def problem_graph(spec: ProblemSpec) -> str:
+
+def _figure(size: tuple[float, float], dark: bool):
+    """Figure and axes on the mode's page colour (st.pyplot saves with the figure's facecolor)."""
+    colors = _PALETTES[bool(dark)]
+    fig, ax = plt.subplots(figsize=size)
+    fig.patch.set_facecolor(colors["page"])
+    ax.set_facecolor(colors["page"])
+    return fig, ax, colors
+
+
+def _ink(ax, colors: dict) -> None:
+    """Titles, labels, ticks and spines in the mode's ink (set per artist: rcParams are process-global)."""
+    ax.title.set_color(colors["ink"])
+    ax.xaxis.label.set_color(colors["ink"])
+    ax.yaxis.label.set_color(colors["ink"])
+    ax.tick_params(colors=colors["ink"])
+    for spine in ax.spines.values():
+        spine.set_edgecolor(colors["ink"])
+
+
+def problem_graph(spec: ProblemSpec, dark: bool = False) -> str:
+    colors = _PALETTES[bool(dark)]
+    ink = colors["ink"]
     lines = [
         "digraph problem {",
-        "rankdir=LR;",
-        'node [shape=box, style="rounded"];',
+        f'rankdir=LR; bgcolor="{colors["page"]}";',
+        f'node [shape=box, style="rounded", color="{ink}", fontcolor="{ink}"];',
+        f'edge [color="{ink}"];',
         f'problem [label="{_clean(spec.name)}\\n{spec.problem_kind}"];',
     ]
 
@@ -76,12 +108,12 @@ def problem_graph(spec: ProblemSpec) -> str:
 
     lines.append("}")
     return "\n".join(lines)
-def geometry_preview(spec: ProblemSpec) -> Figure | None:
+def geometry_preview(spec: ProblemSpec, dark: bool = False) -> Figure | None:
     if spec.geometry is None:
         return None
 
     if spec.geometry.template == lbracket.TEMPLATE:
-        return _lbracket_preview(spec)
+        return _lbracket_preview(spec, dark)
 
     parameters = spec.geometry.parameters
 
@@ -92,14 +124,15 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
     if length is None or height is None:
         return None
 
-    fig, ax = plt.subplots(figsize=(7, 4.5))
+    fig, ax, colors = _figure((7, 4.5), dark)
 
     ax.add_patch(
         plt.Rectangle(
             (0, 0),
             length,
             height,
-            fill=False,
+            facecolor=colors["fill"],
+            edgecolor=colors["edge"],
             linewidth=2,
         )
     )
@@ -124,9 +157,11 @@ def geometry_preview(spec: ProblemSpec) -> Figure | None:
         "Design plate",
         ha="center",
         va="center",
+        color=colors["ink"],
     )
 
     ax.grid(False)
+    _ink(ax, colors)
 
     return fig
 
@@ -174,7 +209,7 @@ def _force_vector(load) -> tuple[float, float] | None:
     return vector if all(math.isfinite(v) for v in vector) and any(vector) else None
 
 
-def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
+def _lbracket_preview(spec: ProblemSpec, dark: bool = False) -> Figure | None:
     geometry = spec.geometry
     parameters = geometry.parameters
     lx = _length_mm(parameters, "lx")
@@ -186,15 +221,15 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
     patch = _length_mm(parameters, "load_patch")
     radius = _length_mm(parameters, "hole_radius")
     arm_x, arm_y = lx - cut, ly - cut
-    fig, ax = plt.subplots(figsize=(7, 5.7))
+    fig, ax, colors = _figure((7, 5.7), dark)
     outline = Polygon([(0, 0), (lx, 0), (lx, arm_y), (arm_x, arm_y),
                        (arm_x, ly), (0, ly)], closed=True,
-                      facecolor="#dbe9f1", edgecolor="#294c60", linewidth=1.8,
+                      facecolor=colors["fill"], edgecolor=colors["edge"], linewidth=1.8,
                       label="L-shaped domain")
     ax.add_patch(outline)
     ax.text(arm_x + cut / 2, arm_y + cut / 2,
             f"Square cut\n{cut:g} × {cut:g} mm", ha="center", va="center",
-            color="#64748b", fontsize=10)
+            color=colors["muted"], fontsize=10)
 
     centers = parameters.get("hole_centers")
     if centers is not None and radius is not None:
@@ -212,7 +247,8 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                         continue
                 except (TypeError, ValueError):
                     continue
-                circle = Circle((x, y), radius, facecolor="white", edgecolor="#42677e",
+                # Painted in the page colour so the hole reads as a cut-out, not a disc.
+                circle = Circle((x, y), radius, facecolor=colors["page"], edgecolor=colors["hole"],
                                 linewidth=1.2, linestyle="--" if initial else "-",
                                 label=hole_label if not labeled else None)
                 circle.set_clip_path(outline)
@@ -225,9 +261,9 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                   and (bc.value is None or bc.value.value == 0)
                   for bc in spec.boundary_conditions)
     if clamped:
-        ax.plot([0, arm_x], [ly, ly], linewidth=3, color="#334155", label="Top edge clamped")
+        ax.plot([0, arm_x], [ly, ly], linewidth=3, color=colors["clamp"], label="Top edge clamped")
         ax.add_patch(plt.Rectangle((0, ly), arm_x, .025 * ly, facecolor="none",
-                                  edgecolor="#64748b", hatch="////", linewidth=.6))
+                                  edgecolor=colors["muted"], hatch="////", linewidth=.6))
 
     load_notes = []
     arrow_ends = []
@@ -238,16 +274,16 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                 continue
             fx, fy = force
             y = arm_y - patch / 2
-            ax.plot([lx, lx], [arm_y - patch, arm_y], color="#c2410c", linewidth=4)
+            ax.plot([lx, lx], [arm_y - patch, arm_y], color=colors["load"], linewidth=4)
             scale = .20 * max(lx, ly) / math.hypot(fx, fy)
             endpoint = (lx + fx * scale, y + fy * scale)
             arrow_ends.append(endpoint)
             ax.annotate("", xy=endpoint, xytext=(lx, y),
-                        arrowprops={"arrowstyle": "-|>", "lw": 2, "color": "#c2410c"})
+                        arrowprops={"arrowstyle": "-|>", "lw": 2, "color": colors["load"]})
             load_notes.append(f"Fx = {fx:g} N; Fy = {fy:g} N")
     if load_notes:
         ax.text(.99, .01, "\n".join(load_notes), transform=ax.transAxes,
-                ha="right", va="bottom", fontsize=9, color="#9a3412")
+                ha="right", va="bottom", fontsize=9, color=colors["load_text"])
 
     title = f"L-bracket • {lx:g} × {ly:g} mm"
     title += f" • thickness {thickness:g} mm" if thickness is not None else " • thickness unspecified"
@@ -259,9 +295,10 @@ def _lbracket_preview(spec: ProblemSpec) -> Figure | None:
                 max([1.12 * ly] + [y + .07 * ly for _, y in arrow_ends]))
     ax.set_aspect("equal")
     ax.spines[["top", "right"]].set_visible(False)
-    ax.legend(loc="upper right", fontsize=8, frameon=False)
+    _ink(ax, colors)
+    ax.legend(loc="upper right", fontsize=8, frameon=False, labelcolor=colors["ink"])
     fig.text(.5, .01, "Plate in plane stress, uniform thickness. Dimensions and loads shown only when specified.",
-             ha="center", fontsize=8, color="#64748b")
+             ha="center", fontsize=8, color=colors["muted"])
     fig.tight_layout(rect=(0, .045, 1, 1))
     return fig
 

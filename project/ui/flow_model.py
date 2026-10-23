@@ -109,7 +109,7 @@ ABOUT = {
         ("The solver configuration is built only when nothing blocks.", "project/lbracket.py#config = LBracket2DConfig.from_dict(config_values)"),
     ]),
     "Reviewer": ("A model looks for engineering decisions the code check cannot see.", "project.ai:review_problem", [
-        ("Prompt parts: Review rules and Issue kinds (hover the chips).", "project/prompts.py#\"review\": ((\"Review rules\""),
+        ("Prompt parts: Review rules, Spec vocabulary and Issue kinds (hover the chips).", "project/prompts.py#\"review\": ((\"Review rules\""),
         ("Sees the code's issues and how many question slots are free.", "project.workflow:_code_check"),
         ("Cannot mark anything unsupported; its items are merged, not trusted.", "project/prompts.py#Do not use \"unsupported\""),
     ]),
@@ -124,6 +124,7 @@ ABOUT = {
     ]),
     "Ready to try?": ("Can the connected solver run this exact specification?", "project.workflow:ready_to_try", [
         ("YES only when no blocking item remains and the solver configuration builds.", "project.workflow:ready_to_try"),
+        ("Then a dry run: ParaLeSTO builds the starting design in a child process; a crash, or a geometry other than the stated one, blocks the run.", "project.solver.lbracket2d.dryrun:dry_run"),
         ("NO: the open questions go to the engineer.", "project/ui/api.py#\"ui.questions_needs_input_only\""),
     ]),
     "Questions shown": ("What the engineer is asked this round.", "project.ui.api:_record_present", [
@@ -148,6 +149,16 @@ ABOUT = {
     "Load benchmark": ("A documented benchmark specification; no model call.", "project.lbracket:reference_spec", [
         ("Every input is stated in the benchmark.", "project.solver.lbracket2d.config:reference_config"),
     ]),
+    "Copy approved formulation": ("The engineer started this formulation from an approved one, to change it; no model call.", "project.ui.api:edit_copy", [
+        ("Starts from the approved specification, brief and earlier rounds.", "project.workflow:copy_session"),
+        ("The reviewer's items are merged again with a fresh code check.", "project/workflow.py#combine_review(copy.spec, session.review"),
+        ("The original, its approval and its runs do not change.", "project.ui.api:edit_copy"),
+    ]),
+    "Engineer edits": ("Values the engineer set directly in the value editor; no model call.", "project.ui.api:edit_values", [
+        ("Only stated values: dimensions, material constants, load magnitudes and directions, constraint limits.", "project.ui.api:editable_values"),
+        ("Applied all or nothing by code, then checked and reviewed like answers.", "project.workflow:apply_edits"),
+        ("Recorded as a round, so the reviewer and resolver see what changed.", "project/workflow.py#answers={ENGINEER_EDIT_KEY: note}"),
+    ]),
     "Approval": ("The engineer approves the exact plan.", "project.ui.api:approve", [
         ("The plan hash covers the specification, block config, solver inputs and budget.", "project.ui.api:plan_entry"),
         ("Changing anything afterwards needs a new approval.", "project/ui/api.py#changed after it was shown"),
@@ -164,6 +175,7 @@ ABOUT = {
         ("Reads states/density.xdmf as cell data: one value per element.", "project/solver/lbracket2d/render_paraview.py#Xdmf3ReaderS(FileName"),
         ("Draws one cube per element with material; no interpolation or smoothing.", "project/solver/lbracket2d/render_paraview.py#cubes = Glyph(Input=centers"),
         ("Frames every 50 iterations and the final design, saved under paraview/.", "project/solver/lbracket2d/render_paraview.py#range(50, last, 50)"),
+        ("Seven standard views per frame, orthographic at one scale; the page switches between them.", "project/solver/lbracket2d/render_paraview.py#VIEWS = {"),
     ]),
     "Results": ("What the run produced.", "project/solver/lbracket2d/main.py#\"last_evaluated_design\": last_metrics", [
         ("Final volume fraction, compliance and stress p-norm.", "project/solver/lbracket2d/main.py#last_metrics = {\"iteration\""),
@@ -247,10 +259,12 @@ def flow(fid: str) -> dict:
     prev = add("brief", "data", "Design brief", 0, 0, "engineer",
                {"text": formulation.brief, "context": formulation.context})
     spec_version, spec_ref = 0, None
-    ready = assess_ref = critic_ref = None
+    ready = assess_ref = critic_ref = questions_ref = None
     base = 0
+    # A copy's trace starts at the round its original had reached; its first round is drawn at the top.
+    first = min((n["round"] for n in nodes_in_trace), default=0)
     for node in nodes_in_trace:
-        step, r = node["step"], node["round"]
+        step, r = node["step"], node["round"] - first
         base = 2 * r
         if step == "parse":
             p = add(node["id"], "process", "Parse brief", 1, base, "model", model_detail(node), sub="model")
@@ -265,6 +279,17 @@ def flow(fid: str) -> dict:
             p = add(node["id"], "process", "Load benchmark", 1, base, "code", {"text": f"Benchmark {node.get('benchmark_id')}: every input documented; no model call."})
             link(prev, p)
             s = add(node["id"] + ":spec", "data", "Specification v0", 3, base, "code", {"spec": _blob_text(folder, node["out"].get("spec"))})
+            link(p, s)
+            prev = spec_ref = s
+        elif step == "copy":
+            parent = node.get("parent") or {}
+            p = add(node["id"], "process", "Copy approved formulation", 1, base, "engineer",
+                    {"text": f"Copied from {parent.get('title')} (formulation {parent.get('fid')}, approval "
+                             f"{parent.get('approval_id')}" + (f", run {parent['run']}" if parent.get("run") else "")
+                             + "). No model call."}, sub="engineer")
+            link(prev, p)
+            s = add(node["id"] + ":spec", "data", "Specification v0", 3, base, "code",
+                    {"spec": _blob_text(folder, node["out"].get("spec"))}, sub="the approved one")
             link(p, s)
             prev = spec_ref = s
         elif step == "assess":
@@ -298,11 +323,24 @@ def flow(fid: str) -> dict:
                         {"items": _items({"items": questions})},
                         sub=f"{from_code} code · {len(questions) - from_code} reviewer")
                 link(ready, q, "NO")
-                prev = q
+                prev = questions_ref = q
+        elif step == "clarify":
+            # The engineer asked about a question; the model explained or reworded it. Nothing reached the spec.
+            detail = model_detail(node)
+            detail["text"] = (f"Asked about {node.get('question_key')} ({node.get('mode')})"
+                              + (f": {node.get('query')}" if node.get("query") else "") + ". Explanation only; "
+                              "the specification is unchanged.")
+            c = add(node["id"], "process", "Clarify question", 9, base + 1, "model", detail, sub="model · on request")
+            link(questions_ref or prev, c, dashed=True)
         elif step == "answer":
             a = add(node["id"], "data", "Engineer answers", 7, base + 1, "engineer", {"items": _items(node)})
             link(prev, a)
             prev = a
+        elif step == "edit":
+            e = add(node["id"], "data", "Engineer edits", 7, base + 1, "engineer", {"items": _items(node)},
+                    sub=f"{len(node.get('items', []))} values · no model")
+            link(prev, e)
+            prev = e
         elif step == "resolve":
             res = add(node["id"], "process", "Resolve answers", 6, base + 1, "model", model_detail(node), sub="model")
             link(prev, res)
@@ -322,6 +360,14 @@ def flow(fid: str) -> dict:
                           {"items": _items(node), "rejected": _blob_text(folder, node["out"].get("rejected"))}, status="failed")
                 link(d, bad, "NO")
                 prev = bad
+        elif step == "failure" and node.get("stage") == trace.MODEL_STEPS["clarify"]:
+            # A failed clarify request: the questions stay open and the formulation's state is unchanged.
+            c = add(node["id"], "process", f"Clarify failed: {node.get('failure_code')}", 9, base + 1, "model",
+                    {"text": f"The clarify request failed with {node.get('failure_code')} ({node.get('request_state')}). "
+                             "The question is still open; ask again or answer it. The specification is unchanged.",
+                     "reply": _blob_text(folder, (node.get("out") or {}).get("reply"))},
+                    status="failed", sub="model · on request")
+            link(questions_ref or prev, c, "error", dashed=True)
         elif step == "failure":
             f = add(node["id"], "process", f"Failed: {node.get('failure_code')}", placed.get(prev, (1, base))[0],
                     placed.get(prev, (1, base))[1] + 0.55, "code",
@@ -335,10 +381,12 @@ def flow(fid: str) -> dict:
     status_text = None
     call = trace.activity(folder) if formulation.state == "working" else None
     if call:
-        call_base = 2 * call.get("round", 0)
+        call_base = 2 * (call.get("round", 0) - first)
         label, col, row, after = {"parse": ("Parse brief", 1, call_base, prev),
                                   "critic": ("Reviewer", 4.5, call_base + 0.45, spec_ref or prev),
-                                  "resolve": ("Resolve answers", 6, call_base + 1, prev)}[call["step"]]
+                                  "resolve": ("Resolve answers", 6, call_base + 1, prev),
+                                  "clarify": ("Clarify question", 9, call_base + 1, questions_ref or prev)
+                                  }.get(call["step"], (call["step"], 9, call_base + 1, prev))
         parts = prompts.PARTS.get(trace.MODEL_STEPS[call["step"]], ())
         active = add("live:" + call["step"], "process", label, col, row, "model",
                      {"text": f"Model call in progress since {call.get('since')}.",
@@ -419,7 +467,7 @@ def _approval_and_run(fid, formulation, row, ready, add, link, active):
 
     pv = (info or {}).get("paraview") or {"frames": [], "status": None, "rendering": False}
     pv_state = (pv["status"] or {}).get("state")
-    final = pv["frames"][-1]["path"] if pv["frames"] else None
+    final = next(iter(pv["frames"][-1]["views"].values())) if pv["frames"] else None   # isometric, or the one older view
     render = add("paraview", "process", "ParaView render", 12, row, "code",
                  {"text": "Rendering the run's element densities with ParaView (pvbatch)." if rendering else
                           f"Rendered by ParaView (pvbatch) from the run's cell-data density: {len(pv['frames'])} "

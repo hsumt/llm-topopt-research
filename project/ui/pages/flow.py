@@ -27,7 +27,7 @@ if len(flow["nodes"]) <= 1 and not flow["live"]:
     st.info("This formulation has no recorded steps yet.")
     st.stop()
 flow_canvas.show(fid, fid, flow=flow)
-st.caption("Drag to pan, scroll to zoom. Purple outlines are model steps, black are code, amber are the engineer; "
+st.caption("Drag to pan, scroll to zoom. Purple outlines are model steps, neutral ones are code, amber ones are the engineer; "
            "the pulsing step is running now and dashed steps are still to come. "
            "Model reasoning shown here is the model's own output, not verified fact.")
 st.page_link(routes.FORMULATION, label="Open this formulation", icon=":material/description:", query_params={"fid": fid})

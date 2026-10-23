@@ -7,7 +7,7 @@ LABELS: dict[str, tuple[str, str]] = {
     "working": ("Working", "blue"),
     "needs_input": ("Needs your input", "orange"),
     "ready": ("Ready for approval", "green"),
-    "unsupported": ("Not supported", "violet"),
+    "unsupported": ("Not supported", "red"),   # the role colour for unsupported; Failed differs by label and icon
     "failed": ("Failed", "red"),
     "approved": ("Approved", "gray"),
     "abandoned": ("Abandoned", "gray"),
@@ -38,7 +38,8 @@ def run_badge(run_state: str) -> None:
 
 
 ORIGINS = {"brief": ("From a brief", ":material/edit_note:"),
-           "benchmark": ("Benchmark", ":material/science:")}
+           "benchmark": ("Benchmark", ":material/science:"),
+           "edit": ("Copy of an approved formulation", ":material/edit_document:")}
 
 
 def origin(kind: str) -> tuple[str, str]:

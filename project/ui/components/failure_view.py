@@ -4,20 +4,20 @@ import streamlit as st
 from project.ui.components.spec_view import md
 from project.ui.components.usage_view import STEPS
 REQUEST_STATES = {
-    "not_sent": "No request reached Anthropic.",
-    "attempted": "A request to Anthropic was attempted, but no response came back.",
-    "response_received": "Anthropic received the request and responded.",
-    "unknown": "It is not known whether a request reached Anthropic.",
+    "not_sent": "No request reached the model provider.",
+    "attempted": "A request to the model provider was attempted, but no response came back.",
+    "response_received": "The model provider received the request and responded.",
+    "unknown": "It is not known whether a request reached the model provider.",
 }
-KEY_CODES = ("missing_api_key", "authentication_failed")
+KEY_CODES = ("missing_api_key", "authentication_failed", "missing_model", "unknown_provider")
 
 
 def _key_help() -> None:
-    with st.expander("How the API key reaches the app"):
+    with st.expander("How the .env settings reach the app"):
         st.markdown(
-            "The key is read from the repository's `.env` file by `./docker/compose` when the "
-            "container is created. Editing `.env` does not reach a running container: recreate it "
-            "from the repository root, then press Retry.")
+            "The API key and model settings are read from the repository's `.env` file by "
+            "`./docker/compose` when the container is created. Editing `.env` does not reach a "
+            "running container: recreate it from the repository root, then press Retry.")
         st.code("./docker/compose up -d --force-recreate", language="bash")
         st.warning("Recreating the container stops any formulation that is still working. Those "
                    "show as failed afterwards and can be retried.", icon=":material/warning:")

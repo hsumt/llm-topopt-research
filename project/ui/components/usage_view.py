@@ -1,7 +1,7 @@
 """Model calls and tokens spent on a formulation."""
 import streamlit as st
 
-STEPS = {"parse": "Parsing", "review": "Reviewer check", "resolve": "Applying answers"}
+STEPS = {"parse": "Parsing", "review": "Reviewer check", "resolve": "Applying answers", "clarify": "Explaining a question"}
 
 
 def render(usage: list) -> None:

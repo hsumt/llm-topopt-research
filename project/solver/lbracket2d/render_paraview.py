@@ -4,16 +4,18 @@
 
 Reads the solver's density.xdmf (DOLFINx DG0, one value per element) as cell data, places one
 cube per element with material (box glyph at the cell centre, one element deep, no
-interpolation or smoothing), colours it by density and writes one PNG per requested iteration
-plus manifest.json. Uses only paraview.simple, so it never imports the app's packages.
+interpolation or smoothing), colours it by density and writes one PNG per standard view per
+requested iteration plus manifest.json. Uses only paraview.simple, so it never imports the app's
+packages.
 """
 import json
+import math
 import os
 import sys
 
 from paraview.simple import (CellCenters, ColorBy, GetActiveViewOrCreate, GetColorTransferFunction,
                              GetScalarBar, Glyph, Outline, Render, SaveScreenshot, Show,
-                             Threshold, UpdatePipeline, Xdmf3ReaderS)
+                             Threshold, UpdatePipeline, Xdmf3ReaderS, _DisableFirstRenderCameraReset)
 
 solver_dir, out_dir = sys.argv[1], sys.argv[2]
 summary = json.load(open(os.path.join(solver_dir, "summary.json")))
@@ -63,10 +65,22 @@ outline = Show(frame, view)
 outline.DiffuseColor = outline.AmbientColor = [0.55, 0.6, 0.67]
 
 lx, ly = config["lx_m"], config["ly_m"]
-view.CameraFocalPoint = [lx / 2, ly / 2, 0]
-view.CameraPosition = [lx * 1.25, -ly * 0.95, lx * 1.35]
-view.CameraViewUp = [0, 0, 1]
-view.CameraParallelProjection = 0
+# Standard views, CAD convention: y up, the front view looks along -z at the design plane.
+# name: (direction from the focal point to the camera, view up)
+VIEWS = {
+    "isometric": ((1, 1, 1), (0, 1, 0)),
+    "front": ((0, 0, 1), (0, 1, 0)),
+    "back": ((0, 0, -1), (0, 1, 0)),
+    "top": ((0, 1, 0), (0, 0, -1)),
+    "bottom": ((0, -1, 0), (0, 0, 1)),
+    "right": ((1, 0, 0), (0, 1, 0)),
+    "left": ((-1, 0, 0), (0, 1, 0)),
+}
+center = [lx / 2, ly / 2, 0.0]
+radius = 0.5 * math.sqrt(lx ** 2 + ly ** 2 + h ** 2)   # bounding sphere of the design space, one element deep
+_DisableFirstRenderCameraReset()   # Render() would otherwise reset the camera, and the scale below, once
+view.CameraParallelProjection = 1
+view.CameraParallelScale = 1.05 * radius   # one scale for every view and frame, so they compare directly
 
 written = []
 for iteration in wanted:
@@ -75,11 +89,18 @@ for iteration in wanted:
     t = min(times, key=lambda v: abs(v - iteration))
     view.ViewTime = t
     UpdatePipeline(time=t, proxy=cubes)
-    Render(view)
-    name = f"elements_{iteration:04d}.png"
-    SaveScreenshot(os.path.join(out_dir, name), view, ImageResolution=[1100, 900])
-    written.append({"iteration": iteration, "file": name})
+    files = {}
+    for name, (direction, up) in VIEWS.items():
+        norm = math.sqrt(sum(c * c for c in direction))
+        view.CameraFocalPoint = center
+        view.CameraPosition = [center[i] + 4 * radius * direction[i] / norm for i in range(3)]
+        view.CameraViewUp = list(up)
+        Render(view)
+        files[name] = f"elements_{iteration:04d}_{name}.png"
+        SaveScreenshot(os.path.join(out_dir, files[name]), view, ImageResolution=[1100, 900])
+    written.append({"iteration": iteration, "views": files})
 json.dump({"renderer": "ParaView pvbatch", "source": "states/density.xdmf (cell data f)", "frames": written,
+           "views": list(VIEWS), "camera": "orthographic; y up; front looks along -z; one scale for all views",
            "representation": "one box glyph per element with density > 0.001, edge = element size, no smoothing"},
           open(os.path.join(out_dir, "manifest.json"), "w"), indent=2)
 print("rendered", len(written), "frames")

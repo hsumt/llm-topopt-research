@@ -22,6 +22,7 @@ STARTUP_GRACE_SECONDS = 30
 MAX_ITERATIONS = 500   # largest iteration budget an approval may grant
 MAX_RANKS = 8          # most MPI processes a run may use
 RENDERING_STEP = "rendering with ParaView"   # status step while pvbatch renders a finished run
+MODEL_CREDENTIALS = ("ANTHROPIC_API_KEY", "AZURE_OPENAI_API_KEY")   # never passed to numerical workers
 
 
 class _ApprovalMismatch(ValueError):
@@ -111,8 +112,9 @@ def launch_run(session: Session, *, max_iterations: int, ranks: int, approver: s
     _set_status(run_dir, state="starting", started_at=utc_now())
     environment = os.environ.copy()
     environment.update({"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"})
-    # Numerical workers do not need access to the model credential.
-    environment.pop("ANTHROPIC_API_KEY", None)
+    # Numerical workers do not need access to the model credentials.
+    for name in MODEL_CREDENTIALS:
+        environment.pop(name, None)
     try:
         with (run_dir / "worker.log").open("w") as output:
             worker = subprocess.Popen(
@@ -171,7 +173,7 @@ def _render_paraview(run_dir: Path) -> dict:
         return {"state": "unavailable", "reason": f"{PVBATCH} not found; mount a ParaView install at /opt/paraview."}
     _set_status(run_dir, step=RENDERING_STEP)
     script = Path(__file__).resolve().parent / "solver" / "lbracket2d" / "render_paraview.py"
-    environment = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    environment = {k: v for k, v in os.environ.items() if k not in MODEL_CREDENTIALS}
     try:
         with (run_dir / "paraview.log").open("w") as output:
             result = subprocess.run([str(PVBATCH), "--opengl-window-backend", "OSMesa", str(script),

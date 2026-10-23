@@ -8,7 +8,7 @@ from project.ui.components import job_status
 
 CARDS = [
     ("Run a benchmark", ":material/science:", routes.BENCHMARKS, "Choose a benchmark",
-     "Use a documented case: no model calls, straight to approval."),
+     "Use a documented case: no model calls, straight to approval. Or open it as a new problem to change it."),
     ("New problem", ":material/edit_note:", routes.NEW_PROBLEM, "Describe a problem",
      "Describe a design problem; the system builds a specification and asks for what is missing. "
      "Runs in the background."),

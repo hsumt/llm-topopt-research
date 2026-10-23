@@ -5,8 +5,8 @@ A formulation folder gets trace.jsonl (one JSON node per line) and blobs/
 spilled item lists, large old/new values). While a model call is in flight it also
 has activity.json, which names that step for the live process flow; it is not part
 of the trace and is removed when the call ends.
-A node records one step (parse, benchmark, assess, critic, merge, present, answer,
-resolve, apply, failure, run.*), its actor, the nodes it used, and every issue, question,
+A node records one step (parse, benchmark, copy, assess, critic, merge, present, answer,
+edit, resolve, apply, failure, run.*), its actor, the nodes it used, and every issue, question,
 answer or update it created, kept, dropped or applied, with the rule that decided.
 
 Recording only observes. It never raises into the workflow and never changes what
@@ -43,7 +43,7 @@ _KEY_START = re.compile(r"(?<![A-Za-z0-9])sk-ant", re.IGNORECASE)   # intake: an
 _TEXT_FIELDS = ("text", "why", "example_answer")
 _OMITTED = ("output_schema", "output_spec_schema", "prior_rounds")   # rebuilt from the source version and revisions
 _SOURCES = ("lbracket.py", "prompts.py", "models.py")
-MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve"}   # trace step -> ai.py call step
+MODEL_STEPS = {"parse": "parse", "critic": "review", "resolve": "resolve", "clarify": "clarify"}   # trace step -> ai.py call step
 ACTIVITY = "activity.json"
 
 _log = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ class Recorder:
             self._seq = max(self._seq, node["seq"])
             run = runs.setdefault(node.get("run"), {"last": {}, "spec": None, "claimed": None})
             run["last"][node["step"]] = node.get("id")
-            if node["step"] in ("parse", "benchmark") or (node["step"] == "apply" and node.get("status") == "ok"):
+            if node["step"] in ("parse", "benchmark", "copy") or (node["step"] == "apply" and node.get("status") == "ok"):
                 run["spec"] = node.get("id")
             if node["step"] == "resolve":
                 run["claimed"] = node.get("claimed_resolved")
@@ -270,7 +270,7 @@ class Recorder:
         inputs = {"payload": self.blob({k: v for k, v in payload.items() if k not in _OMITTED}),
                   "omitted": [k for k in _OMITTED if k in payload]}
         outputs = {"reply": self.blob({"text": call["reply"]})} if call.get("reply") is not None else {}
-        model = {k: call.get(k) for k in ("model", "cache_key", "cache_hit", "tokens", "stop_reason")}
+        model = {k: call.get(k) for k in ("provider", "model", "cache_key", "cache_hit", "tokens", "stop_reason")}
         return {"inputs": inputs, "outputs": outputs, "model": model, "latency_ms": call.get("latency_ms")}
 
 
@@ -395,6 +395,17 @@ def benchmark(spec, benchmark_id: str) -> None:
 
 
 @guarded
+def copied(spec, parent: dict) -> None:
+    """The spec of an approved formulation, copied into a new one to edit; no model call.
+    parent names the original: fid, title, approval_id and run (the run folder, or None)."""
+    recorder = current()
+    if recorder.enabled:
+        recorder.spec_node = recorder.node(
+            "copy", "engineer", "ui.api.edit_copy", parents=[recorder.last.get("run.start")],
+            outputs={"spec": recorder.blob(spec.model_dump(mode="json"))}, extra={"parent": parent})
+
+
+@guarded
 def parsed(spec) -> None:
     recorder = current()
     if not recorder.enabled:
@@ -431,6 +442,21 @@ def resolved(resolution) -> None:
                   **recorder.model_record(recorder.take_call(MODEL_STEPS["resolve"])))
 
 
+@guarded
+def clarified(question_key: str, mode: str, query: str, clarification) -> None:
+    """The engineer asked about a shown question and the model explained or reworded it. Nothing from it
+    reaches the spec; the node keeps the request, the reply and the call."""
+    recorder = current()
+    if not recorder.enabled:
+        return
+    present = recorder.before.get("present")
+    recorder.node("clarify", "model", "ai.clarify_question", parents=[present or recorder.latest],
+                  extra={"question_key": question_key, "mode": mode, "query": query[:TEXT_LIMIT],
+                         "explanation": clarification.explanation[:TEXT_LIMIT],
+                         "rewording": (clarification.rewording or "")[:TEXT_LIMIT] or None},
+                  **recorder.model_record(recorder.take_call(MODEL_STEPS["clarify"])))
+
+
 def _at(data, path):
     for part in path:
         try:
@@ -441,16 +467,31 @@ def _at(data, path):
 
 
 @guarded
-def applied(spec, resolution, new_spec, error: Exception | None = None) -> None:
+def edited(spec, resolution) -> None:
+    """The engineer set values directly (the value editor): each update with the value it replaces."""
+    recorder = current()
+    if not recorder.enabled:
+        return
+    before = spec.model_dump(mode="json")
+    items = [item("update", u, origin="engineer", fate="created",
+                  detail={"path": list(u.path), "old": recorder.small(_at(before, u.path))})
+             for u in resolution.updates]
+    recorder.node("edit", "engineer", "ui", parents=[recorder.before.get("present") or recorder.latest], items=items)
+
+
+@guarded
+def applied(spec, resolution, new_spec, error: Exception | None = None, by: str = "resolve") -> None:
     """Record the edits as applied (new_spec given) or rejected as a whole (new_spec None).
 
-    For a rejection, error may name the offending update (index) and the rule it broke.
+    For a rejection, error may name the offending update (index) and the rule it broke. by names the
+    node that proposed the edits: "resolve" (the model, from answers) or "edit" (the engineer, directly).
     """
     recorder = current()
     if not recorder.enabled:
         return
     before, after = spec.model_dump(mode="json"), new_spec.model_dump(mode="json") if new_spec else None
-    resolve = recorder.last.get("resolve")
+    resolve = recorder.last.get(by)
+    origin = "model" if by == "resolve" else "engineer"
     culprit, culprit_rule = getattr(error, "index", None), getattr(error, "rule", None)
     items = []
     for n, update in enumerate(resolution.updates):
@@ -460,7 +501,7 @@ def applied(spec, resolution, new_spec, error: Exception | None = None) -> None:
             fate, rule = "rejected", culprit_rule
         else:
             fate, rule = "rejected", culprit_rule if culprit is None and culprit_rule else "apply.atomic"
-        items.append(item("update", update, origin="model", fate=fate, fate_rule=rule,
+        items.append(item("update", update, origin=origin, fate=fate, fate_rule=rule,
                           sources=[f"{resolve}#{n}"] if resolve else [],
                           detail={"path": list(update.path), "old": recorder.small(_at(before, update.path)),
                                   "new": recorder.small(_at(after, update.path)) if after else None}))

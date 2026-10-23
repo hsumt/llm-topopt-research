@@ -13,6 +13,7 @@ from project import trace
 from project.ai_errors import ModelCallError, classify_provider_error
 
 from project.models import (
+    Clarification,
     ProblemSpec,
     Resolution,
     Review,
@@ -20,6 +21,7 @@ from project.models import (
     Usage,
 )
 from project.prompts import (
+    CLARIFY_PROMPT,
     PARSE_PROMPT,
     RESOLVE_PROMPT,
     REVIEW_PROMPT,
@@ -27,11 +29,39 @@ from project.prompts import (
 
 
 T = TypeVar("T", bound=BaseModel)
-MODEL = os.getenv("FORMULATION_MODEL") or "claude-sonnet-4-6"
+PROVIDERS = {  # FORMULATION_PROVIDER value -> (display name, API key variable, model variable)
+    "anthropic": ("Anthropic", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"),
+    "azure_openai": ("Azure OpenAI", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_DEPLOYMENT"),
+}
+PROVIDER = os.getenv("FORMULATION_PROVIDER") or "anthropic"
+PROVIDER_NAME, KEY_VAR, MODEL_VAR = PROVIDERS.get(PROVIDER, (PROVIDER, "", ""))
+# No default model: the provider's model variable must name it (on Azure OpenAI, the deployment name).
+MODEL = (os.getenv(MODEL_VAR) if MODEL_VAR else None) or ""
+# Azure OpenAI only: reasoning effort (low, medium, high). Unset sends none, so the deployment's default applies.
+REASONING_EFFORT = os.getenv("AZURE_OPENAI_REASONING_EFFORT") or None
 CACHE_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "formulation"
 
 
 def _client():
+    if PROVIDER not in PROVIDERS:
+        raise ModelCallError(
+            "unknown_provider", f"FORMULATION_PROVIDER is set to {PROVIDER!r}, which the app does not support.",
+            "Set FORMULATION_PROVIDER to anthropic or azure_openai in the repository's .env, run "
+            "./docker/compose up -d --force-recreate, then retry.",
+            "not_sent",
+        )
+    if not MODEL:
+        where = " to the deployment name shown in the Foundry portal" if PROVIDER == "azure_openai" else ""
+        raise ModelCallError(
+            "missing_model", f"No {PROVIDER_NAME} model was supplied to the app runtime.",
+            f"Set {MODEL_VAR} in the repository's .env{where}, run "
+            "./docker/compose up -d --force-recreate, then retry.",
+            "not_sent",
+        )
+    return _anthropic_client() if PROVIDER == "anthropic" else _azure_openai_client()
+
+
+def _anthropic_client():
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ModelCallError(
@@ -60,6 +90,84 @@ def _client():
             "Check the container's API and network configuration, then retry.",
             "not_sent",
         ) from None
+
+
+def _azure_openai_client():
+    api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    if not api_key or not endpoint:
+        raise ModelCallError(
+            "missing_api_key", "No Azure OpenAI API key or endpoint was supplied to the app runtime.",
+            "If AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT are already in the repository's .env, run "
+            "./docker/compose up -d --force-recreate to load them, then retry. "
+            "The wrapper also accepts exported shell variables, which take precedence. "
+            "Do not enter a key in the design brief.",
+            "not_sent",
+        )
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise ModelCallError(
+            "sdk_unavailable", "The OpenAI client dependency is unavailable in this runtime.",
+            "Rebuild the Docker image with the project's pinned requirements, then retry.",
+            "not_sent",
+        ) from None
+    # Azure's v1 API takes the standard OpenAI client at <endpoint>/openai/v1/.
+    base_url = endpoint.rstrip("/")
+    if not base_url.endswith("/openai/v1"):
+        base_url += "/openai/v1"
+    try:
+        # The same bounded waits as the Anthropic client.
+        return OpenAI(api_key=api_key, base_url=base_url + "/", timeout=45.0, max_retries=0)
+    except Exception:
+        raise ModelCallError(
+            "client_configuration_failed", "The Azure OpenAI client could not be initialized.",
+            "Check AZURE_OPENAI_ENDPOINT and the container's network configuration, then retry.",
+            "not_sent",
+        ) from None
+
+
+def _send_anthropic(client, prompt: str, payload: dict, max_tokens: int):
+    """One Messages API call -> (reply text, stop reason, input tokens, output tokens)."""
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=prompt,
+        messages=[
+            {"role": "user", "content": json.dumps(payload, separators=(",", ":"))}
+        ],
+    )
+    usage = getattr(response, "usage", None)
+    text = "".join(
+        block.text for block in (getattr(response, "content", None) or [])
+        if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
+    )
+    return (text, getattr(response, "stop_reason", None),
+            getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+
+
+def _send_azure_openai(client, prompt: str, payload: dict, max_tokens: int):
+    """One Responses API call -> (reply text, stop reason, input tokens, output tokens).
+
+    The stop reason is the incomplete reason (max_output_tokens, content_filter) when the
+    response stopped early, otherwise its status. Reasoning tokens count against max_tokens.
+    """
+    options = {"reasoning": {"effort": REASONING_EFFORT}} if REASONING_EFFORT else {}
+    response = client.responses.create(
+        model=MODEL,
+        instructions=prompt,
+        input=json.dumps(payload, separators=(",", ":")),
+        max_output_tokens=max_tokens,
+        store=False,  # the formulation trace is the record; Azure keeps no retrievable copy
+        **options,
+    )
+    usage = getattr(response, "usage", None)
+    details = getattr(response, "incomplete_details", None)
+    text = getattr(response, "output_text", None)
+    return (text if isinstance(text, str) else "",
+            getattr(details, "reason", None) or getattr(response, "status", None),
+            getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
@@ -133,7 +241,7 @@ def _validate_response(response_text: str, output_type: type[T]) -> T:
         data = _extract_json(response_text)
     except (ValueError, TypeError):
         raise ModelCallError(
-            "invalid_json", "Claude responded, but its answer was not usable JSON.",
+            "invalid_json", "The model responded, but its answer was not usable JSON.",
             "Retry the AI step. Your existing request and specification have been kept.",
             "response_received", True,
         ) from None
@@ -141,7 +249,7 @@ def _validate_response(response_text: str, output_type: type[T]) -> T:
         return output_type.model_validate(data)
     except ValidationError:
         raise ModelCallError(
-            "invalid_schema", "Claude responded, but its answer did not match the required specification format.",
+            "invalid_schema", "The model responded, but its answer did not match the required specification format.",
             "Retry the AI step. If this persists, check model and schema compatibility; "
             "your existing request and specification have been kept.",
             "response_received", True,
@@ -159,8 +267,8 @@ def _call_model(
     # The call record goes to the formulation trace whether the call succeeds or fails;
     # it holds the reply text but never exception text.
     key = _cache_key(step, prompt, payload)
-    call = {"step": step, "model": MODEL, "cache_key": key, "cache_hit": False, "payload": payload,
-            "reply": None, "stop_reason": None, "tokens": None}
+    call = {"step": step, "provider": PROVIDER, "model": MODEL, "cache_key": key, "cache_hit": False,
+            "payload": payload, "reply": None, "stop_reason": None, "tokens": None}
     started = time.monotonic()
     trace.calling(step)
     try:
@@ -193,7 +301,8 @@ def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: d
     responder = _scripted.get()
     if responder is not None:
         text = json.dumps(responder(step, payload))
-        call.update(model="scripted", reply=text, stop_reason="scripted", tokens={"in": 0, "out": 0})
+        call.update(provider="scripted", model="scripted", reply=text, stop_reason="scripted",
+                    tokens={"in": 0, "out": 0})
         return _validate_response(text, output_type), Usage(step=step, model="scripted")
 
     cached = None if bypass_cache else _read_cache(key)
@@ -209,47 +318,41 @@ def _call_model_once(call: dict, *, key: str, step: str, prompt: str, payload: d
             return result, Usage(step=step, model=MODEL, cache_hit=True)
 
     client = _client()
+    send = _send_anthropic if PROVIDER == "anthropic" else _send_azure_openai
     try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=max_tokens,
-            system=prompt,
-            messages=[
-                {"role": "user", "content": json.dumps(payload, separators=(",", ":"))}
-            ],
-        )
+        response_text, stop_reason, input_tokens, output_tokens = send(client, prompt, payload, max_tokens)
     except Exception as error:
-        raise classify_provider_error(error) from None
+        raise classify_provider_error(error, provider=PROVIDER_NAME, key_var=KEY_VAR, model_var=MODEL_VAR) from None
 
-    usage = getattr(response, "usage", None)
-    stop_reason = getattr(response, "stop_reason", None)
-    call.update(stop_reason=stop_reason,
-                tokens={"in": getattr(usage, "input_tokens", None), "out": getattr(usage, "output_tokens", None)})
-    response_text = "".join(
-        block.text for block in (getattr(response, "content", None) or [])
-        if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str)
-    )
+    call.update(stop_reason=stop_reason, tokens={"in": input_tokens, "out": output_tokens})
     # The trace keeps the reply even when it is partial or empty; the errors below are raised either way.
     call["reply"] = response_text
 
-    if stop_reason == "max_tokens":
+    if stop_reason in ("max_tokens", "max_output_tokens"):
         raise ModelCallError(
-            "truncated_response", "Claude's response reached its output limit before it finished.",
+            "truncated_response", "The model's response reached its output limit before it finished.",
             "Retry the AI step. If it repeats, increase this stage's output allowance "
             "or shorten the request while retaining the engineering requirements.",
             "response_received", True,
         )
+    if stop_reason == "content_filter":
+        raise ModelCallError(
+            "content_filtered", f"{PROVIDER_NAME}'s content filter stopped the response before it finished.",
+            "Retry the AI step. If it repeats, check the brief for wording a content filter could misread; "
+            "this is not a missing engineering decision.",
+            "response_received", True,
+        )
     if not response_text.strip():
         raise ModelCallError(
-            "empty_response", "Claude returned no text that could be read as a specification.",
+            "empty_response", "The model returned no text that could be read as a specification.",
             "Retry the AI step. Your existing request and specification have been kept.",
             "response_received", True,
         )
 
     result = _validate_response(response_text, output_type)
 
-    input_tokens = int(usage.input_tokens)
-    output_tokens = int(usage.output_tokens)
+    input_tokens = int(input_tokens)
+    output_tokens = int(output_tokens)
 
     try:
         _write_cache(key, response_text, input_tokens, output_tokens)
@@ -318,6 +421,7 @@ def resolve_answers(
     original_request: str | None = None,
     context: str | None = None,
     revisions: list[Revision] | None = None,
+    clarifications: list[dict] | None = None,
     bypass_cache: bool = False,
 ) -> tuple[Resolution, Usage]:
     """Interpret answers; bypass a rejected cached patch when explicitly retrying.
@@ -337,6 +441,7 @@ def resolve_answers(
             for question in review.questions
         ],
         "answers": answers,
+        "clarifications": clarifications or [],
         "original_request": original_request,
         "context": context,
         "prior_rounds": [revision.model_dump() for revision in (revisions or [])],
@@ -351,4 +456,36 @@ def resolve_answers(
         output_type=Resolution,
         max_tokens=3000,
         bypass_cache=bypass_cache,
+    )
+
+
+def clarify_question(
+    question: dict,
+    issues: list[dict],
+    spec: ProblemSpec,
+    *,
+    mode: str,
+    query: str = "",
+    original_request: str | None = None,
+    context: str | None = None,
+) -> tuple[Clarification, Usage]:
+    """Explain or reword one shown question at the engineer's request. The reply is explanation only:
+    code stores and shows it, and never applies anything from it to the spec."""
+    payload = {
+        "question": question,
+        "issues": issues,
+        "spec": spec.model_dump(exclude_none=True),
+        "original_request": original_request,
+        "context": context,
+        "mode": mode,
+        "query": query,
+        "output_schema": Clarification.model_json_schema(),
+    }
+    return _call_model(
+        step="clarify",
+        prompt=CLARIFY_PROMPT,
+        payload=payload,
+        output_type=Clarification,
+        max_tokens=1200,
+        bypass_cache=True,   # each request the engineer makes gets a fresh reply; none is replayed into the spec
     )

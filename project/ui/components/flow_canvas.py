@@ -16,101 +16,149 @@ from project.ui import api, flow_model
 _log = logging.getLogger(__name__)
 
 _CSS = """
-.ato-flow { position: relative; border: 1px solid #d6d6d6; border-radius: 10px; overflow: hidden;
-  background-color: #f4f4f4; font-family: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif; color: #1f2328;
+/* Colours: one light and one dark set of --fc-* variables; the script adds .dark to .ato-flow when
+   Streamlit's background is dark (see isDark()). Light values are the original palette, except the engineer chip
+   text and code line numbers, changed to reach WCAG AA, and the issue-kind chips, which use the role colours. */
+.ato-flow { color-scheme: light;
+  --fc-canvas: #f4f4f4; --fc-grid: #e3e3e3; --fc-dots: #c8c8c8; --fc-line: #d6d6d6; --fc-line-soft: #e3e3e3;
+  --fc-hairline: #eee; --fc-btn-line: #c9c9c9; --fc-surface: #fff; --fc-surface-hover: #f0f0f0;
+  --fc-legend-bg: #ffffffd9; --fc-step-bg: #ffffffcc; --fc-shadow: #0000001a; --fc-pop-shadow: #00000026;
+  --fc-ink: #1f2328; --fc-on-ink: #fff; --fc-ink-2: #444; --fc-ink-3: #555; --fc-muted: #666; --fc-sub: #6b6b6b;
+  --fc-code: #2b2b2b; --fc-code-chip: #333; --fc-code-chip-line: #bbb; --fc-dashed: #777;
+  --fc-model: #6d4fc2; --fc-model-line: #c4b5f0; --fc-model-bg: #f4f0ff; --fc-model-bg-hover: #e6ddff; --fc-model-text: #4b2fa0;
+  --fc-engineer: #b7791f; --fc-engineer-text: #8f5f17; --fc-engineer-line: #ecc98b; --fc-waiting-bg: #fffaf0;
+  --fc-decision: #a7f0cf; --fc-failed: #c62828; --fc-failed-bg: #fdecea; --fc-pending-bg: #fafafa;
+  --fc-active: #0b6bcb; --fc-active-glow: #0b6bcb66; --fc-active-bg: #eef5fc;
+  --fc-info-text: #0b4f8a; --fc-info-line: #9cc3e8; --fc-info-bg: #e8f1fb;
+  --fc-ok-text: #146c2e; --fc-ok-line: #8fd19e; --fc-ok-bg: #eefaf0;
+  --fc-warn-text: #9a3412; --fc-warn-line: #f2b38a; --fc-warn-bg: #fff4ec;
+  --fc-pre-bg: #f7f7f7; --fc-cite-line: #c9d3df; --fc-about-bg: #f6f8fb; --fc-about-line: #e3e8ef;
+  --fc-codebox-line: #d6dee8; --fc-codebox-bg: #fbfcfe; --fc-codehead-bg: #eef2f7; --fc-codehead-text: #334;
+  --fc-lineno: #667080; --fc-highlight: #fff3c4; --fc-label: #000;
+  --fc-paper: #fff; --fc-paper-line: #eee; }
+.ato-flow.dark { color-scheme: dark;
+  --fc-canvas: #12161d; --fc-grid: #1d222b; --fc-dots: #2e3440; --fc-line: #313844; --fc-line-soft: #2a303a;
+  --fc-hairline: #252a33; --fc-btn-line: #3a414d; --fc-surface: #1b1f27; --fc-surface-hover: #262b35;
+  --fc-legend-bg: #12161dd9; --fc-step-bg: #12161dcc; --fc-shadow: #00000066; --fc-pop-shadow: #00000099;
+  --fc-ink: #e6e8eb; --fc-on-ink: #0e1117; --fc-ink-2: #c3c9d1; --fc-ink-3: #b4bcc6; --fc-muted: #9aa3ae; --fc-sub: #a2abb6;
+  --fc-code: #b9c0ca; --fc-code-chip: #c9d1d9; --fc-code-chip-line: #4b535e; --fc-dashed: #6e7781;
+  --fc-model: #a78bfa; --fc-model-line: #5b4a9a; --fc-model-bg: #261f3d; --fc-model-bg-hover: #33295a; --fc-model-text: #cdbfff;
+  --fc-engineer: #e3a73f; --fc-engineer-text: #f0bb5a; --fc-engineer-line: #7a5a20; --fc-waiting-bg: #2a2214;
+  --fc-decision: #173a2d; --fc-failed: #ff6b6b; --fc-failed-bg: #3b1d20; --fc-pending-bg: #161a21;
+  --fc-active: #4da3ff; --fc-active-glow: #4da3ff66; --fc-active-bg: #13263d;
+  --fc-info-text: #8cc4ff; --fc-info-line: #2f5a85; --fc-info-bg: #12243a;
+  --fc-ok-text: #6fdc8c; --fc-ok-line: #2f6b43; --fc-ok-bg: #12291b;
+  --fc-warn-text: #ff9f6b; --fc-warn-line: #7a4220; --fc-warn-bg: #2d1c12;
+  --fc-pre-bg: #13171e; --fc-cite-line: #34465c; --fc-about-bg: #1f2532; --fc-about-line: #2e3646;
+  --fc-codebox-line: #2d3a4a; --fc-codebox-bg: #13171e; --fc-codehead-bg: #1f2733; --fc-codehead-text: #c3cbd6;
+  --fc-lineno: #8b95a2; --fc-highlight: #4a3d10; --fc-label: #e6e8eb;
+  --fc-paper: #fff; --fc-paper-line: #fff; }
+.ato-flow { position: relative; border: 1px solid var(--fc-line); border-radius: 10px; overflow: hidden;
+  background-color: var(--fc-canvas); font-family: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif; color: var(--fc-ink);
   user-select: none; }
-.ato-flow.grid { background-image: linear-gradient(#e3e3e3 1px, transparent 1px), linear-gradient(90deg, #e3e3e3 1px, transparent 1px); }
-.ato-flow.dots { background-image: radial-gradient(#c8c8c8 1.2px, transparent 1.2px); }
+.ato-flow.grid { background-image: linear-gradient(var(--fc-grid) 1px, transparent 1px), linear-gradient(90deg, var(--fc-grid) 1px, transparent 1px); }
+.ato-flow.dots { background-image: radial-gradient(var(--fc-dots) 1.2px, transparent 1.2px); }
 .ato-flow svg { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
 .ato-flow svg.dragging { cursor: grabbing; }
+.ato-probe { display: none; color: var(--st-background-color, #fff); }
 .ato-bar { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; align-items: center; z-index: 3; flex-wrap: wrap; }
-.ato-bar button { border: 1px solid #c9c9c9; background: #fff; border-radius: 6px; padding: 4px 10px; font: inherit;
-  font-size: 13px; cursor: pointer; color: #1f2328; }
-.ato-bar button:hover { background: #f0f0f0; }
-.ato-bar button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
-.ato-step { font-size: 13px; color: #555; background: #ffffffcc; padding: 3px 8px; border-radius: 6px; }
+.ato-bar button { border: 1px solid var(--fc-btn-line); background: var(--fc-surface); border-radius: 6px; padding: 4px 10px; font: inherit;
+  font-size: 13px; cursor: pointer; color: var(--fc-ink); }
+.ato-bar button:hover { background: var(--fc-surface-hover); }
+.ato-bar button.on { background: var(--fc-ink); color: var(--fc-on-ink); border-color: var(--fc-ink); }
+.ato-step { font-size: 13px; color: var(--fc-ink-3); background: var(--fc-step-bg); padding: 3px 8px; border-radius: 6px; }
 .ato-live, .ato-status { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
-.ato-live { background: #e8f1fb; border-color: #9cc3e8; color: #0b4f8a; }
-.ato-live::before { content: "●"; color: #0b6bcb; margin-right: 5px; animation: ato-blink 1.2s ease-in-out infinite; }
-.ato-status { background: #fff; border-color: #d6d6d6; color: #444; }
+.ato-live { background: var(--fc-info-bg); border-color: var(--fc-info-line); color: var(--fc-info-text); }
+.ato-live::before { content: "●"; color: var(--fc-active); margin-right: 5px; animation: ato-blink 1.2s ease-in-out infinite; }
+.ato-status { background: var(--fc-surface); border-color: var(--fc-line); color: var(--fc-ink-2); }
 @keyframes ato-blink { 50% { opacity: .25; } }
-.node text { font-size: 13px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
-.node .sub { font-size: 10.5px; fill: #6b6b6b; }
-.node .shape { fill: #fff; stroke: #2b2b2b; stroke-width: 1.2; }
-.node.model .shape { stroke: #6d4fc2; }
-.node.engineer .shape { stroke: #b7791f; }
-.node.decision .shape { fill: #a7f0cf; }
-.node.failed .shape { stroke: #c62828; stroke-width: 2; fill: #fdecea; }
-.node.pending .shape { stroke-dasharray: 5 4; fill: #fafafa; }
+.node text { font-size: 13px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; fill: var(--fc-label); }
+.node .sub { font-size: 10.5px; fill: var(--fc-sub); }
+.node.decision .sub { fill: var(--fc-ink-2); }   /* the mint fill is too light for the grey subtitle */
+.node .shape { fill: var(--fc-surface); stroke: var(--fc-code); stroke-width: 1.2; }
+.node.model .shape { stroke: var(--fc-model); }
+.node.engineer .shape { stroke: var(--fc-engineer); }
+.node.decision .shape { fill: var(--fc-decision); }
+.node.failed .shape { stroke: var(--fc-failed); stroke-width: 2; fill: var(--fc-failed-bg); }
+.node.pending .shape { stroke-dasharray: 5 4; fill: var(--fc-pending-bg); }
 .node { cursor: pointer; transition: opacity .25s; }
 .node:hover .shape { stroke-width: 2.2; }
-.node.selected .shape { stroke: #0b6bcb; stroke-width: 2.6; }
-.node.current .shape { filter: drop-shadow(0 0 6px #0b6bcb); stroke: #0b6bcb; stroke-width: 2.6; }
-.node.active .shape { stroke: #0b6bcb; stroke-width: 2.8; fill: #eef5fc; animation: ato-pulse 1.4s ease-in-out infinite; }
-.node.waiting .shape { stroke: #b7791f; stroke-width: 2; stroke-dasharray: 6 4; fill: #fffaf0; }
-@keyframes ato-pulse { 0%, 100% { filter: drop-shadow(0 0 1px #0b6bcb66); } 50% { filter: drop-shadow(0 0 9px #0b6bcb); } }
+.node.selected .shape { stroke: var(--fc-active); stroke-width: 2.6; }
+.node.current .shape { filter: drop-shadow(0 0 6px var(--fc-active)); stroke: var(--fc-active); stroke-width: 2.6; }
+.node.active .shape { stroke: var(--fc-active); stroke-width: 2.8; fill: var(--fc-active-bg); animation: ato-pulse 1.4s ease-in-out infinite; }
+.node.waiting .shape { stroke: var(--fc-engineer); stroke-width: 2; stroke-dasharray: 6 4; fill: var(--fc-waiting-bg); }
+@keyframes ato-pulse { 0%, 100% { filter: drop-shadow(0 0 1px var(--fc-active-glow)); } 50% { filter: drop-shadow(0 0 9px var(--fc-active)); } }
 .node.hidden, .edge.hidden { opacity: 0.08; }
-.edge path { fill: none; stroke: #2b2b2b; stroke-width: 2.4; }
-.edge.dashed path { stroke-dasharray: 7 5; stroke: #777; }
-.edge.flowing path { stroke: #0b6bcb; stroke-dasharray: 9 6; animation: ato-march .8s linear infinite; }
+.edge path { fill: none; stroke: var(--fc-code); stroke-width: 2.4; }
+.edge.dashed path { stroke-dasharray: 7 5; stroke: var(--fc-dashed); }
+.edge.flowing path { stroke: var(--fc-active); stroke-dasharray: 9 6; animation: ato-march .8s linear infinite; }
 @keyframes ato-march { to { stroke-dashoffset: -15; } }
-.edge text { font-size: 12px; font-weight: 600; fill: #2b2b2b; }
+.edge text { font-size: 12px; font-weight: 600; fill: var(--fc-code); }
 .edge { transition: opacity .25s; }
-.ato-legend { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; background: #ffffffd9;
-  padding: 5px 9px; border-radius: 6px; z-index: 3; }
+.arrowhead { fill: var(--fc-code); }
+.ato-legend { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px;
+  background: var(--fc-legend-bg); padding: 5px 9px; border-radius: 6px; z-index: 3; }
 .ato-legend i { display: inline-block; width: 10px; height: 10px; border: 2px solid; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.ato-drawer { position: absolute; top: 0; right: 0; width: 440px; max-width: 70%; height: 100%; background: #fff;
-  border-left: 1px solid #d6d6d6; box-shadow: -4px 0 14px #0000001a; z-index: 4; overflow-y: auto; padding: 14px 16px;
+.ato-drawer { position: absolute; top: 0; right: 0; width: 440px; max-width: 70%; height: 100%; background: var(--fc-surface);
+  border-left: 1px solid var(--fc-line); box-shadow: -4px 0 14px var(--fc-shadow); z-index: 4; overflow-y: auto; padding: 14px 16px;
   transform: translateX(105%); transition: transform .22s; user-select: text; }
 .ato-drawer.open { transform: none; }
 .ato-drawer h3 { margin: 0 0 2px; font-size: 17px; }
-.ato-drawer .meta { font-size: 12px; color: #666; margin-bottom: 10px; }
-.ato-drawer .close { position: absolute; top: 10px; right: 12px; border: none; background: none; font-size: 18px; cursor: pointer; }
-.ato-drawer details { margin: 8px 0; border: 1px solid #e3e3e3; border-radius: 6px; padding: 6px 8px; }
+.ato-drawer .meta { font-size: 12px; color: var(--fc-muted); margin-bottom: 10px; }
+.ato-drawer .close { position: absolute; top: 10px; right: 12px; border: none; background: none; font-size: 18px; cursor: pointer;
+  color: var(--fc-ink-2); }
+.ato-drawer details { margin: 8px 0; border: 1px solid var(--fc-line-soft); border-radius: 6px; padding: 6px 8px; }
 .ato-drawer summary { cursor: pointer; font-weight: 600; font-size: 13px; }
-.ato-drawer pre { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; background: #f7f7f7; padding: 8px;
+.ato-drawer pre { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; background: var(--fc-pre-bg); padding: 8px;
   border-radius: 4px; max-height: 340px; overflow: auto; margin: 6px 0 0; }
 .ato-drawer table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
-.ato-drawer td { border-top: 1px solid #eee; padding: 5px 4px; vertical-align: top; }
-.ato-drawer .k { font-family: ui-monospace, monospace; font-size: 11px; color: #444; }
+.ato-drawer td { border-top: 1px solid var(--fc-hairline); padding: 5px 4px; vertical-align: top; }
+.ato-drawer .k { font-family: ui-monospace, monospace; font-size: 11px; color: var(--fc-ink-2); }
+.paper { margin-top: 8px; padding: 8px; background: var(--fc-paper); border: 1px solid var(--fc-paper-line); border-radius: 6px; }
+.paper img { display: block; width: 100%; }
 .chip { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; margin: 1px 2px 1px 0; border: 1px solid; }
-.chip.kept, .chip.shown, .chip.applied, .chip.created { color: #146c2e; border-color: #8fd19e; background: #eefaf0; }
-.chip.dropped, .chip.capped, .chip.rejected, .chip.hidden { color: #9a3412; border-color: #f2b38a; background: #fff4ec; }
-.chip.relabeled, .chip.merged { color: #6d4fc2; border-color: #c4b5f0; background: #f4f0ff; }
-.chip.code { color: #333; border-color: #bbb; }
-.chip.model { color: #6d4fc2; border-color: #c4b5f0; }
-.chip.engineer { color: #b7791f; border-color: #ecc98b; }
-.chip.decision, .chip.data, .chip.unsupported { color: #0b4f8a; border-color: #9cc3e8; background: #eef5fc; }
-.rule { font-size: 11px; color: #666; }
-.cite { border: 1px solid #c9d3df; background: #fff; color: #0b4f8a; border-radius: 4px; font: 11px ui-monospace, monospace;
-  padding: 0 5px; margin-left: 4px; cursor: pointer; white-space: nowrap; }
-.cite:hover { background: #eef5fc; }
-.codebox { margin: 6px 0 8px; border: 1px solid #d6dee8; border-radius: 6px; overflow: hidden; background: #fbfcfe; }
+.chip.kept, .chip.shown, .chip.applied, .chip.created { color: var(--fc-ok-text); border-color: var(--fc-ok-line); background: var(--fc-ok-bg); }
+.chip.dropped, .chip.capped, .chip.rejected, .chip.hidden { color: var(--fc-warn-text); border-color: var(--fc-warn-line); background: var(--fc-warn-bg); }
+.chip.relabeled, .chip.merged { color: var(--fc-model); border-color: var(--fc-model-line); background: var(--fc-model-bg); }
+.chip.code { color: var(--fc-code-chip); border-color: var(--fc-code-chip-line); }
+.chip.model { color: var(--fc-model); border-color: var(--fc-model-line); }
+.chip.engineer { color: var(--fc-engineer-text); border-color: var(--fc-engineer-line); }
+/* Issue kinds follow the app's role colours: needs a decision or data = orange, unsupported = red. */
+.chip.decision, .chip.data { color: var(--fc-warn-text); border-color: var(--fc-warn-line); background: var(--fc-warn-bg); }
+.chip.unsupported { color: var(--fc-failed); border-color: var(--fc-failed); background: var(--fc-failed-bg); }
+.rule { font-size: 11px; color: var(--fc-muted); }
+.cite { border: 1px solid var(--fc-cite-line); background: var(--fc-surface); color: var(--fc-info-text); border-radius: 4px;
+  font: 11px ui-monospace, monospace; padding: 0 5px; margin-left: 4px; cursor: pointer; white-space: nowrap; }
+.cite:hover { background: var(--fc-active-bg); }
+.codebox { margin: 6px 0 8px; border: 1px solid var(--fc-codebox-line); border-radius: 6px; overflow: hidden; background: var(--fc-codebox-bg); }
 .codebox[hidden] { display: none; }
-.codehead { display: flex; justify-content: space-between; gap: 8px; font: 11px ui-monospace, monospace; background: #eef2f7;
-  padding: 4px 8px; color: #334; }
-.codehead a { color: #0b6bcb; text-decoration: none; font-family: "Source Sans 3", system-ui, sans-serif; }
+.codehead { display: flex; justify-content: space-between; gap: 8px; font: 11px ui-monospace, monospace; background: var(--fc-codehead-bg);
+  padding: 4px 8px; color: var(--fc-codehead-text); }
+.codehead a { color: var(--fc-active); text-decoration: none; font-family: "Source Sans 3", system-ui, sans-serif; }
 .codebox pre.code { margin: 0; max-height: 300px; overflow: auto; background: none; padding: 6px 0; font-size: 11px; }
-.code .ln { display: inline-block; width: 38px; color: #98a2b0; text-align: right; padding-right: 8px; user-select: none; }
+.code .ln { display: inline-block; width: 38px; color: var(--fc-lineno); text-align: right; padding-right: 8px; user-select: none; }
 .code .row { display: block; padding-right: 8px; white-space: pre; }
-.code .hl { background: #fff3c4; }
-.about { background: #f6f8fb; border: 1px solid #e3e8ef; border-radius: 6px; padding: 6px 10px; margin: 4px 0 10px; font-size: 13px; }
-.about p { margin: 2px 0 4px; font-weight: 600; }
+.code .hl { background: var(--fc-highlight); }
+.code .hl .ln { color: var(--fc-ink-2); }   /* the plain line-number colour misses AA on the highlight */
+.about { background: var(--fc-about-bg); border: 1px solid var(--fc-about-line); border-radius: 6px; padding: 6px 10px; margin: 4px 0 10px; font-size: 13px; }
+/* A div, not a p: the code box a citation opens is a block, which a p cannot hold (the parser would move it out). */
+.about .lead { margin: 2px 0 4px; font-weight: 600; }
+.about .lead .codebox { font-weight: 400; }
 .about ul { margin: 0 0 2px 16px; padding: 0; }
 .about li { margin: 2px 0; }
-.pill rect { fill: #f4f0ff; stroke: #6d4fc2; stroke-width: 1; }
-.pill text { font-size: 10.5px; fill: #4b2fa0; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.pill rect { fill: var(--fc-model-bg); stroke: var(--fc-model); stroke-width: 1; }
+.pill text { font-size: 10.5px; fill: var(--fc-model-text); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 .pill { cursor: help; }
-.pill:hover rect { fill: #e6ddff; }
-.ato-pop { position: absolute; z-index: 5; width: 460px; max-height: 62%; overflow-y: auto; background: #fff;
-  border: 1px solid #c4b5f0; border-radius: 8px; box-shadow: 0 6px 22px #00000026; padding: 10px 14px; display: none;
+.pill:hover rect { fill: var(--fc-model-bg-hover); }
+.ato-pop { position: absolute; z-index: 5; width: 460px; max-height: 62%; overflow-y: auto; background: var(--fc-surface);
+  border: 1px solid var(--fc-model-line); border-radius: 8px; box-shadow: 0 6px 22px var(--fc-pop-shadow); padding: 10px 14px; display: none;
   font-size: 12.5px; line-height: 1.45; user-select: text; }
-.ato-pop h4, .prompt h4 { margin: 8px 0 4px; font-size: 12.5px; color: #4b2fa0; }
+.ato-pop h4, .prompt h4 { margin: 8px 0 4px; font-size: 12.5px; color: var(--fc-model-text); }
 .prompt-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
 .prompt p { margin: 4px 0; }
 .prompt ul { margin: 2px 0 6px 16px; padding: 0; }
 .prompt li { margin: 2px 0; }
-.prompt code { background: #f4f0ff; padding: 0 3px; border-radius: 3px; font-size: 11.5px; }
+.prompt code { background: var(--fc-model-bg); padding: 0 3px; border-radius: 3px; font-size: 11.5px; }
 """
 
 _JS = r"""
@@ -127,6 +175,15 @@ function el(tag, attrs, parent) {
 }
 function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+}
+function isDark(probe) {
+  // Streamlit passes its theme only as --st-* variables, with no light/dark flag: the theme is dark when the
+  // background's relative luminance is below 0.179, where it contrasts equally with black and with white.
+  // The probe is an element because the shadow root itself has no computed style.
+  const s = getComputedStyle(probe).color, scale = s.startsWith("color(") ? 1 : 255;
+  const c = (s.match(/[\d.]+/g) || [scale, scale, scale]).slice(0, 3)
+    .map(v => { const u = v / scale; return u <= 0.04045 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] < 0.179;
 }
 function box(n) {
   const x = 80 + n.col * CW, y = 90 + n.row * RH;
@@ -231,12 +288,13 @@ function detailHtml(n) {
   let html = `<button class="close" title="Close">×</button><h3>${esc(n.label)}</h3>
     <div class="meta">${esc(n.shape)} · ${esc(n.actor)}${n.sub ? " · " + esc(n.sub) : ""}${n.status !== "ok" ? " · " + esc(n.status) : ""}</div>`;
   const about = aboutFor(n.label);
-  if (about) html += `<div class="about"><p>${esc(about.text)}${citeHtml(about.cite)}</p><ul>` +
+  if (about) html += `<div class="about"><div class="lead">${esc(about.text)}${citeHtml(about.cite)}</div><ul>` +
     (about.points || []).map(x => `<li>${esc(x.text)}${citeHtml(x.cite)}</li>`).join("") + `</ul></div>`;
   if (d.text) html += `<p>${esc(d.text)}</p>`;
   if (d.metrics && Object.keys(d.metrics).length) html += table(Object.entries(d.metrics).map(([k, v]) =>
     `<tr><td class="k">${esc(k)}</td><td>${esc(typeof v === "number" ? (Math.abs(v) > 1e4 ? v.toExponential(3) : +v.toFixed(4)) : v)}</td></tr>`));
-  if (d.image) html += `<img src="${d.image}" style="width:100%;margin-top:8px;border:1px solid #eee;border-radius:6px" alt="Convergence history">`;
+  // Plots and renders are drawn on white: they sit on a white "paper" card in either theme.
+  if (d.image) html += `<div class="paper"><img src="${d.image}" alt="${n.id === "paraview" ? "ParaView render" : "Convergence history"}"></div>`;
   if (d.history_tail) html += block("Last iterations", d.history_tail.map(r => `${r.iteration}: volume ${r.volume_fraction.toFixed(4)}, compliance ${r.compliance.toPrecision(5)}, p-norm ${(r.stress_pnorm_pa / 1e6).toFixed(2)} MPa`).join("\n"), true);
   if (d.summary_notes) html += `<ul class="rule">${d.summary_notes.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
   if (d.context) html += block("Context", d.context, true);
@@ -296,6 +354,9 @@ export default function (component) {
   root.className = "ato-flow " + view.bg;
   root.style.height = (flow.height || 720) + "px";
   parentElement.appendChild(root);
+  const probe = document.createElement("i");   // resolves Streamlit's background colour for isDark()
+  probe.className = "ato-probe";
+  root.appendChild(probe);
 
   const bar = document.createElement("div");
   bar.className = "ato-bar";
@@ -309,9 +370,12 @@ export default function (component) {
   const liveEl = bar.querySelector(".ato-live"), followBtn = bar.querySelector('[data-a="follow"]');
   const legend = document.createElement("div");
   legend.className = "ato-legend";
-  legend.innerHTML = '<span><i style="border-color:#6d4fc2"></i>model</span><span><i style="border-color:#2b2b2b"></i>code</span>' +
-    '<span><i style="border-color:#b7791f"></i>engineer</span><span><i style="border-color:#c62828;background:#fdecea"></i>failed</span>' +
-    '<span><i style="border-color:#0b6bcb;background:#eef5fc"></i>running now</span><span><i style="border-color:#777;border-style:dashed"></i>still to come</span>' +
+  // Swatches use the same colour variables as the shapes they stand for.
+  legend.innerHTML = '<span><i style="border-color:var(--fc-model)"></i>model</span><span><i style="border-color:var(--fc-code)"></i>code</span>' +
+    '<span><i style="border-color:var(--fc-engineer)"></i>engineer</span>' +
+    '<span><i style="border-color:var(--fc-failed);background:var(--fc-failed-bg)"></i>failed</span>' +
+    '<span><i style="border-color:var(--fc-active);background:var(--fc-active-bg)"></i>running now</span>' +
+    '<span><i style="border-color:var(--fc-dashed);border-style:dashed"></i>still to come</span>' +
     '<span>▭ process ▱ data ⬭ review document ◇ decision 🗀 record</span>';
   root.appendChild(legend);
   const drawer = document.createElement("div");
@@ -341,7 +405,7 @@ export default function (component) {
   root.appendChild(svg);
   const defs = el("defs", {}, svg);
   const marker = el("marker", {id: "arrow-" + key, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse"}, defs);
-  el("path", {d: "M0,0 L10,5 L0,10 z", fill: "#2b2b2b"}, marker);
+  el("path", {d: "M0,0 L10,5 L0,10 z", class: "arrowhead"}, marker);   // coloured by .arrowhead, like the edges
   const g = el("g", {}, svg);
 
   const boxes = {}, nodeEls = {}, subEls = {}, edgeEls = [];
@@ -478,6 +542,7 @@ export default function (component) {
   }
   function update(next, first) {
     current = next;
+    root.classList.toggle("dark", isDark(probe));   // Streamlit re-invokes the component when the theme changes
     for (const n of next.nodes) {
       if (!nodeEls[n.id]) continue;
       nodeEls[n.id].setAttribute("class", nodeClass(n));
@@ -522,7 +587,7 @@ export default function (component) {
     else if (a === "fit") fit();   // everything, however small
     else if (a === "follow") { view.follow = !view.follow; if (view.follow && current.active) reveal(current.active); apply(); }
     else if (a === "grid" || a === "dots") {
-      view.bg = a; root.className = "ato-flow " + a;
+      view.bg = a; root.classList.remove("grid", "dots"); root.classList.add(a);   // keeps .dark
       bar.querySelector('[data-a="grid"]').classList.toggle("on", a === "grid");
       bar.querySelector('[data-a="dots"]').classList.toggle("on", a === "dots");
       apply();

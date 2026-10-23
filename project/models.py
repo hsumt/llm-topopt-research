@@ -136,7 +136,7 @@ class Resolution(Model):
 
 
 class Usage(Model): # one model call: step, model, token counts, and whether the reply came from the cache
-    step: Literal["parse", "review", "resolve"]
+    step: Literal["parse", "review", "resolve", "clarify"]
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -150,12 +150,28 @@ class Revision(Model): # what was asked -> what the human said -> how the AI int
 
 
 class ModelFailure(Model):
-    stage: Literal["parse", "review", "resolve"]
+    stage: Literal["parse", "review", "resolve", "clarify"]
     code: str
     message: str
     next_step: str
     request_state: RequestState
     retryable: bool
+
+
+class Clarification(Model): # the model's reply when the engineer asks about a question: explanation only, never an answer
+    explanation: str
+    rewording: str | None = None
+
+
+class ClarificationRecord(Model): # one request about a shown question, with the model's reply or why it failed
+    round: int
+    question_key: str
+    mode: Literal["explain", "reword", "ask"]
+    query: str = ""                    # the engineer's own question about it ("ask")
+    explanation: str | None = None
+    rewording: str | None = None
+    failure: str | None = None         # the safe failure message when the model call failed
+    at: str
 
 
 class Session(Model): # original request + context + specification + review + revisions + AI usage + parse/failure state + answers kept for retry
@@ -168,3 +184,4 @@ class Session(Model): # original request + context + specification + review + re
     parse_completed: bool = False
     failure: ModelFailure | None = None
     pending_answers: dict[str, str] = Field(default_factory=dict)
+    clarifications: list[ClarificationRecord] = Field(default_factory=list)   # requests about shown questions; never answers

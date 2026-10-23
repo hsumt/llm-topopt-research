@@ -1,0 +1,16 @@
+# Streamlit reads this file from the app script's folder (project/.streamlit).
+# Defining both a light and a dark theme keeps Streamlit's System / Light / Dark menu;
+# a first visit follows the operating system's setting. Components read these colours
+# as --st-* CSS variables (flow_canvas picks its own light or dark palette from them).
+
+[theme.light]
+primaryColor = "#1f4e8c"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f5f8"
+textColor = "#1f2328"
+
+[theme.dark]
+primaryColor = "#3b82f6"   # white button text 3.7:1, primary-coloured text 5.1:1 on the page
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1b1f27"
+textColor = "#e6e8eb"

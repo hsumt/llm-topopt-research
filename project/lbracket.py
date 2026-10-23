@@ -5,6 +5,7 @@ neither a quiet critic nor an inferred benchmark default grants solver readiness
 """
 
 from dataclasses import dataclass, field, fields
+import hashlib
 import math
 import sys
 
@@ -32,8 +33,56 @@ VOLUME_ONLY, PNORM_LIMIT = "volume_only", "pnorm_limit"   # optimization.stress_
 # Named regions and the role each must carry.
 REGIONS = {SUPPORT_REGION: "support", LOAD_REGION: "load", "initial_holes": "initial_void",
            "corner_cut": "passive_void", DOMAIN: "design"}
+# Spec paths assess_spec compares with the vocabulary above, and what this solver requires there.
+# The specification view shows them as checked choices; no number from them reaches the config.
+# "*" stands for every constraint.
+CHECKED = {
+    "problem_kind": "topology optimization",
+    "geometry.template": "five-hole L-bracket",
+    "geometry.physical_dimension": "2D plate",
+    "geometry.hole_role": "movable initial holes",
+    "physics.family": "solid mechanics",
+    "physics.regime": "linear static",
+    "physics.representation": "2D plane stress",
+    "materials.0.region": "whole design domain",
+    "boundary_conditions.0": "top edge clamped in x, y",
+    "loads.0.location": "horizontal-arm tip band",
+    "loads.0.kind": "total force, uniform",
+    "optimization.design_variable": "level-set material layout",
+    "optimization.objectives.0": "minimum compliance",
+    "optimization.stress_requirement": "volume only or p-norm limit",
+    "optimization.constraints.*.region": "the L domain (l_domain)",
+    "optimization.constraints.*.relation": "an upper bound (<=)",
+}
+# LBracket2DConfig fields no spec sets: the solver's own defaults, by label.
+SOLVER_DEFAULTS = {"nelx": "Mesh elements along x", "p_norm": "Stress p-norm exponent",
+                   "rho_min": "Minimum density", "move_limit": "Move limit (cells per iteration)",
+                   "perturbation": "Initial hole perturbation (cells)"}
+# The answers to an assumption question. The resolver removes the entry on the first; workflow.kept_assumptions
+# turns the second (or an own answer that leaves the entry) into an unsupported item instead of asking again.
+ASSUMPTION_OPTIONS = ("It only restates what the solver already models: remove it",
+                      "It adds a requirement the solver must meet: keep it",
+                      "Other (explain)")
+
+
+def assumption_key(text: str) -> str:
+    """The code key of the question about one assumption, stable across rounds (from its text)."""
+    return CODE_KEY_PREFIX + "assumption_" + hashlib.sha1(text.strip().encode()).hexdigest()[:8]
+
+
 # The stress norm's exponent. The spec carries no p, so the solver's default applies.
 P_NORM = next(f.default for f in fields(LBracket2DConfig) if f.name == "p_norm")
+# The stress the norm aggregates (solver/lbracket2d/main.py weights it by element density in the
+# p-norm). The spec carries no measure, so this is the only one the solver offers.
+STRESS_MEASURE = "plane-stress von Mises stress"
+# What this solver models, in words: the code check's questions about free-text assumptions quote it.
+SOLVER_MODEL = ("a 2D plane-stress plate of uniform thickness in static, small-strain linear elasticity, with one "
+                "homogeneous isotropic material (E and ν) over the whole L; the top edge of the vertical arm clamped in "
+                "x and y; one load case, a total force spread uniformly over a band at the tip of the horizontal arm, "
+                "with a solid pad under it; minimum compliance under a volume limit measured against the full L "
+                "(the outer square minus the corner cut, before the initial holes are subtracted) and an optional "
+                f"calibrated p = {P_NORM:g} norm limit on the {STRESS_MEASURE}; and a level-set design that starts "
+                "from five initial holes")
 # Factors to SI for the units the check accepts (keys lower-case); drawing.py converts with them too.
 LENGTH_TO_M = {"m": 1., "mm": .001, "cm": .01, "in": .0254, "inch": .0254, "inches": .0254}
 STRESS_TO_PA = {"pa": 1., "kpa": 1e3, "mpa": 1e6, "gpa": 1e9, "psi": 6894.757293168}
@@ -97,6 +146,9 @@ class SpecAssessment:
     config: LBracket2DConfig | None
     issues: list[Issue]
     questions: list[Question]
+    # Config field -> the dotted spec path its value was read from, for every value the check
+    # parsed (also when another issue stops the config being built).
+    sources: dict[str, str] = field(default_factory=dict)
     # For the trace only: what each rule created and what became of it. Never read by checks.
     trace_items: list[dict] = field(default_factory=list, compare=False, repr=False)
     trace_index: dict[int, int] = field(default_factory=dict, compare=False, repr=False)
@@ -134,23 +186,32 @@ def _fraction(value: Value) -> float:
     return _number(value.value) / (100 if unit in {"%", "percent"} else 1)
 
 
-def assess_spec(spec: ProblemSpec) -> SpecAssessment:
-    """Return a config only if every required decision is represented and valid."""
+def assess_spec(spec: ProblemSpec, kept: frozenset[str] = frozenset()) -> SpecAssessment:
+    """Return a config only if every required decision is represented and valid.
+
+    kept: assumption question keys the engineer answered with "keep" (workflow.kept_assumptions); those
+    assumptions are reported as unsupported instead of asked about again."""
     issues: list[Issue] = []
     questions: list[Question] = []
     config_values: dict = {}
+    sources: dict[str, str] = {}  # config field -> spec path, written only together with config_values by put()
     events: list[dict] = []      # trace record of each add(); see SpecAssessment.trace_items
     index: dict[int, int] = {}
 
-    def add(key, field, description, *, kind="decision", question=None, example=None):
-        rule = f"assess.{key}@lbracket.py:{sys._getframe(1).f_lineno}"
-        key = CODE_KEY_PREFIX + key
+    def put(target, value, path):
+        config_values[target], sources[target] = value, path
+
+    def add(name, field, description, *, key=None, kind="decision", question=None, example=None, why=None, options=None):
+        # name: the rule (citations find the add("<name>" call); key: the issue key when it is not the name
+        rule = f"assess.{name}@lbracket.py:{sys._getframe(1).f_lineno}"
+        key = CODE_KEY_PREFIX + (key or name)
         issues.append(Issue(key=key, field=field, description=description, kind=kind))
         index[id(issues[-1])] = len(events)
         events.append(trace.item("issue", issues[-1], origin="code", fate="created", rule=rule))
         if question:
-            questions.append(Question(key=key, issue_keys=[key], prompt=question,
-                                      why=description, example_answer=example))
+            questions.append(Question(key=key, issue_keys=[key], prompt=question, why=why or description,
+                                      example_answer=example, answer_type="single_choice" if options else "text",
+                                      options=list(options or ())))
             index[id(questions[-1])] = len(events)
             events.append(trace.item("question", questions[-1], origin="code", fate="created", rule=rule))
 
@@ -209,9 +270,9 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                         if not isinstance(center, (list, tuple)) or len(center) != 2:
                             raise ValueError("requires five x/y coordinate pairs")
                         centers.append(tuple(_number(v) * factor for v in center))
-                    config_values["hole_centers_m"] = tuple(centers)
+                    put("hole_centers_m", tuple(centers), "geometry.parameters.hole_centers")
                 else:
-                    config_values[name + "_m"] = _scalar(value, LENGTH_TO_M)
+                    put(name + "_m", _scalar(value, LENGTH_TO_M), "geometry.parameters." + name)
             except ValueError as error:
                 add("geometry_" + name, "geometry.parameters." + name, name + " " + str(error), kind="data")
 
@@ -244,20 +305,21 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         if material.region not in {None, DOMAIN, "entire_domain"}:
             add("material_region", "materials.0.region", "A material assigned to a subregion is not supported.", kind="unsupported")
         aliases = {"E": "E", "youngs_modulus": "E", "nu": "nu", "poisson_ratio": "nu"}
-        properties = {}
+        properties, keys = {}, {}   # canonical name -> value, and -> the key the spec used
         for key, val in material.properties.items():
             canonical = aliases.get(key)
             if canonical is None or canonical in properties:
                 add("material_properties", "materials.0.properties", "Unknown or duplicate material property: " + key, kind="unsupported")
             else:
-                properties[canonical] = val
+                properties[canonical], keys[canonical] = val, key
         for name, target in (("E", "youngs_modulus_pa"), ("nu", "poisson_ratio")):
             if name not in properties:
                 add("material_" + name, "materials.0.properties." + name,
                     "Authoritative material data required: " + ("Young's modulus with units." if name == "E" else "Poisson's ratio."), kind="data")
             else:
                 try:
-                    config_values[target] = _scalar(properties[name], STRESS_TO_PA) if name == "E" else _fraction(properties[name])
+                    put(target, _scalar(properties[name], STRESS_TO_PA) if name == "E" else _fraction(properties[name]),
+                        "materials.0.properties." + keys[name])
                 except ValueError as error:
                     add("material_" + name, "materials.0.properties." + name, name + " " + str(error), kind="data")
 
@@ -316,7 +378,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                     if magnitude <= 0:
                         raise ValueError("scalar force magnitude must be positive; use direction for sign")
                     force = tuple(magnitude * v for v in direction)
-                config_values["force_n"] = force
+                put("force_n", force, "loads.0.magnitude")
             except ValueError as error:
                 add("force", "loads.0", "Force " + str(error),
                     question="Provide the applied force as [Fx, Fy] and its force units.",
@@ -352,7 +414,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
         elif len(objectives) != 1 or objectives[0].sense != "minimize" or _token(objectives[0].quantity) != OBJECTIVE or objectives[0].aggregation not in {None, "single_load_case"}:
             add("objective", "optimization.objectives", "Only minimum compliance for one load case is supported.", kind="unsupported")
         volume_seen = stress_seen = False
-        for constraint in optimization.constraints:
+        for n, constraint in enumerate(optimization.constraints):
             quantity = _token(constraint.quantity)
             if quantity == VOLUME_QUANTITY and not volume_seen:
                 volume_seen = True
@@ -368,7 +430,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                         example="At most <fraction>% of the full L-shaped domain may contain material.")
                 else:
                     try:
-                        config_values["volume_fraction"] = _fraction(constraint.limit)
+                        put("volume_fraction", _fraction(constraint.limit), f"optimization.constraints.{n}.limit")
                     except ValueError as error:
                         add("volume_limit", "optimization.constraints", "Volume fraction " + str(error), kind="data")
             elif quantity == STRESS_QUANTITY and not stress_seen:
@@ -379,7 +441,7 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
                     add("stress_data", "optimization.constraints", "A calibrated stress p-norm limit with units is required; a material yield value is not interchangeable.", kind="data")
                 else:
                     try:
-                        config_values["stress_limit_pa"] = _scalar(constraint.limit, STRESS_TO_PA)
+                        put("stress_limit_pa", _scalar(constraint.limit, STRESS_TO_PA), f"optimization.constraints.{n}.limit")
                     except ValueError as error:
                         add("stress_data", "optimization.constraints", "Stress p-norm limit " + str(error), kind="data")
             else:
@@ -395,14 +457,37 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
             if stress_seen:
                 add("stress_conflict", "optimization", f"The {VOLUME_ONLY} choice conflicts with an explicit stress constraint.", kind="unsupported")
             else:
-                config_values["stress_limit_pa"] = None
+                put("stress_limit_pa", None, "optimization.stress_requirement")
         elif not stress_seen:
             add("stress_missing", "optimization.constraints", f"The selected p-norm constraint needs a calibrated {STRESS_QUANTITY} upper bound with units.", kind="data")
 
     if spec.manufacturing is not None and (spec.manufacturing.process or spec.manufacturing.requirements):
         add("manufacturing", "manufacturing", "Manufacturing requirements are not enforced by this backend; they cannot be dropped from a requested solve.", kind="unsupported")
-    if spec.assumptions:
-        add("assumptions", "assumptions", "Additional assumptions must be expressed in the supported physics, geometry, material, load or constraint fields before this backend can enforce them.", kind="unsupported")
+    # Free text cannot be enforced. Ask about each assumption, quoting it: one that only restates what the solver
+    # models can go; one the engineer keeps is a requirement this solver cannot run.
+    asked = set()
+    for n, text in enumerate(spec.assumptions):
+        key = assumption_key(text)
+        if key in asked:
+            continue
+        asked.add(key)
+        quoted = " ".join(text.split())
+        if key in kept:
+            add("assumption_kept", f"assumptions.{n}", key=key.removeprefix(CODE_KEY_PREFIX), description=
+                f'You kept the assumption "{quoted}" as a requirement. The solver cannot enforce free text: it runs '
+                f"{SOLVER_MODEL}, so it cannot run this specification as stated. Express the requirement through a "
+                "supported field, or remove the assumption.", kind="unsupported")
+        else:
+            add("assumption", f"assumptions.{n}", key=key.removeprefix(CODE_KEY_PREFIX), description=
+                f'The specification lists the free-text assumption "{quoted}", which the solver cannot enforce.',
+                question=f'Does the assumption "{quoted}" only restate what the solver already models, or does it add '
+                         "a requirement?",
+                why=f"The solver runs this model: {SOLVER_MODEL}. Values the specification's own fields state "
+                    "(dimensions, material, support, load, limits) are enforced through those fields, so an assumption "
+                    "that repeats one of them is a restatement. If the assumption only restates part of this, removing "
+                    "it changes nothing in the run; if it adds a requirement, this solver cannot run the specification "
+                    "as stated.",
+                options=ASSUMPTION_OPTIONS)
     config = None
     if not issues:
         try:
@@ -411,15 +496,81 @@ def assess_spec(spec: ProblemSpec) -> SpecAssessment:
             add("config", "geometry", "Solver configuration is invalid: " + str(error), kind="data")
     for question in questions[MAX_QUESTIONS:]:
         events[index[id(question)]].update(fate="capped", fate_rule="assess.cap_questions_4")
-    return SpecAssessment(config=config, issues=issues, questions=questions[:MAX_QUESTIONS], trace_items=events, trace_index=index)
+    return SpecAssessment(config=config, issues=issues, questions=questions[:MAX_QUESTIONS], sources=sources,
+                          trace_items=events, trace_index=index)
 
 
-def combine_review(spec: ProblemSpec, review: Review, *, interim: bool = False) -> Review:
+# Code-check issue (name) -> the config fields an answer to it feeds; names not listed feed none (checked choices).
+_CODE_INPUTS = {"material": ["youngs_modulus_pa", "poisson_ratio"], "load": ["force_n"], "force": ["force_n"],
+                "optimization": ["volume_fraction", "stress_limit_pa"], "volume": ["volume_fraction"],
+                "volume_limit": ["volume_fraction"], "stress_choice": ["stress_limit_pa"],
+                "stress_data": ["stress_limit_pa"], "stress_missing": ["stress_limit_pa"]}
+
+
+def solver_inputs(field: str | None, key: str, spec: ProblemSpec) -> list[str]:
+    """The LBracket2DConfig fields a value at this spec field would feed: what an answer reaches in the solver
+    (shown with each question). Code-check issues are looked up by name; the paths follow assess_spec's put()."""
+    field = (field or "").replace("[", ".").replace("]", "")
+    if field == "geometry.parameters":   # the dimensions issue: the template's absent dimensions
+        stated = spec.geometry.parameters if spec.geometry else {}
+        return [f"{name}_m" for name in GEOMETRY_ORDER if name not in stated]
+    if field.startswith("geometry.parameters."):
+        name = field.split(".")[2]
+        return [f"{name}_m"] if name in GEOMETRY_FIELDS else []
+    if field.startswith("materials.0.properties."):
+        last = field.rsplit(".", 1)[-1]
+        return {"E": ["youngs_modulus_pa"], "youngs_modulus": ["youngs_modulus_pa"], "nu": ["poisson_ratio"],
+                "poisson_ratio": ["poisson_ratio"]}.get(last, [])
+    if key.startswith(CODE_KEY_PREFIX):
+        return list(_CODE_INPUTS.get(key.removeprefix(CODE_KEY_PREFIX), []))
+    if field in ("loads", "loads.0", "loads.0.magnitude", "loads.0.direction"):
+        return ["force_n"]
+    parts = field.split(".")
+    if field.startswith("optimization.constraints.") and len(parts) >= 3 and parts[2].isdigit():
+        if len(parts) > 3 and parts[3] != "limit":
+            return []   # region, relation, quantity: checked choices
+        constraints = spec.optimization.constraints if spec.optimization else []
+        index = int(parts[2])
+        quantity = (constraints[index].quantity or "") if index < len(constraints) else ""
+        return {"volume_fraction": ["volume_fraction"], "stress_p_norm": ["stress_limit_pa"]}.get(
+            quantity.strip().lower().replace(" ", "_").replace("-", "_"), [])
+    if field == "optimization.stress_requirement":
+        return ["stress_limit_pa"]
+    return []
+
+
+def start_issues(config: LBracket2DConfig | None) -> list[Issue]:
+    """The solver-side dry run's findings for a built config, as code-check issues: ParaLeSTO could not
+    build the starting design, or builds it with a different geometry than stated (solver/lbracket2d/dryrun.py).
+    Kept apart from assess_spec, which reads only the spec: this runs ParaLeSTO, in a child process."""
+    if config is None:
+        return []
+    from project.solver.lbracket2d.dryrun import dry_run
+
+    run = dry_run(config)
+    if run.transient:   # no verdict: the check itself could not run
+        return [Issue(key=CODE_KEY_PREFIX + "start_check", field="geometry", kind="data", description=(
+            f"The dry run of ParaLeSTO's starting design could not run ({run.failure}), so these solver inputs are "
+            "unchecked. Reload the page to retry."))]
+    issues = []
+    if run.failure:
+        issues.append(Issue(key=CODE_KEY_PREFIX + "start_design", field="geometry", kind="unsupported", description=(
+            f"ParaLeSTO could not build the starting design from these solver inputs ({run.failure}); the solver runs "
+            "the same step first, so a run would stop there. Initial holes that reach the loaded square at the tip, or "
+            "leave a gap of about one element to an edge, the cut or another hole, cause this.")))
+    issues += [Issue(key=CODE_KEY_PREFIX + "start_geometry", field=field, kind="unsupported", description=text)
+               for field, text in run.problems]
+    return issues
+
+
+def combine_review(spec: ProblemSpec, review: Review, *, interim: bool = False,
+                   kept: frozenset[str] = frozenset()) -> Review:
     """Deterministic issues survive any LLM verdict; questions remain bounded.
 
     interim marks the code-only merge made before the critic answers; it affects the trace only.
+    kept: assumption questions answered "keep" (see assess_spec).
     """
-    assessment = assess_spec(spec)
+    assessment = assess_spec(spec, kept)
     fates: dict[tuple[str, int], tuple[str, str | None]] = {}   # trace only
     model_issues = []
     known_material = len(spec.materials) == 1 and bool(spec.materials[0].name)
@@ -441,7 +592,9 @@ def combine_review(spec: ProblemSpec, review: Review, *, interim: bool = False) 
     decision_keys = {i.key for i in issues if i.blocking and i.kind == "decision"}
     seen = {q.key for q in questions}
     for n, question in enumerate(review.questions):
-        if len(questions) >= MAX_QUESTIONS:
+        if question.key.startswith(CODE_KEY_PREFIX):
+            fates["question", n] = ("dropped", "merge.drop_solver_prefix")
+        elif len(questions) >= MAX_QUESTIONS:
             fates["question", n] = ("capped", "merge.cap_4")
         elif question.key in seen:
             fates["question", n] = ("dropped", "merge.dedupe_question_key")
